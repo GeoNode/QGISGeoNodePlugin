@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/Qgis_GeoNode" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
