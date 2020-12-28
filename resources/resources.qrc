@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/qgis_geonode" >
+        <file>mIconGeonode.svg</file>
+    </qresource>
+</RCC>
