@@ -1,7 +1,7 @@
 # coding=utf-8
 """Implementation of GeoNode layer API endpoint.
 """
-from geonode_api.api_client import ApiClient
+from src.qgis_geonode.apiclient.api_client import ApiClient
 
 class LayerAPI(ApiClient):
     """
