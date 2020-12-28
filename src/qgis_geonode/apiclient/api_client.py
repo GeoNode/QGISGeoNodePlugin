@@ -23,7 +23,7 @@ from qgis.PyQt.QtNetwork import (
 
 
 class GeonodeApiEndpoint(enum.Enum):
-    LAYER_LIST = "/layers/"
+    LAYER_LIST = "/api/v2/layers/"
 
 
 class GeonodeClient(QObject):
@@ -34,9 +34,15 @@ class GeonodeClient(QObject):
     layer_list_received = pyqtSignal(dict)
     error_received = pyqtSignal(int)
 
-    def __init__(self, auth_config: str, base_url: str, *args, **kwargs):
+    def __init__(
+            self,
+            base_url: str,
+            *args,
+            auth_config: typing.Optional[str] = None,
+            **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self.auth_config = auth_config
+        self.auth_config = auth_config or ""
         self.base_url = base_url.rstrip("/")
 
     def get_layers(self, page: typing.Optional[int] = None):
@@ -53,13 +59,14 @@ class GeonodeClient(QObject):
         reply: QNetworkReply = task.reply()
         error = reply.error()
         if error == QNetworkReply.NoError:
+            QgsMessageLog.logMessage("no error received", "qgis_geonode")
             contents: QByteArray = reply.readAll()
             QgsMessageLog.logMessage(f"contents: {contents}", "qgis_geonode")
             decoded_contents: str = contents.data().decode()
             QgsMessageLog.logMessage(f"decoded_contents: {decoded_contents}", "qgis_geonode")
             payload: typing.Dict = json.loads(decoded_contents)
             QgsMessageLog.logMessage(f"payload: {payload}", "qgis_geonode")
-            original_url: str = reply.request().url().toString()
+            original_url: str = reply.request().url()
             requested_endpoint = original_url.path()
             endpoint = GeonodeApiEndpoint(requested_endpoint)
             signal_handler = {
