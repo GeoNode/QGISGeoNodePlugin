@@ -1,13 +1,75 @@
-# coding=utf-8
-"""Abstract class for Geonode API .
-"""
+import enum
+import json
+import typing
 import os
+from functools import partial
 
-from qgis.core import QgsApplication, QgsNetworkAccessManager
-# noinspection PyPackageRequirements
-from qgis.PyQt.QtCore import QUrl, QObject
-# noinspection PyPackageRequirements
-from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
+from qgis.core import (
+    QgsApplication,
+    QgsMessageLog,
+    QgsNetworkAccessManager,
+    QgsNetworkContentFetcherTask,
+)
+from qgis.PyQt.QtCore import (
+    QByteArray,
+    QObject,
+    QUrl,
+    pyqtSignal,
+)
+from qgis.PyQt.QtNetwork import (
+    QNetworkReply,
+    QNetworkRequest
+)
+
+
+class GeonodeApiEndpoint(enum.Enum):
+    LAYER_LIST = "/layers/"
+
+
+class GeonodeClient(QObject):
+    """Asynchronous GeoNode API client"""
+    auth_config: str
+    base_url: str
+
+    layer_list_received = pyqtSignal(dict)
+    error_received = pyqtSignal(int)
+
+    def __init__(self, auth_config: str, base_url: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auth_config = auth_config
+        self.base_url = base_url.rstrip("/")
+
+    def get_layers(self, page: typing.Optional[int] = None):
+        """Slot to retrieve list of layers available in GeoNode"""
+        request = QNetworkRequest(
+            QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}"))
+        task = QgsNetworkContentFetcherTask(request, authcfg=self.auth_config)
+        response_handler = partial(self.response_fetched, task)
+        task.fetched.connect(response_handler)
+        task.run()
+
+    def response_fetched(self, task: QgsNetworkContentFetcherTask):
+        """Process GeoNode API response and emit the appropriate signal"""
+        reply: QNetworkReply = task.reply()
+        error = reply.error()
+        if error == QNetworkReply.NoError:
+            contents: QByteArray = reply.readAll()
+            QgsMessageLog.logMessage(f"contents: {contents}", "qgis_geonode")
+            decoded_contents: str = contents.data().decode()
+            QgsMessageLog.logMessage(f"decoded_contents: {decoded_contents}", "qgis_geonode")
+            payload: typing.Dict = json.loads(decoded_contents)
+            QgsMessageLog.logMessage(f"payload: {payload}", "qgis_geonode")
+            original_url: str = reply.request().url().toString()
+            requested_endpoint = original_url.path()
+            endpoint = GeonodeApiEndpoint(requested_endpoint)
+            signal_handler = {
+                GeonodeApiEndpoint.LAYER_LIST: self.layer_list_received
+            }.get(endpoint)
+            QgsMessageLog.logMessage(f"about to emit {signal_handler}...", "qgis_geonode")
+            signal_handler.emit(payload)
+        else:
+            QgsMessageLog.logMessage("received error", "qgis_geonode")
+            self.error_received.emit(error)
 
 
 class ApiClient(QObject):
