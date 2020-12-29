@@ -24,12 +24,15 @@
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+from qgis.gui import QgsGui
 # Initialize Qt resources from file resources.py
 from .resources import *
 
 # Import the code for the DockWidget
 from .Qgis_GeoNode_dockwidget import QgisGeoNodeDockWidget
 import os.path
+
+from qgis_geonode.gui.geonode_provider import GeonodeProvider
 
 
 class QgisGeoNode:
@@ -72,6 +75,11 @@ class QgisGeoNode:
 
         self.pluginIsActive = False
         self.dockwidget = None
+
+        self.geonodeProvider = GeonodeProvider('GeoNode Plugin Provider',
+                                             QIcon(os.path.join(
+                                                 os.path.dirname(os.path.dirname(__file__)),
+                                                                'mIconGeonode.svg')))
 
 
     # noinspection PyMethodMayBeStatic
@@ -173,6 +181,8 @@ class QgisGeoNode:
             text=self.tr(u''),
             callback=self.run,
             parent=self.iface.mainWindow())
+
+        QgsGui.sourceSelectProviderRegistry().addProvider(self.geonodeProvider)
 
     #--------------------------------------------------------------------------
 
