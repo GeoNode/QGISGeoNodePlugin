@@ -24,6 +24,7 @@ from qgis.PyQt.QtNetwork import (
 
 class GeonodeApiEndpoint(enum.Enum):
     LAYER_LIST = "/api/v2/layers/"
+    LAYER_DETAILS = "/api/v2/layers/"
     MAP_LIST = "/api/v2/maps/"
 
 
@@ -33,6 +34,7 @@ class GeonodeClient(QObject):
     base_url: str
 
     layer_list_received = pyqtSignal(dict)
+    layer_details_received = pyqtSignal(dict)
     map_list_received = pyqtSignal(dict)
     error_received = pyqtSignal(int)
 
@@ -52,20 +54,24 @@ class GeonodeClient(QObject):
         request = QNetworkRequest(
             QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}"))
 
-        handler = {
-            GeonodeApiEndpoint.LAYER_LIST: self.layer_list_received
-        }
-        self.run_task(request, handler)
+        signal_handler = self.layer_list_received
+        self.run_task(request, signal_handler)
+
+    def get_layer_details(self, id: int):
+        """Slot to retrieve layer details available in GeoNode"""
+        request = QNetworkRequest(
+            QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_DETAILS.value}{id}/"))
+
+        signal_handler = self.layer_details_received
+        self.run_task(request, signal_handler)
 
     def get_maps(self, page: typing.Optional[int] = None):
         """Slot to retrieve list of maps available in GeoNode"""
         request = QNetworkRequest(
             QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}"))
 
-        handler = {
-                GeonodeApiEndpoint.MAP_LIST: self.map_list_received
-            }
-        self.run_task(request, handler)
+        signal_handler = self.map_list_received
+        self.run_task(request, signal_handler)
 
     def run_task(self, request, handler):
         task = QgsNetworkContentFetcherTask(request, authcfg=self.auth_config)
@@ -73,7 +79,7 @@ class GeonodeClient(QObject):
         task.fetched.connect(response_handler)
         task.run()
 
-    def response_fetched(self, task: QgsNetworkContentFetcherTask, handler: dict):
+    def response_fetched(self, task: QgsNetworkContentFetcherTask, signal_handler: pyqtSignal):
         """Process GeoNode API response and emit the appropriate signal"""
         reply: QNetworkReply = task.reply()
         error = reply.error()
@@ -85,10 +91,6 @@ class GeonodeClient(QObject):
             QgsMessageLog.logMessage(f"decoded_contents: {decoded_contents}", "qgis_geonode")
             payload: typing.Dict = json.loads(decoded_contents)
             QgsMessageLog.logMessage(f"payload: {payload}", "qgis_geonode")
-            original_url: str = reply.request().url()
-            requested_endpoint = original_url.path()
-            endpoint = GeonodeApiEndpoint(requested_endpoint)
-            signal_handler = handler.get(endpoint)
             QgsMessageLog.logMessage(f"about to emit {signal_handler}...", "qgis_geonode")
             signal_handler.emit(payload)
         else:
