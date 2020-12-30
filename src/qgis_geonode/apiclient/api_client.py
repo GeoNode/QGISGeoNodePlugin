@@ -35,6 +35,7 @@ class GeonodeClient(QObject):
 
     layer_list_received = pyqtSignal(dict)
     layer_details_received = pyqtSignal(dict)
+    layer_styles_received = pyqtSignal(dict)
     map_list_received = pyqtSignal(dict)
     error_received = pyqtSignal(int)
 
@@ -63,6 +64,14 @@ class GeonodeClient(QObject):
             QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_DETAILS.value}{id}/"))
 
         signal_handler = self.layer_details_received
+        self.run_task(request, signal_handler)
+
+    def get_layer_styles(self, id: int):
+        """Slot to retrieve layer styles available in GeoNode"""
+        request = QNetworkRequest(
+            QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_DETAILS.value}{id}/styles/"))
+
+        signal_handler = self.layer_styles_received
         self.run_task(request, signal_handler)
 
     def get_maps(self, page: typing.Optional[int] = None):
