@@ -80,6 +80,7 @@ class GeonodeClient(QObject):
         self.run_task(request, self.map_list_received)
 
     def run_task(self, request, signal_to_emit):
+        """Fetches the response from the GeoNode API"""
         task = QgsNetworkContentFetcherTask(request, authcfg=self.auth_config)
         response_handler = partial(self.response_fetched, task, signal_to_emit)
         task.fetched.connect(response_handler)
