@@ -221,8 +221,8 @@ class QgisGeoNode:
         self.iface.unregisterMapLayerConfigWidgetFactory(
             self.layerPropertiesConfigWidgetFactory
         )
+        QgsGui.sourceSelectProviderRegistry().removeProvider(self.geonodeProvider)
 
-    # --------------------------------------------------------------------------
 
     def run(self):
         """Run method that loads and starts the plugin"""
