@@ -216,6 +216,8 @@ class QgisGeoNode:
         # remove the toolbar
         del self.toolbar
 
+        QgsGui.sourceSelectProviderRegistry().removeProvider(self.geonodeProvider)
+
     #--------------------------------------------------------------------------
 
     def run(self):
