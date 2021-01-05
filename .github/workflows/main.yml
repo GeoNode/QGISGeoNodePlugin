@@ -10,7 +10,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Install poetry
-        uses: snok/install-poetry@v1.1.1
+        uses: Gr1N/setup-poetry@v4
       - name: Install pluginadmin dependencies
         run: poetry install
       - name: Check formatting
