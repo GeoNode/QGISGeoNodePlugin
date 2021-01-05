@@ -1,0 +1,17 @@
+name: qgis_geonode CI
+
+on: push
+
+jobs:
+  ci:
+    runs-on: ubuntu-20.04
+    container: qgis/qgis:release-3_16
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2.0.0
+      - name: Install pluginadmin dependencies
+        run: poetry install
+      - name: Check formatting
+        run: poetry run black --check src/qgis_geonode
