@@ -5,10 +5,14 @@ on: push
 jobs:
   ci:
     runs-on: ubuntu-20.04
-    container: qgis/qgis:release-3_16
+    container:
+      image: qgis/qgis:release-3_16
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: check where we are
+        run: echo $(ls /)
+        shell: bash
       - name: Install poetry
         uses: Gr1N/setup-poetry@v4
       - name: Install pluginadmin dependencies
