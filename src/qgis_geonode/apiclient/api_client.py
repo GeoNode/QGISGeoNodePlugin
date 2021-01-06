@@ -56,7 +56,7 @@ class GeonodeClient(QObject):
         url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}")
         if page:
             query = QUrlQuery()
-            query.addQueryItem('page', page)
+            query.addQueryItem('page', str(page))
             url.setQuery(query.query())
 
         request = QNetworkRequest(url)
