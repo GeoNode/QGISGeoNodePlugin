@@ -14,6 +14,7 @@ from qgis.PyQt.QtCore import (
     QByteArray,
     QObject,
     QUrl,
+    QUrlQuery,
     pyqtSignal,
 )
 from qgis.PyQt.QtNetwork import (
@@ -52,8 +53,13 @@ class GeonodeClient(QObject):
 
     def get_layers(self, page: typing.Optional[int] = None):
         """Slot to retrieve list of layers available in GeoNode"""
-        request = QNetworkRequest(
-            QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}"))
+        url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}")
+        if page:
+            query = QUrlQuery()
+            query.addQueryItem('page', str(page))
+            url.setQuery(query.query())
+
+        request = QNetworkRequest(url)
 
         self.run_task(request, self.layer_list_received)
 
