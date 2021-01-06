@@ -10,9 +10,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: check where we are
-        run: echo $(ls /)
-        shell: bash
+      - name: fix Python command
+        run: apt-get instal python-is-python3
       - name: Install poetry
         uses: Gr1N/setup-poetry@v4
       - name: Install pluginadmin dependencies
