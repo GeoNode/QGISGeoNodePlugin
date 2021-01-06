@@ -21,7 +21,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
@@ -30,7 +30,6 @@ from qgis.gui import QgsGui
 from .resources import *
 
 # Import the code for the DockWidget
-from .Qgis_GeoNode_dockwidget import QgisGeoNodeDockWidget
 from qgis_geonode.gui.layer_properties_config_widget import (
     LayerPropertiesConfigWidgetFactory,
     LayerPropertiesConfigWidget,
@@ -80,7 +79,6 @@ class QgisGeoNode:
         # print "** INITIALIZING QgisGeoNode"
 
         self.pluginIsActive = False
-        self.dockwidget = None
 
         self.geonodeSourceSelectProvider = GeonodeSourceSelectProvider()
 
@@ -189,23 +187,10 @@ class QgisGeoNode:
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
 
-        # print "** CLOSING QgisGeoNode"
-
-        # disconnects
-        self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
-
-        # remove this statement if dockwidget is to remain
-        # for reuse if plugin is reopened
-        # Commented next statement since it causes QGIS crashe
-        # when closing the docked window:
-        # self.dockwidget = None
-
         self.pluginIsActive = False
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
-
-        # print "** UNLOAD QgisGeoNode"
 
         for action in self.actions:
             self.iface.removePluginMenu(self.tr(u"&QGIS GeoNode Plugin"), action)
@@ -223,20 +208,3 @@ class QgisGeoNode:
 
         if not self.pluginIsActive:
             self.pluginIsActive = True
-
-            # print "** STARTING QgisGeoNode"
-
-            # dockwidget may not exist if:
-            #    first run of plugin
-            #    removed on close (see self.onClosePlugin method)
-            if self.dockwidget == None:
-                # Create the dockwidget (after translation) and keep reference
-                self.dockwidget = QgisGeoNodeDockWidget()
-
-            # connect to provide cleanup on closing of dockwidget
-            self.dockwidget.closingPlugin.connect(self.onClosePlugin)
-
-            # show the dockwidget
-            # TODO: fix to allow choice of dock location
-            self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
-            self.dockwidget.show()
