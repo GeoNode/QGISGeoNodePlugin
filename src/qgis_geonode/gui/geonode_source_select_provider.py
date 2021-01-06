@@ -26,14 +26,15 @@ from qgis.gui import QgsSourceSelectProvider, QgsAbstractDataSourceWidget
 
 from qgis.PyQt.uic import loadUiType
 
+from qgis_geonode.qgisgeonode.resources import *
+from qgis.PyQt.QtGui import QIcon
+
+from qgis_geonode.qgisgeonode.utils import tr
+
 WidgetUi, _ = loadUiType(os.path.join(os.path.dirname(__file__), '../ui/qgis_geonode_main_ui.ui'))
 
 
-class GeonodeProvider(QgsSourceSelectProvider):
-    def __init__(self, title, icon):
-        super(GeonodeProvider, self).__init__()
-        self.title = title
-        self.icon = icon
+class GeonodeSourceSelectProvider(QgsSourceSelectProvider):
 
     def createDataSourceWidget(self, parent, fl, widgetMode):
         return CustomGeonodeWidget(parent, fl, widgetMode)
@@ -42,13 +43,13 @@ class GeonodeProvider(QgsSourceSelectProvider):
         return 'geonodeprovider'
 
     def icon(self):
-        return self.icon
+        return QIcon(':/plugins/qgis_geonode/mIconGeonode.svg')
 
     def text(self):
-        return self.title
+        return tr('GeoNode Plugin Provider')
 
     def toolTip(self):
-        return self.title
+        return tr('Add Geonode Layer')
 
     def ordering(self):
         return QgsSourceSelectProvider.OrderOtherProvider
