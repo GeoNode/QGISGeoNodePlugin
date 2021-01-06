@@ -70,8 +70,7 @@ class QgisGeoNode:
         self.toolbar = self.iface.addToolBar(u'QgisGeoNode')
         self.toolbar.setObjectName(u'QgisGeoNode')
 
-        self.layerPropertiesConfigWidgetFactory = LayerPropertiesConfigWidgetFactory('GeoNode', QIcon(
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'mIconGeonode.svg')))
+        self.layerPropertiesConfigWidgetFactory = LayerPropertiesConfigWidgetFactory()
 
         #print "** INITIALIZING QgisGeoNode"
 
