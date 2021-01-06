@@ -37,7 +37,7 @@ from qgis_geonode.gui.layer_properties_config_widget import (
 )
 import os.path
 
-from qgis_geonode.gui.geonode_provider import GeonodeProvider
+from qgis_geonode.gui.geonode_source_select_provider import GeonodeSourceSelectProvider
 
 
 class QgisGeoNode:
@@ -81,11 +81,8 @@ class QgisGeoNode:
 
         self.pluginIsActive = False
         self.dockwidget = None
-        self.geonodeProvider = GeonodeProvider('GeoNode Plugin Provider',
-                                             QIcon(os.path.join(
-                                                 os.path.dirname(os.path.dirname(__file__)),
-                                                                'mIconGeonode.svg')))
 
+        self.geonodeSourceSelectProvider = GeonodeSourceSelectProvider()
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -100,20 +97,19 @@ class QgisGeoNode:
         :rtype: QString
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
-        return QCoreApplication.translate("QgisGeoNode", message)
+        return QCoreApplication.translate('QgisGeoNode', message)
 
     def add_action(
-        self,
-        icon_path,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=True,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None,
-    ):
+            self,
+            icon_path,
+            text,
+            callback,
+            enabled_flag=True,
+            add_to_menu=True,
+            add_to_toolbar=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -188,8 +184,7 @@ class QgisGeoNode:
         self.iface.registerMapLayerConfigWidgetFactory(
             self.layerPropertiesConfigWidgetFactory
         )
-
-        QgsGui.sourceSelectProviderRegistry().addProvider(self.geonodeProvider)
+        QgsGui.sourceSelectProviderRegistry().addProvider(self.geonodeSourceSelectProvider)
 
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
@@ -221,8 +216,7 @@ class QgisGeoNode:
         self.iface.unregisterMapLayerConfigWidgetFactory(
             self.layerPropertiesConfigWidgetFactory
         )
-        QgsGui.sourceSelectProviderRegistry().removeProvider(self.geonodeProvider)
-
+        QgsGui.sourceSelectProviderRegistry().removeProvider(self.geonodeSourceSelectProvider)
 
     def run(self):
         """Run method that loads and starts the plugin"""
