@@ -29,6 +29,8 @@ from .resources import *
 
 # Import the code for the DockWidget
 from .Qgis_GeoNode_dockwidget import QgisGeoNodeDockWidget
+from qgis_geonode.gui.layer_properties_config_widget import \
+    LayerPropertiesConfigWidgetFactory, LayerPropertiesConfigWidget
 import os.path
 
 
@@ -67,6 +69,8 @@ class QgisGeoNode:
         # TODO: We are going to let the user set this up in a future iteration
         self.toolbar = self.iface.addToolBar(u'QgisGeoNode')
         self.toolbar.setObjectName(u'QgisGeoNode')
+
+        self.layerPropertiesConfigWidgetFactory = LayerPropertiesConfigWidgetFactory()
 
         #print "** INITIALIZING QgisGeoNode"
 
@@ -174,6 +178,8 @@ class QgisGeoNode:
             callback=self.run,
             parent=self.iface.mainWindow())
 
+        self.iface.registerMapLayerConfigWidgetFactory(self.layerPropertiesConfigWidgetFactory)
+
     #--------------------------------------------------------------------------
 
     def onClosePlugin(self):
@@ -205,6 +211,8 @@ class QgisGeoNode:
             self.iface.removeToolBarIcon(action)
         # remove the toolbar
         del self.toolbar
+
+        self.iface.unregisterMapLayerConfigWidgetFactory(self.layerPropertiesConfigWidgetFactory)
 
     #--------------------------------------------------------------------------
 
