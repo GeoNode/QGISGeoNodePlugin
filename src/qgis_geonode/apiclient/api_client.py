@@ -80,8 +80,13 @@ class GeonodeClient(QObject):
 
     def get_maps(self, page: typing.Optional[int] = None):
         """Slot to retrieve list of maps available in GeoNode"""
-        request = QNetworkRequest(
-            QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}"))
+        url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}")
+        if page:
+            query = QUrlQuery()
+            query.addQueryItem('page', str(page))
+            url.setQuery(query.query())
+
+        request = QNetworkRequest(url)
 
         self.run_task(request, self.map_list_received)
 
