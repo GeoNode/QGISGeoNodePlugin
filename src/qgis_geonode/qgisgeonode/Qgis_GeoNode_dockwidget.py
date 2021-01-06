@@ -28,7 +28,7 @@ from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import pyqtSignal
 
 UI_DIR = Path(__file__).parents[1] / "ui"
-FORM_CLASS, _ = uic.loadUiType(str(UI_DIR / 'Qgis_GeoNode_dockwidget_base.ui'))
+FORM_CLASS, _ = uic.loadUiType(str(UI_DIR / "Qgis_GeoNode_dockwidget_base.ui"))
 
 
 class QgisGeoNodeDockWidget(QtWidgets.QDockWidget, FORM_CLASS):

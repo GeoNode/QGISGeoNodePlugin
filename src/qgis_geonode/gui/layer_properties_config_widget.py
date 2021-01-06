@@ -1,4 +1,3 @@
-
 import os
 
 from qgis.core import QgsProject
@@ -11,11 +10,12 @@ from PyQt5.QtGui import QIcon
 from qgis_geonode.qgisgeonode.resources import *
 from qgis_geonode.qgisgeonode.utils import tr
 
-WidgetUi, _ = loadUiType(os.path.join(os.path.dirname(__file__), '../ui/qgis_geonode_layer_dialog.ui'))
+WidgetUi, _ = loadUiType(
+    os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_layer_dialog.ui")
+)
 
 
 class LayerPropertiesConfigWidgetFactory(QgsMapLayerConfigWidgetFactory):
-
     def createWidget(self, layer, canvas, dock_widget, parent):
         return LayerPropertiesConfigWidget(layer, canvas, parent)
 
@@ -26,10 +26,10 @@ class LayerPropertiesConfigWidgetFactory(QgsMapLayerConfigWidgetFactory):
         return True
 
     def icon(self):
-        return QIcon(':/plugins/qgis_geonode/mIconGeonode.svg')
+        return QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
 
     def title(self):
-        return tr('GeoNode')
+        return tr("GeoNode")
 
 
 class LayerPropertiesConfigWidget(QgsMapLayerConfigWidget, WidgetUi):

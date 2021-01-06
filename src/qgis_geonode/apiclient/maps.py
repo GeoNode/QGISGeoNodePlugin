@@ -3,19 +3,20 @@
 """
 from src.qgis_geonode.apiclient.api_client import ApiClient
 
+
 class MapAPI(ApiClient):
     """
-     Managing GeoNode Maps API endpoints
+    Managing GeoNode Maps API endpoints
 
     """
 
-    def __init__(self, endpoint_url ):
+    def __init__(self, endpoint_url):
         """Implementation of GeoNode maps API client.
 
         API base url.
         :type endpoint_url: str
         """
-        super(MapAPI, self).__init__( endpoint_url)
+        super(MapAPI, self).__init__(endpoint_url)
 
     @property
     def base_url(self):
@@ -24,12 +25,10 @@ class MapAPI(ApiClient):
         :return: API url.
         :rtype: str
         """
-        return '%s/maps/v2' % (self.endpoint_url)
+        return "%s/maps/v2" % (self.endpoint_url)
 
     def get_maps(self, endpoint):
-        """Abstract.
-        """
+        """Abstract."""
 
         response = self.get(endpoint)
         return response.json()
-
