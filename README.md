@@ -4,7 +4,7 @@ A QGIS plugin that provides integration with GeoNode
 
 ## Development
 
-This plugin uses [poetry] and [typer].
+This plugin uses [poetry], [typer] and [black].
 
 - Fork the code repository
 - Clone your fork locally
@@ -31,6 +31,9 @@ This plugin uses [poetry] and [typer].
   so you may install plugin reloader directly from the github fork mentioned in the 
   above pull request
   
+- Remember to run `poetry run black src/qgis_geonode` before submitting PRs. Otherwise 
+  the CI pipeline may fail.
+  
 
 ## Running tests
 
@@ -48,6 +51,7 @@ which tries to run all files starting with `test_` by default
 
 [poetry]: https://python-poetry.org/
 [typer]: https://typer.tiangolo.com/
+[black]: https://github.com/psf/black
 [plugin reloader]: https://github.com/borysiasty/plugin_reloader
 [proposed]: https://github.com/borysiasty/plugin_reloader/pull/22
 [pytest]: https://docs.pytest.org/en/latest/
