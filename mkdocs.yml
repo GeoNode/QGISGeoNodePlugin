@@ -1,0 +1,9 @@
+site_name: QGIS GeoNode QGIS Plugin
+
+nav:
+  - Home: 'index.md'
+  - About: 'about.md'
+  - User guide: 'user-guide.md'
+
+theme:
+  name: material
