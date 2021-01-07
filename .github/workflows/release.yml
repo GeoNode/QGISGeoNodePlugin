@@ -1,0 +1,22 @@
+name: Update plugin repo
+on:
+  release
+
+jobs:
+  update-plugin-repo:
+    runs-on: ubuntu-20.04
+    container:
+      image: qgis/qgis:release-3_16
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: fix Python command
+        run: apt-get install python-is-python3
+      - name: Install poetry
+        uses: Gr1N/setup-poetry@v4
+      - name: Install pluginadmin dependencies
+        run: poetry install
+      - name: generate plugin repo XML
+        run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
+      - name: update docs
+        run: mkdocs gh-deploy --force
