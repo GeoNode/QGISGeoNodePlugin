@@ -1,25 +1,19 @@
 import multiprocessing
 import os
-import sys
 from pathlib import Path
 from wsgiref.simple_server import make_server
 
 import pytest
 from flask import Flask
 import flask.logging
-
-
-COMPILED_QGIS_PATH = Path(os.getenv("COMPILED_QGIS_PATH", '')).expanduser()
-QGIS_PYTHON_LIBS = COMPILED_QGIS_PATH / "python"
-
-sys.path.append(str(QGIS_PYTHON_LIBS))
-
 import qgis.core
+
+QGIS_PREFIX_PATH = Path(os.getenv("QGIS_PREFIX_PATH", "/usr"))
 
 
 @pytest.fixture(scope='session')
 def qgis_application():
-    qgis.core.QgsApplication.setPrefixPath(str(COMPILED_QGIS_PATH), True)
+    qgis.core.QgsApplication.setPrefixPath(str(QGIS_PREFIX_PATH), True)
     profile_directory = Path('~').expanduser() / '.local/share/QGIS/QGIS3/profiles/default'
     app = qgis.core.QgsApplication([], True, str(profile_directory))
     app.initQgis()

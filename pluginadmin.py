@@ -1,8 +1,10 @@
 import configparser
+import os
 import re
 import shlex
 import shutil
 import subprocess
+import sys
 import typing
 import zipfile
 from functools import lru_cache
@@ -135,6 +137,85 @@ def generate_metadata(
     config['general'] = metadata
     with target_path.open(mode='w') as fh:
         config.write(fh)
+
+
+@app.command()
+def install_qgis_into_venv(
+        context: typer.Context,
+        pyqt5_dir: Path = os.getenv(
+            "PYQT5_DIR_PATH", "/usr/lib/python3/dist-packages/PyQt5"),
+        sip_dir: Path = os.getenv("SIP_DIR_PATH", "/usr/lib/python3/dist-packages"),
+        qgis_dir: Path = os.getenv(
+            "QGIS_PYTHON_DIR_PATH", "/usr/lib/python3/dist-packages/qgis")
+):
+    venv_dir = _get_virtualenv_site_packages_dir()
+    _log(f"venv_dir: {venv_dir}")
+    _log(f"pyqt5_dir: {pyqt5_dir}")
+    _log(f"sip_dir: {sip_dir}")
+    _log(f"qgis_dir: {qgis_dir}")
+    suitable, relevant_paths = _check_suitable_system(pyqt5_dir, sip_dir, qgis_dir)
+    if suitable:
+        target_pyqt5_dir_path = venv_dir / "PyQt5"
+        print(f"Symlinking {relevant_paths['pyqt5']} to {target_pyqt5_dir_path}...")
+        target_pyqt5_dir_path.symlink_to(
+            relevant_paths["pyqt5"], target_is_directory=True)
+        for sip_file in relevant_paths["sip"]:
+            target = venv_dir / sip_file.name
+            print(f"Symlinking {sip_file} to {target}...")
+            target.symlink_to(sip_file)
+        target_qgis_dir_path = venv_dir / "qgis"
+        print(f"Symlinking {relevant_paths['qgis']} to {target_qgis_dir_path}...")
+        target_qgis_dir_path.symlink_to(
+            relevant_paths["qgis"], target_is_directory=True)
+        final_message = "Done!"
+    else:
+        final_message = f"Could not find all relevant paths: {relevant_paths}"
+    return final_message
+
+
+def _check_suitable_system(
+        pyqt5_dir: Path,
+        sip_dir: Path,
+        qgis_dir: Path
+) -> typing.Tuple[bool, typing.Dict]:
+    pyqt5_found = pyqt5_dir.is_dir()
+    try:
+        sip_files = _find_sip_files(sip_dir)
+    except IndexError:
+        sip_files = []
+    sip_found = len(sip_files) > 0
+    qgis_found = qgis_dir.is_dir()
+    suitable = pyqt5_found and sip_found and qgis_found
+    return (
+        suitable,
+        {
+            "pyqt5": pyqt5_dir,
+            "sip": sip_files,
+            "qgis": qgis_dir,
+        }
+    )
+
+
+def _find_sip_files(sip_dir) -> typing.List[Path]:
+    sip_so_file = list(sip_dir.glob("sip.*.so"))[0]
+    sipconfig_files = list(sip_dir.glob("sipconfig*.py"))
+    return sipconfig_files + [sip_so_file]
+
+
+def _get_virtualenv_site_packages_dir() -> Path:
+    venv_lib_root = Path(sys.executable).parents[1] / "lib"
+    for item in [i for i in venv_lib_root.iterdir() if i.is_dir()]:
+        if item.name.startswith("python"):
+            python_lib_path = item
+            break
+    else:
+        raise RuntimeError("Could not find site_packages_dir")
+    site_packages_dir = python_lib_path / "site-packages"
+    if site_packages_dir.is_dir():
+        result = site_packages_dir
+    else:
+        raise RuntimeError(f"{site_packages_dir} does not exist")
+    return result
 
 
 @lru_cache()

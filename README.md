@@ -20,8 +20,9 @@ This plugin uses [poetry], [typer] and [black].
   with commands useful for development:
   
   ```
-  poetry run python pluginadmin --help
-  poetry run python pluginadmin install
+  poetry run python pluginadmin.py --help
+  poetry run python pluginadmin.py install
+  poetry run python pluginadmin.py install-qgis-into-venv
   ```
   
 - When testing out the plugin locally you just need to call 
@@ -40,7 +41,7 @@ This plugin uses [poetry], [typer] and [black].
 Tests are made with [pytest] and [pytest-qt]. They can be ran with:
 
 ```
-export COMPILED_QGIS_PATH=$HOME/dev/QGIS/build_master/build-QGIS-QGIS_Build-Debug/output
+# optionally create a QGIS_PREFIX_PATH env variable, if your QGIS is self-compiled
 poetry run pytest --verbose -k apiclient --ignore-glob="test/test_[iqQrt]*"
 ```
 
