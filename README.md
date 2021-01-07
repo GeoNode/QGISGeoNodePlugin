@@ -4,7 +4,7 @@ A QGIS plugin that provides integration with GeoNode
 
 ## Development
 
-This plugin uses [poetry] and [typer].
+This plugin uses [poetry], [typer] and [black].
 
 - Fork the code repository
 - Clone your fork locally
@@ -20,8 +20,9 @@ This plugin uses [poetry] and [typer].
   with commands useful for development:
   
   ```
-  poetry run python pluginadmin --help
-  poetry run python pluginadmin install
+  poetry run python pluginadmin.py --help
+  poetry run python pluginadmin.py install
+  poetry run python pluginadmin.py install-qgis-into-venv
   ```
   
 - When testing out the plugin locally you just need to call 
@@ -31,13 +32,16 @@ This plugin uses [poetry] and [typer].
   so you may install plugin reloader directly from the github fork mentioned in the 
   above pull request
   
+- Remember to run `poetry run black src/qgis_geonode` before submitting PRs. Otherwise 
+  the CI pipeline may fail.
+  
 
 ## Running tests
 
 Tests are made with [pytest] and [pytest-qt]. They can be ran with:
 
 ```
-export COMPILED_QGIS_PATH=$HOME/dev/QGIS/build_master/build-QGIS-QGIS_Build-Debug/output
+# optionally create a QGIS_PREFIX_PATH env variable, if your QGIS is self-compiled
 poetry run pytest --verbose -k apiclient --ignore-glob="test/test_[iqQrt]*"
 ```
 
@@ -48,6 +52,7 @@ which tries to run all files starting with `test_` by default
 
 [poetry]: https://python-poetry.org/
 [typer]: https://typer.tiangolo.com/
+[black]: https://github.com/psf/black
 [plugin reloader]: https://github.com/borysiasty/plugin_reloader
 [proposed]: https://github.com/borysiasty/plugin_reloader/pull/22
 [pytest]: https://docs.pytest.org/en/latest/

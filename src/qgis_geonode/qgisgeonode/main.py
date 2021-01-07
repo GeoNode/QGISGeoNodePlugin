@@ -21,15 +21,20 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+
 from qgis.gui import QgsGui
+
 # Initialize Qt resources from file resources.py
 from .resources import *
 
 # Import the code for the DockWidget
-from .Qgis_GeoNode_dockwidget import QgisGeoNodeDockWidget
+from qgis_geonode.gui.layer_properties_config_widget import (
+    LayerPropertiesConfigWidgetFactory,
+    LayerPropertiesConfigWidget,
+)
 import os.path
 
 from qgis_geonode.gui.geonode_source_select_provider import GeonodeSourceSelectProvider
@@ -53,11 +58,10 @@ class QgisGeoNode:
         self.plugin_dir = os.path.dirname(__file__)
 
         # initialize locale
-        locale = QSettings().value('locale/userLocale')[0:2]
+        locale = QSettings().value("locale/userLocale")[0:2]
         locale_path = os.path.join(
-            self.plugin_dir,
-            'i18n',
-            'QgisGeoNode_{}.qm'.format(locale))
+            self.plugin_dir, "i18n", "QgisGeoNode_{}.qm".format(locale)
+        )
 
         if os.path.exists(locale_path):
             self.translator = QTranslator()
@@ -66,15 +70,16 @@ class QgisGeoNode:
 
         # Declare instance attributes
         self.actions = []
-        self.menu = self.tr(u'&QGIS GeoNode Plugin')
+        self.menu = self.tr(u"&QGIS GeoNode Plugin")
         # TODO: We are going to let the user set this up in a future iteration
-        self.toolbar = self.iface.addToolBar(u'QgisGeoNode')
-        self.toolbar.setObjectName(u'QgisGeoNode')
+        self.toolbar = self.iface.addToolBar(u"QgisGeoNode")
+        self.toolbar.setObjectName(u"QgisGeoNode")
+
+        self.layerPropertiesConfigWidgetFactory = LayerPropertiesConfigWidgetFactory()
 
         # print "** INITIALIZING QgisGeoNode"
 
         self.pluginIsActive = False
-        self.dockwidget = None
 
         self.geonodeSourceSelectProvider = GeonodeSourceSelectProvider()
 
@@ -91,19 +96,20 @@ class QgisGeoNode:
         :rtype: QString
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
-        return QCoreApplication.translate('QgisGeoNode', message)
+        return QCoreApplication.translate("QgisGeoNode", message)
 
     def add_action(
-            self,
-            icon_path,
-            text,
-            callback,
-            enabled_flag=True,
-            add_to_menu=True,
-            add_to_toolbar=True,
-            status_tip=None,
-            whats_this=None,
-            parent=None):
+        self,
+        icon_path,
+        text,
+        callback,
+        enabled_flag=True,
+        add_to_menu=True,
+        add_to_toolbar=True,
+        status_tip=None,
+        whats_this=None,
+        parent=None,
+    ):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -158,9 +164,7 @@ class QgisGeoNode:
             self.toolbar.addAction(action)
 
         if add_to_menu:
-            self.iface.addPluginToMenu(
-                self.menu,
-                action)
+            self.iface.addPluginToMenu(self.menu, action)
 
         self.actions.append(action)
 
@@ -169,69 +173,44 @@ class QgisGeoNode:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/Qgis_GeoNode/icon.png'
+        icon_path = ":/plugins/Qgis_GeoNode/icon.png"
         self.add_action(
             icon_path,
-            text=self.tr(u''),
+            text=self.tr(u""),
             callback=self.run,
-            parent=self.iface.mainWindow())
+            parent=self.iface.mainWindow(),
+        )
 
-        QgsGui.sourceSelectProviderRegistry().addProvider(self.geonodeSourceSelectProvider)
-
-    # --------------------------------------------------------------------------
+        self.iface.registerMapLayerConfigWidgetFactory(
+            self.layerPropertiesConfigWidgetFactory
+        )
+        QgsGui.sourceSelectProviderRegistry().addProvider(
+            self.geonodeSourceSelectProvider
+        )
 
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
-
-        # print "** CLOSING QgisGeoNode"
-
-        # disconnects
-        self.dockwidget.closingPlugin.disconnect(self.onClosePlugin)
-
-        # remove this statement if dockwidget is to remain
-        # for reuse if plugin is reopened
-        # Commented next statement since it causes QGIS crashe
-        # when closing the docked window:
-        # self.dockwidget = None
 
         self.pluginIsActive = False
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
 
-        # print "** UNLOAD QgisGeoNode"
-
         for action in self.actions:
-            self.iface.removePluginMenu(
-                self.tr(u'&QGIS GeoNode Plugin'),
-                action)
+            self.iface.removePluginMenu(self.tr(u"&QGIS GeoNode Plugin"), action)
             self.iface.removeToolBarIcon(action)
         # remove the toolbar
         del self.toolbar
 
-        QgsGui.sourceSelectProviderRegistry().removeProvider(self.geonodeSourceSelectProvider)
-
-    # --------------------------------------------------------------------------
+        self.iface.unregisterMapLayerConfigWidgetFactory(
+            self.layerPropertiesConfigWidgetFactory
+        )
+        QgsGui.sourceSelectProviderRegistry().removeProvider(
+            self.geonodeSourceSelectProvider
+        )
 
     def run(self):
         """Run method that loads and starts the plugin"""
 
         if not self.pluginIsActive:
             self.pluginIsActive = True
-
-            # print "** STARTING QgisGeoNode"
-
-            # dockwidget may not exist if:
-            #    first run of plugin
-            #    removed on close (see self.onClosePlugin method)
-            if self.dockwidget == None:
-                # Create the dockwidget (after translation) and keep reference
-                self.dockwidget = QgisGeoNodeDockWidget()
-
-            # connect to provide cleanup on closing of dockwidget
-            self.dockwidget.closingPlugin.connect(self.onClosePlugin)
-
-            # show the dockwidget
-            # TODO: fix to allow choice of dock location
-            self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
-            self.dockwidget.show()

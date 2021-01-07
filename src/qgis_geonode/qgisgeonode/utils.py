@@ -2,10 +2,9 @@ from PyQt5.QtCore import QCoreApplication
 
 
 def tr(text):
-    """Get the translation for a string using Qt translation API.
-    """
+    """Get the translation for a string using Qt translation API."""
 
     # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
     if type(text) != str:
         text = str(text)
-    return QCoreApplication.translate('QgisGeoNode', text)
+    return QCoreApplication.translate("QgisGeoNode", text)
