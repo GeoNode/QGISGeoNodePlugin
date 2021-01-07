@@ -26,6 +26,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
 from qgis.gui import QgsGui
+
 # Initialize Qt resources from file resources.py
 from .resources import *
 
@@ -95,19 +96,20 @@ class QgisGeoNode:
         :rtype: QString
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
-        return QCoreApplication.translate('QgisGeoNode', message)
+        return QCoreApplication.translate("QgisGeoNode", message)
 
     def add_action(
-            self,
-            icon_path,
-            text,
-            callback,
-            enabled_flag=True,
-            add_to_menu=True,
-            add_to_toolbar=True,
-            status_tip=None,
-            whats_this=None,
-            parent=None):
+        self,
+        icon_path,
+        text,
+        callback,
+        enabled_flag=True,
+        add_to_menu=True,
+        add_to_toolbar=True,
+        status_tip=None,
+        whats_this=None,
+        parent=None,
+    ):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -182,7 +184,9 @@ class QgisGeoNode:
         self.iface.registerMapLayerConfigWidgetFactory(
             self.layerPropertiesConfigWidgetFactory
         )
-        QgsGui.sourceSelectProviderRegistry().addProvider(self.geonodeSourceSelectProvider)
+        QgsGui.sourceSelectProviderRegistry().addProvider(
+            self.geonodeSourceSelectProvider
+        )
 
     def onClosePlugin(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
@@ -201,7 +205,9 @@ class QgisGeoNode:
         self.iface.unregisterMapLayerConfigWidgetFactory(
             self.layerPropertiesConfigWidgetFactory
         )
-        QgsGui.sourceSelectProviderRegistry().removeProvider(self.geonodeSourceSelectProvider)
+        QgsGui.sourceSelectProviderRegistry().removeProvider(
+            self.geonodeSourceSelectProvider
+        )
 
     def run(self):
         """Run method that loads and starts the plugin"""

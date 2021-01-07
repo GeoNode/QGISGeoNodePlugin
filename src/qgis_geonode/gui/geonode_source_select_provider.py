@@ -31,25 +31,26 @@ from qgis.PyQt.QtGui import QIcon
 
 from qgis_geonode.qgisgeonode.utils import tr
 
-WidgetUi, _ = loadUiType(os.path.join(os.path.dirname(__file__), '../ui/qgis_geonode_main_ui.ui'))
+WidgetUi, _ = loadUiType(
+    os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_main_ui.ui")
+)
 
 
 class GeonodeSourceSelectProvider(QgsSourceSelectProvider):
-
     def createDataSourceWidget(self, parent, fl, widgetMode):
         return CustomGeonodeWidget(parent, fl, widgetMode)
 
     def providerKey(self):
-        return 'geonodeprovider'
+        return "geonodeprovider"
 
     def icon(self):
-        return QIcon(':/plugins/qgis_geonode/mIconGeonode.svg')
+        return QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
 
     def text(self):
-        return tr('GeoNode Plugin Provider')
+        return tr("GeoNode Plugin Provider")
 
     def toolTip(self):
-        return tr('Add Geonode Layer')
+        return tr("Add Geonode Layer")
 
     def ordering(self):
         return QgsSourceSelectProvider.OrderOtherProvider
