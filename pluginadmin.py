@@ -1,4 +1,5 @@
 import configparser
+import datetime as dt
 import os
 import re
 import shlex
@@ -10,6 +11,7 @@ import zipfile
 from functools import lru_cache
 from pathlib import Path
 
+import httpx
 import toml
 import typer
 
@@ -173,6 +175,62 @@ def install_qgis_into_venv(
     return final_message
 
 
+@app.command()
+def generate_plugin_repo_xml(
+        context: typer.Context,
+):
+    repo_base_dir = LOCAL_ROOT_DIR / 'docs' / 'repo'
+    repo_base_dir.mkdir(parents=True, exist_ok=True)
+    metadata = _get_metadata()
+    fragment_template = """
+            <pyqgis_plugin name="{name}" version="{version}">
+                <description><![CDATA[{description}]]></description>
+                <about><![CDATA[{about}]]></about>
+                <version>{version}</version>
+                <qgis_minimum_version>{qgis_minimum_version}</qgis_minimum_version>
+                <homepage><![CDATA[{homepage}]]></homepage>
+                <file_name>{filename}</file_name>
+                <icon>{icon}</icon>
+                <author_name><![CDATA[{author}]]></author_name>
+                <download_url>{download_url}</download_url>
+                <update_date>{update_date}</update_date>
+                <experimental>{experimental}</experimental>
+                <deprecated>{deprecated}</deprecated>
+                <tracker><![CDATA[{tracker}]]></tracker>
+                <repository><![CDATA[{repository}]]></repository>
+                <tags><![CDATA[{tags}]]></tags>
+                <server>False</server>
+            </pyqgis_plugin>
+    """.strip()
+    contents = "<?xml version = '1.0' encoding = 'UTF-8'?>\n<plugins>"
+    for release in _get_existing_releases():
+        tag_name = release.get("tag_name")
+        _log(f"Processing release {tag_name}...", context=context)
+        fragment = fragment_template.format(
+            name=metadata.get('name'),
+            version=tag_name.replace("v", ""),
+            description=metadata.get('description'),
+            about=metadata.get('about'),
+            qgis_minimum_version=metadata.get('qgisMinimumVersion'),
+            homepage=metadata.get('homepage'),
+            filename=release["url"].rpartition("/")[-1],
+            icon=metadata.get("icon", ""),
+            author=metadata.get('author'),
+            download_url=release["url"],
+            update_date=dt.datetime.now(tz=dt.timezone.utc),
+            experimental=metadata.get('experimental'),
+            deprecated=metadata.get('deprecated'),
+            tracker=metadata.get('tracker'),
+            repository=metadata.get('repository'),
+            tags=metadata.get('tags'),
+        )
+        contents = "\n".join((contents, fragment))
+    contents = "\n".join((contents, "</plugins>"))
+    repo_index = repo_base_dir / 'plugins.xml'
+    repo_index.write_text(contents, encoding='utf-8')
+    _log(f"Plugin repo XML file saved at {repo_index}", context=context)
+
+
 def _check_suitable_system(
         pyqt5_dir: Path,
         sip_dir: Path,
@@ -299,6 +357,32 @@ def _get_qgis_root_dir(context: typing.Optional[typer.Context] = None) -> Path:
     except KeyError:
         profile = 'default'
     return Path.home() / f'.local/share/QGIS/QGIS3/profiles/{profile}'
+
+
+def _get_existing_releases() -> typing.List[typing.Dict]:
+    """Query the github API and retrieve existing releases"""
+    # TODO: add support for pagination
+    base_url = "https://api.github.com/repos/kartoza/qgis_geonode/releases"
+    response = httpx.get(base_url)
+    result = []
+    if response.status_code == 200:
+        payload = response.json()
+        for release in payload:
+        # for release in [rel for rel in payload if not rel.get("prerelease", False)]:
+            for asset in release["assets"]:
+                if asset.get("content_type") == "application/zip":
+                    zip_download_url = asset.get("browser_download_url")
+                    break
+            else:
+                zip_download_url = None
+            _log(f"zip_download_url: {zip_download_url}")
+            if zip_download_url is not None:
+                release_info = {
+                    "tag_name": release.get("tag_name"),
+                    "url": zip_download_url
+                }
+                result.append(release_info)
+    return result
 
 
 if __name__ == "__main__":
