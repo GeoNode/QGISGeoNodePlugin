@@ -33,7 +33,7 @@ jobs:
         run: poetry run mkdocs build
 
       - name: Regenerate plugin repo XML
-        run: poetry run pluginadmin.py --verbose generate-plugin-repo-xml
+        run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
 
   publish-docs:
     needs: ci

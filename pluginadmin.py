@@ -66,7 +66,7 @@ def generate_zip(
     build_dir = build(context)
     metadata = _get_metadata()
     output_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = output_dir / f'{SRC_NAME}-v{metadata["version"]}.zip'
+    zip_path = output_dir / f'{SRC_NAME}-{metadata["version"]}.zip'
     with zipfile.ZipFile(zip_path, 'w') as fh:
         _add_to_zip(build_dir, fh, arc_path_base=build_dir.parent)
     typer.echo(f'zip generated at {str(zip_path)!r}')
