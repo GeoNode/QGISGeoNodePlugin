@@ -11,7 +11,7 @@ toml = "^0.10.2"
 typer = "^0.3.2"
 pytest = "^6.2.1"
 pytest-qt = "^3.3.0"
-black = {version = "^20.8b1", allow-prereleases = true}
+black = {version = "^20.8b1", allow-prereleases = true, python = "^3.8"}
 flask = "^1.1.2"
 importlib-metadata = "^3.3.0"
 mkdocs = "^1.1.2"
