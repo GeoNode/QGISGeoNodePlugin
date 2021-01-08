@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2021-01-18
+
+### Fixed
+-  Invalid CI settings
+
+
 ## [0.0.6] - 2021-01-18
 
 ### Fixed
@@ -21,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.6...main
+[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.7...main
+[0.0.7]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.7...main
 [0.0.6]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.6...main
 [0.0.5]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.5...main
