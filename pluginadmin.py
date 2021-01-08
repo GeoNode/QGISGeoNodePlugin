@@ -114,9 +114,10 @@ def copy_source_files(
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
     for child in (LOCAL_ROOT_DIR / 'src' / SRC_NAME).iterdir():
-        target_path = output_dir / child.name
-        handler = shutil.copytree if child.is_dir() else shutil.copy
-        handler(str(child.resolve()), str(target_path))
+        if child.name != "__pycache__":
+            target_path = output_dir / child.name
+            handler = shutil.copytree if child.is_dir() else shutil.copy
+            handler(str(child.resolve()), str(target_path))
 
 
 @app.command()
