@@ -37,7 +37,7 @@ def _mock_layer_list():
     }
 
 
-def _spawn_geonode_server(port=8000):
+def _spawn_geonode_server(port=9000):
     with make_server('', port, _geonode_flask_app) as http_server:
         http_server.serve_forever()
 

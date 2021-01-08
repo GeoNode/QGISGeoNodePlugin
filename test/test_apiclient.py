@@ -28,7 +28,7 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
     app = ResponseCollector()
     client = api_client.GeonodeClient(
         # base_url="https://master.demo.geonode.org",
-        base_url = "http://localhost:8000",
+        base_url = "http://localhost:9000",
     )
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=2*1000) as blocker:
