@@ -6,8 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.0.5] - 2021-01-18
+
+### Added
 -  Initial project structure
--  Add automated test infrastructure for being able to test Qt signals
+-  Add infrastructure for automated testing
+-  Add infrastructure for managing releases
+-  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.1.0...master
+[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.5...main
+[0.0.5]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.5...main

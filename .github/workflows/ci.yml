@@ -1,4 +1,4 @@
-name: qgis_geonode CI
+name: Continuous Integration
 
 on:
   push:
@@ -16,16 +16,26 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: fix Python command
         run: apt-get install python-is-python3
+
       - name: Install poetry
         uses: Gr1N/setup-poetry@v4
+
       - name: Install pluginadmin dependencies
         run: poetry install
+
       - name: Check formatting
         run: poetry run black --check src/qgis_geonode
 
-  rebuild-docs:
+      - name: Rebuild docs
+        run: poetry run mkdocs build
+
+      - name: Regenerate plugin repo XML
+        run: poetry run pluginadmin.py --verbose generate-plugin-repo-xml
+
+  publish-docs:
     needs: ci
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-20.04
