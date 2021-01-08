@@ -8,6 +8,7 @@ import subprocess
 import sys
 import typing
 import zipfile
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,6 +20,13 @@ LOCAL_ROOT_DIR = Path(__file__).parent.resolve()
 SRC_NAME = 'qgis_geonode'
 PACKAGE_NAME = SRC_NAME.replace('_', '')
 app = typer.Typer()
+
+
+@dataclass
+class GithubRelease:
+    pre_release: bool
+    tag_name: str
+    url: str
 
 
 @app.callback()
@@ -203,8 +211,8 @@ def generate_plugin_repo_xml(
             </pyqgis_plugin>
     """.strip()
     contents = "<?xml version = '1.0' encoding = 'UTF-8'?>\n<plugins>"
-    for release in _get_existing_releases():
-        tag_name = release.get("tag_name")
+    for release in _get_existing_releases(context=context):
+        tag_name = release.tag_name
         _log(f"Processing release {tag_name}...", context=context)
         fragment = fragment_template.format(
             name=metadata.get('name'),
@@ -213,12 +221,12 @@ def generate_plugin_repo_xml(
             about=metadata.get('about'),
             qgis_minimum_version=metadata.get('qgisMinimumVersion'),
             homepage=metadata.get('homepage'),
-            filename=release["url"].rpartition("/")[-1],
+            filename=release.url.rpartition("/")[-1],
             icon=metadata.get("icon", ""),
             author=metadata.get('author'),
-            download_url=release["url"],
+            download_url=release.url,
             update_date=dt.datetime.now(tz=dt.timezone.utc),
-            experimental=metadata.get('experimental'),
+            experimental=release.pre_release,
             deprecated=metadata.get('deprecated'),
             tracker=metadata.get('tracker'),
             repository=metadata.get('repository'),
@@ -359,7 +367,8 @@ def _get_qgis_root_dir(context: typing.Optional[typer.Context] = None) -> Path:
     return Path.home() / f'.local/share/QGIS/QGIS3/profiles/{profile}'
 
 
-def _get_existing_releases() -> typing.List[typing.Dict]:
+def _get_existing_releases(
+        context: typing.Optional = None) -> typing.List[GithubRelease]:
     """Query the github API and retrieve existing releases"""
     # TODO: add support for pagination
     base_url = "https://api.github.com/repos/kartoza/qgis_geonode/releases"
@@ -368,20 +377,21 @@ def _get_existing_releases() -> typing.List[typing.Dict]:
     if response.status_code == 200:
         payload = response.json()
         for release in payload:
-        # for release in [rel for rel in payload if not rel.get("prerelease", False)]:
             for asset in release["assets"]:
                 if asset.get("content_type") == "application/zip":
                     zip_download_url = asset.get("browser_download_url")
                     break
             else:
                 zip_download_url = None
-            _log(f"zip_download_url: {zip_download_url}")
+            _log(f"zip_download_url: {zip_download_url}", context=context)
             if zip_download_url is not None:
-                release_info = {
-                    "tag_name": release.get("tag_name"),
-                    "url": zip_download_url
-                }
-                result.append(release_info)
+                result.append(
+                    GithubRelease(
+                        pre_release=release.get("prerelease", True),
+                        tag_name=release.get("tag_name"),
+                        url=zip_download_url,
+                    )
+                )
     return result
 
 
