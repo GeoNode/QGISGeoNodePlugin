@@ -41,11 +41,12 @@ def _mock_layer_list():
         "sld_url": "http://testUrl"
     }
 
-    return {
+    layers = {
         "links": {
             "next": "",
             "previous": ""
         },
+        "page": 1,
         "page_size": 10,
         "layers": [
             {
@@ -60,6 +61,8 @@ def _mock_layer_list():
             }
         ]
     }
+
+    return layers
 
 
 @_geonode_flask_app.route("/api/v2/layers/<id>/")
@@ -140,15 +143,11 @@ def _spawn_geonode_server(port=9000):
 @pytest.fixture(scope="session")
 def mock_geonode_server():
     """Spawn a new GeoNode-like http server in a new process
-
     This fixture creates a mock GeoNode server to be used by tests. This mock server
     is a flask application that has fixed responses to the known-endpoints.
-
     The server is shutdown when a test run finishes
-
     Use this in tests that expect to communicate with a remote GeoNode server by adding
     `mock_geonode_server` as an extra test parameter
-
     """
 
     # TODO: allow configuring the port via an env variable

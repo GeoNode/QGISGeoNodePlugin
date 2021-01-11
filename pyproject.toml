@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qgis_geonode"
-version = "0.0.8"
+version = "0.0.9"
 description = "A QGIS plugin for integrating with GeoNode"
 authors = ["Kartoza <info@kartoza.com>"]
 license = "GPL-3.0-or-later"
@@ -26,7 +26,7 @@ qgisMinimumVersion = "3.10"
 icon = "mIconGeonode.svg"
 experimental = "True"
 deprecated = "False"
-homepage = "https://github.com/kartoza/qgis_geonode"
+homepage = "https://kartoza.github.io/qgis_geonode"
 tracker = "https://github.com/kartoza/qgis_geonode/issues"
 repository = "https://github.com/kartoza/qgis_geonode"
 tags = [
