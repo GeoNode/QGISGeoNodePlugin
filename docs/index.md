@@ -8,7 +8,9 @@
 
 ---
 
-{Relevant links}
+**Documentation:** https://kartoza.github.io/qgis_geonode
+
+**Source code:** https://github.com/kartoza/qgis_geonode
 
 ---
 
