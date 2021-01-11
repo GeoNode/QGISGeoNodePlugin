@@ -72,7 +72,7 @@ def test_layer_styles(qtbot, qgis_application, mock_geonode_server, id):
         base_url="http://localhost:9000",
     )
     client.layer_styles_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.layer_styles_received, WAIT_SIGNAL_TIMEOUT=2*1000):
+    with qtbot.waitSignal(client.layer_styles_received, timeout=SIGNAL_TIMEOUT*1000):
         client.get_layer_styles(id=id)
         styles_size = len(app.received_response["styles"])
     assert styles_size == 1
@@ -87,7 +87,7 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
         base_url="http://localhost:9000",
     )
     client.map_list_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.map_list_received, WAIT_SIGNAL_TIMEOUT=2*1000):
+    with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT*1000):
         client.get_maps(page=page)
     page_size = int(app.received_response["page_size"])
     print(f"maps ids: {[la['pk'] for la in app.received_response['maps']]}")
