@@ -31,9 +31,104 @@ _geonode_flask_app.logger.removeHandler(flask.logging.default_handler)
 
 @_geonode_flask_app.route("/api/v2/layers/")
 def _mock_layer_list():
+    style = {
+        "pk": 1,
+        "name": "test_style",
+        "workspace": "test",
+        "sld_title": "",
+        "sld_body": "",
+        "sld_version": "",
+        "sld_url": "http://testUrl"
+    }
+
     return {
+        "links": {
+            "next": "",
+            "previous": ""
+        },
         "page_size": 10,
-        "layers": []
+        "layers": [
+            {
+                "pk": 1,
+                "default_style": {},
+                "styles": [style]
+            },
+            {
+                "pk": 2,
+                "default_style": {},
+                "styles": [style]
+            }
+        ]
+    }
+
+
+@_geonode_flask_app.route("/api/v2/layers/<id>/")
+def _mock_layer_details(id):
+    id = int(id)
+    style = {
+                "pk": 1,
+                "name": "test_style",
+                "workspace": "test",
+                "sld_title": "",
+                "sld_body": "",
+                "sld_version": "",
+                "sld_url": "http://testUrl"
+    }
+    layers = [
+        {
+            "pk": 1,
+            "default_style": {},
+            "styles": [style]
+        },
+        {
+            "pk": 2,
+            "default_style": {},
+            "styles": [style]
+        }
+    ]
+
+    for layer in layers:
+        if id == layer["pk"]:
+            return {
+                "layer": layer
+            }
+
+    return {
+        "detail": "Not found."
+    }
+
+
+@_geonode_flask_app.route("/api/v2/layers/<id>/styles/")
+def _mock_layer_styles(id):
+    return {
+        "styles": [
+            {
+                "pk": 1,
+                "name": "test_style",
+                "workspace": "test",
+                "sld_title": "",
+                "sld_body": "",
+                "sld_version": "",
+                "sld_url": "http://testUrl"
+            }
+        ]
+    }
+
+
+@_geonode_flask_app.route("/api/v2/maps/")
+def _mock_map_list():
+    return {
+        "links": {
+            "next": "",
+            "previous": ""
+        },
+        "page": 1,
+        "page_size": 10,
+        "maps": [
+            {
+                "pk": "1"
+            }
+        ]
     }
 
 
