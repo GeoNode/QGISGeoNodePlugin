@@ -35,6 +35,12 @@ jobs:
       - name: Regenerate plugin repo XML
         run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
 
+      - name: Install QGIS Python bindings inside virtualenv
+        run: poetry run python pluginadmin.py --verbose install-qgis-into-venv
+
+      - name: Run tests
+        run: poetry run pytest
+
   publish-docs:
     needs: ci
     if: github.ref == 'refs/heads/main'

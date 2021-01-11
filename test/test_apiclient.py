@@ -4,6 +4,8 @@ import pytest
 
 from qgis_geonode.apiclient import api_client
 
+SIGNAL_TIMEOUT = 5  # seconds
+
 
 class ResponseCollector:
     """This class is used solely for capturing the contents of the
@@ -31,7 +33,7 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
         base_url = "http://localhost:9000",
     )
     client.layer_list_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.layer_list_received, timeout=2*1000) as blocker:
+    with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layers(page=page)
     page_size = int(app.received_response["page_size"])
     print(f"layer ids: {[la['pk'] for la in app.received_response['layers']]}")
@@ -54,7 +56,7 @@ def test_layer_details(qtbot, qgis_application, mock_geonode_server, id):
         base_url = "http://localhost:9000",
     )
     client.layer_details_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.layer_details_received, timeout=2*1000) as blocker:
+    with qtbot.waitSignal(client.layer_details_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layer_details(id=id)
 
     pk = app.received_response["layer"]["pk"]
@@ -70,7 +72,7 @@ def test_layer_styles(qtbot, qgis_application, mock_geonode_server, id):
         base_url="http://localhost:9000",
     )
     client.layer_styles_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.layer_styles_received, timeout=2*1000) as blocker:
+    with qtbot.waitSignal(client.layer_styles_received, timeout=SIGNAL_TIMEOUT*1000):
         client.get_layer_styles(id=id)
         styles_size = len(app.received_response["styles"])
     assert styles_size == 1
@@ -85,7 +87,7 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
         base_url="http://localhost:9000",
     )
     client.map_list_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.map_list_received, timeout=2*1000) as blocker:
+    with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT*1000):
         client.get_maps(page=page)
     page_size = int(app.received_response["page_size"])
     print(f"maps ids: {[la['pk'] for la in app.received_response['maps']]}")
