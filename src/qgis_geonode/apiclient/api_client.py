@@ -71,8 +71,7 @@ class GeonodeClient(QObject):
             QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_DETAILS.value}{id}/styles/")
         )
 
-        signal_handler = self.layer_styles_received
-        self.run_task(request, signal_handler)
+        self.run_task(request, self.layer_styles_received)
 
     def get_maps(self, page: typing.Optional[int] = None):
         """Slot to retrieve list of maps available in GeoNode"""
