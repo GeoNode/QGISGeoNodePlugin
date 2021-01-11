@@ -1,3 +1,6 @@
+# qgis plugin repo (which gets generated automatically)
+docs/repo/plugins.xml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
