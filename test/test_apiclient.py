@@ -35,6 +35,12 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
         client.get_layers(page=page)
     page_size = int(app.received_response["page_size"])
     print(f"layer ids: {[la['pk'] for la in app.received_response['layers']]}")
+
+    layers_size = len(app.received_response['layers'])
+    page_number = int(app.received_response['page'])
+
+    assert layers_size == 2
+    assert page_number == 1
     assert page_size == 10
 
 

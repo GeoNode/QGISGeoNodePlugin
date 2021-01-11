@@ -41,11 +41,12 @@ def _mock_layer_list():
         "sld_url": "http://testUrl"
     }
 
-    return {
+    layers = {
         "links": {
             "next": "",
             "previous": ""
         },
+        "page": 1,
         "page_size": 10,
         "layers": [
             {
