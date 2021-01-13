@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>585</width>
-    <height>327</height>
+    <width>596</width>
+    <height>275</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -43,33 +43,7 @@
     </layout>
    </item>
    <item>
-    <widget class="QGroupBox" name="authenticationGroupBox">
-     <property name="title">
-      <string>Authentication</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_2">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_4">
-        <property name="text">
-         <string>User name</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="leUsername"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>Password</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="lePassword"/>
-      </item>
-     </layout>
-    </widget>
+    <widget class="QgsAuthConfigSelect" name="mAuthConfigSelect"/>
    </item>
    <item>
     <widget class="QGroupBox" name="authenticationGroupBox_2">
@@ -118,6 +92,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsAuthConfigSelect</class>
+   <extends>QWidget</extends>
+   <header>qgsauthconfigselect.h</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>leName</tabstop>
   <tabstop>leURL</tabstop>
