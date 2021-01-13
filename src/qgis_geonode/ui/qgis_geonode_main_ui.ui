@@ -104,6 +104,9 @@
    </item>
    <item>
     <widget class="QGroupBox" name="GroupBox1_2">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>Search Items</string>
      </property>
@@ -120,7 +123,7 @@
         <item>
          <widget class="QLineEdit" name="lineFilter_2">
           <property name="enabled">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="toolTip">
            <string>Display WFS FeatureTypes containing this word in the title, name or abstract</string>
@@ -208,7 +211,7 @@
       <item>
        <widget class="QGroupBox" name="groupBox">
         <property name="enabled">
-         <bool>true</bool>
+         <bool>false</bool>
         </property>
         <property name="title">
          <string>Spatial Extent</string>
@@ -225,16 +228,26 @@
     <layout class="QHBoxLayout" name="horizontalLayout_11">
      <item>
       <widget class="QLabel" name="label_7">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Stored searches</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBox_6"/>
+      <widget class="QComboBox" name="comboBox_6">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnSave_3">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="toolTip">
         <string>Save connections to file</string>
        </property>
@@ -245,6 +258,9 @@
      </item>
      <item>
       <widget class="QPushButton" name="btnLoad_3">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="toolTip">
         <string>Load connections from file</string>
        </property>
