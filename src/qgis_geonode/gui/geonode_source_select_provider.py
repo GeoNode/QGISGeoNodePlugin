@@ -28,8 +28,12 @@ from qgis.PyQt.uic import loadUiType
 
 from qgis_geonode.qgisgeonode.resources import *
 from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtWidgets import QDialog
+from qgis.core import QgsSettings
 
 from qgis_geonode.qgisgeonode.utils import tr
+
+from qgis_geonode.gui.connection_dialog import ConnectionDialog
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_main_ui.ui")
@@ -61,3 +65,27 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
         super(CustomGeonodeWidget, self).__init__(parent, fl, widgetMode)
         self.setupUi(self)
         self.project = QgsProject.instance()
+        self.settings = QgsSettings()
+
+        self.btnNew.clicked.connect(self.add_connection)
+
+    def add_connection(self):
+        """Create a new connection"""
+
+        connection = ConnectionDialog()
+        if connection.exec_() == QDialog.Accepted:
+            self.create_connections_list()
+
+    def create_connections_list(self):
+        """ Save connection"""
+
+        self.settings.beginGroup("/Qgis_GeoNode/")
+        self.cmbConnections.clear()
+        self.cmbConnections.addItems(self.settings.childGroups())
+        self.settings.endGroup()
+
+        # Enable some buttons if there is any saved connection
+        state = self.cmbConnections.count() != 0
+
+        self.btnEdit.setEnabled(state)
+        self.btnDelete.setEnabled(state)
