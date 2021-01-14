@@ -15,11 +15,11 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QgsCollapsibleGroupBox" name="mGroupBox_3">
+    <widget class="QGroupBox" name="groupBox">
      <property name="title">
       <string>Connections</string>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
        <widget class="QComboBox" name="cmbConnections_2"/>
       </item>
