@@ -15,15 +15,15 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QGroupBox" name="GroupBox1">
+    <widget class="QGroupBox" name="groupBox">
      <property name="title">
       <string>Connections</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_3">
-      <item row="0" column="0">
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
        <widget class="QComboBox" name="cmbConnections_2"/>
       </item>
-      <item row="1" column="0">
+      <item>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
          <widget class="QPushButton" name="btnNew_2">
@@ -103,11 +103,14 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="GroupBox1_2">
+    <widget class="QgsCollapsibleGroupBox" name="mGroupBox">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>Search Items</string>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
@@ -120,7 +123,7 @@
         <item>
          <widget class="QLineEdit" name="lineFilter_2">
           <property name="enabled">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="toolTip">
            <string>Display WFS FeatureTypes containing this word in the title, name or abstract</string>
@@ -189,9 +192,6 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_10"/>
-      </item>
-      <item>
        <layout class="QHBoxLayout" name="horizontalLayout_9">
         <item>
          <widget class="QLabel" name="label_6">
@@ -206,15 +206,12 @@
        </layout>
       </item>
       <item>
-       <widget class="QGroupBox" name="groupBox">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_10"/>
+      </item>
+      <item>
+       <widget class="QgsCollapsibleGroupBox" name="mGroupBox_2">
         <property name="title">
          <string>Spatial Extent</string>
-        </property>
-        <property name="checkable">
-         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -225,16 +222,26 @@
     <layout class="QHBoxLayout" name="horizontalLayout_11">
      <item>
       <widget class="QLabel" name="label_7">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Stored searches</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBox_6"/>
+      <widget class="QComboBox" name="comboBox_6">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnSave_3">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="toolTip">
         <string>Save connections to file</string>
        </property>
@@ -245,6 +252,9 @@
      </item>
      <item>
       <widget class="QPushButton" name="btnLoad_3">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="toolTip">
         <string>Load connections from file</string>
        </property>
@@ -374,6 +384,14 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>qgscollapsiblegroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
