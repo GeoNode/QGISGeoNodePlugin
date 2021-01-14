@@ -2,30 +2,30 @@
 
 This plugin uses [poetry], [typer] and [black].
 
-1. Fork the code repository
-2. Clone your fork locally
-3. Install poetry
-4. Install the plugin dependencies into a new virtual env with
+-  Fork the code repository
+-  Clone your fork locally
+-  Install poetry
+-  Install the plugin dependencies into a new virtual env with
 
-  ```
-  cd qgis_geonode
-  poetry install
-  ```
+```
+cd qgis_geonode
+poetry install
+```
 
-5. The plugin comes with a `pluginadmin.py` python module which provides a nice CLI
+-  The plugin comes with a `pluginadmin.py` python module which provides a nice CLI
   with commands useful for development:
 
-  ```
-  poetry run python pluginadmin.py --help
-  
-  # install plugin into your local QGIS python plugins directory
-  poetry run python pluginadmin.py install
-  
-  
-  poetry run python pluginadmin.py install-qgis-into-venv
-  ```
+```
+poetry run python pluginadmin.py --help
 
-6. When manually trying out the plugin locally you just need to call
+# install plugin into your local QGIS python plugins directory
+poetry run python pluginadmin.py install
+
+
+poetry run python pluginadmin.py install-qgis-into-venv
+```
+
+-  When manually trying out the plugin locally you just need to call
   `poetry run python pluginadmin.py install`. This command will copy all files into 
    your local QGIS python plugins directory.
    
@@ -37,7 +37,7 @@ This plugin uses [poetry], [typer] and [black].
 
 ## Running tests
 
-Tests are made with [pytest] and [pytest-qt]. They can be ran with:
+Tests are made with [pytest] and [pytest-qt]. They can be run with:
 
 ```
 # optionally create a QGIS_PREFIX_PATH env variable, if your QGIS is self-compiled
@@ -69,19 +69,19 @@ contract.
 
 In order to have a new version of the plugin release:
 
-- [] Be sure to have updated the `CHANGELOG`
+- Be sure to have updated the `CHANGELOG`
   
-- [] Be sure to have updated the version on the `pyproject.toml` file. You can either 
+- Be sure to have updated the version on the `pyproject.toml` file. You can either 
   manually modify the `tool.poetry.version` key or you can run the 
   `poetry version {version specifier}` command
   
-- [ ] Create a new git annotated tag and push it to the repository. The tag name must 
+- Create a new git annotated tag and push it to the repository. The tag name must 
   follow the `v{major}.{minor}.{patch}` convention, for example:
 
-  ```
-  git tag -a -m 'version 0.3.2' v0.3.2
-  git push origin v0.3.2
-  ```
+```
+git tag -a -m 'version 0.3.2' v0.3.2
+git push origin v0.3.2
+```
   
 - Github actions will take it from there. The new release shall appear in the custom 
   QGIS plugin repo shortly

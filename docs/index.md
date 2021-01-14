@@ -2,21 +2,26 @@
 
 {some inspirational screenshot}
 
-{brief description}
+A [QGIS] plugin for working with [GeoNode] resources
 
-{badges}
+[QGIS]: https://qgis.org
+[GeoNode]: https://geonode.org
+
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/kartoza/qgis_geonode/Continuous%20Integration)
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/kartoza/qgis_geonode?include_prereleases)
+![GitHub milestone](https://img.shields.io/github/milestones/progress-percent/kartoza/qgis_geonode/1)
+![GitHub](https://img.shields.io/github/license/kartoza/qgis_geonode)
 
 ---
 
-**Documentation:** https://kartoza.github.io/qgis_geonode 
+**Documentation:** <https://kartoza.github.io/qgis_geonode>
 
-**Source code:** https://github.com/kartoza/qgis_geonode 
+**Source code:** <https://github.com/kartoza/qgis_geonode>
 
 ---
 
-{Description of the plugin}
+This is a QGIS plugin to allow working with and managing GeoNode resources in QGIS.
 
-## Requirements
 
 ## Installation
 
@@ -25,7 +30,7 @@ the main QGIS plugin repository. However, you may still install it comfortably f
 inside your QGIS installation, by configuring our our custom repository.It is available 
 at:
 
-https://kartoza.github.io/qgis_geonode/repo/plugins.xml
+<https://kartoza.github.io/qgis_geonode/repo/plugins.xml>
 
 1. Add this custom repository inside QGIS plugin manager
 2. Refresh the list of available plugins
