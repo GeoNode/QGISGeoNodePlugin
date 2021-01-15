@@ -15,6 +15,7 @@ class ConnectionDialog(QDialog, DialogUi):
         super(ConnectionDialog, self).__init__()
         self.setupUi(self)
         self.settings = QgsSettings()
+        self.connection_name = None
 
     def accept(self):
         """Add connection"""
@@ -32,6 +33,10 @@ class ConnectionDialog(QDialog, DialogUi):
             name = "/Qgis_GeoNode/%s" % connection_name
             url = "%s/url" % name
 
+            # When editing a connection, remove the old settings before adding new ones.
+            if self.connection_name and self.connection_name != connection_name:
+                self.settings.remove("/Qgis_GeoNode/{}".format(self.connection_name))
+
             self.settings.setValue(url, connection_url)
             self.settings.setValue("/Qgis_GeoNode/selected", connection_name)
 
@@ -39,3 +44,6 @@ class ConnectionDialog(QDialog, DialogUi):
 
     def reject(self):
         QDialog.reject(self)
+
+    def set_connection_name(self, name):
+        self.connection_name = name

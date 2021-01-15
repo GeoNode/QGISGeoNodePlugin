@@ -28,7 +28,7 @@ from qgis.PyQt.uic import loadUiType
 
 from qgis_geonode.qgisgeonode.resources import *
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog, QMessageBox
 from qgis.core import QgsSettings
 
 from qgis_geonode.qgisgeonode.utils import tr
@@ -68,6 +68,8 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.settings = QgsSettings()
 
         self.btnNew.clicked.connect(self.add_connection)
+        self.btnEdit.clicked.connect(self.edit_connection)
+        self.btnDelete.clicked.connect(self.delete_connection)
 
         # Update GUI
 
@@ -113,3 +115,44 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
         if connections_count > 0 and not found:
             index = 0 if not selected_item else connections_count - 1
             self.cmbConnections.setCurrentIndex(index)
+
+        state = self.cmbConnections.count() != 0
+
+        self.btnEdit.setEnabled(state)
+        self.btnDelete.setEnabled(state)
+
+    def edit_connection(self):
+        """Edit connection"""
+
+        connection_name = self.cmbConnections.currentText()
+        connection_url = self.settings.value(
+            "/Qgis_GeoNode/{}/url".format(connection_name)
+        )
+
+        edit_dlg = ConnectionDialog()
+        edit_dlg.name.setText(connection_name)
+        edit_dlg.url.setText(connection_url)
+        edit_dlg.set_connection_name(connection_name)
+
+        if edit_dlg.exec_() == QDialog.Accepted:
+            self.create_connections_list()
+
+    def delete_connection(self):
+        connection_name = self.cmbConnections.currentText()
+        connection_key = "/Qgis_GeoNode/{}".format(connection_name)
+
+        warning = tr('Remove the following connection "{}"?').format(connection_name)
+
+        if (
+            QMessageBox.warning(
+                self,
+                tr("Qgis GeoNode"),
+                warning,
+                QMessageBox.Yes,
+                QMessageBox.No,
+            )
+            == QMessageBox.Yes
+        ):
+            self.settings.remove(connection_key)
+            self.cmbConnections.removeItem(self.cmbConnections.currentIndex())
+            self.set_connections_position()
