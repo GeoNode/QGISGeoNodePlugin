@@ -69,6 +69,10 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         self.btnNew.clicked.connect(self.add_connection)
 
+        # Update GUI
+
+        self.create_connections_list()
+
     def add_connection(self):
         """Create a new connection"""
 
@@ -84,8 +88,28 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.cmbConnections.addItems(self.settings.childGroups())
         self.settings.endGroup()
 
+        self.set_connections_position()
+
         # Enable some buttons if there is any saved connection
         state = self.cmbConnections.count() != 0
 
         self.btnEdit.setEnabled(state)
         self.btnDelete.setEnabled(state)
+
+    def set_connections_position(self):
+        connections_count = self.cmbConnections.count()
+        selected_item = self.settings.value("/Qgis_GeoNode/selected")
+        found = False
+
+        for i in range(connections_count):
+            if self.cmbConnections.itemText(i) == selected_item:
+                self.cmbConnections.setCurrentIndex(i)
+                found = True
+                break
+
+        # If there are connections and the selected item is not found,
+        # check if the selected item is None then set connection list index to 0,
+        # else set it to the last index.
+        if connections_count > 0 and not found:
+            index = 0 if not selected_item else connections_count - 1
+            self.cmbConnections.setCurrentIndex(index)
