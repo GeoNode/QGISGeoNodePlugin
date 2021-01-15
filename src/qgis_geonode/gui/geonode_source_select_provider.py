@@ -9,12 +9,17 @@ from qgis.PyQt.uic import loadUiType
 
 from qgis_geonode.qgisgeonode.resources import *
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QDialog, QMessageBox
+
+from qgis.PyQt.QtWidgets import QApplication, QDialog, QMessageBox, QListWidgetItem
+from qgis.PyQt.QtCore import Qt
+
 
 from ..qgisgeonode.utils import tr
 from ..qgisgeonode.conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 
+
+from qgis_geonode.apiclient.api_client import GeonodeClient
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/geonode_datasource_widget.ui")
@@ -57,6 +62,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         connections_manager.current_connection_changed.connect(
             self.update_connections_combobox
         )
+        self.search_btn.clicked.connect(self.searchGeonode)
 
         current_connection = connections_manager.get_current_connection()
         if current_connection is None:
@@ -117,4 +123,30 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         confirmation = QMessageBox.warning(
             self, tr("QGIS GeoNode"), message, QMessageBox.Yes, QMessageBox.No
         )
+
         return confirmation == QMessageBox.Yes
+
+    def searchGeonode(self, page=None):
+        connection_name = self.cmbConnections.currentText()
+        connection_details = self.settings_manager.get_connection(connection_name)
+
+        base_url = connection_details["url"]
+
+        geonodeClient = GeonodeClient(base_url)
+        geonodeClient.layer_list_received.connect(self.show_layers)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        geonodeClient.get_layers(page=page)
+
+    def show_layers(self, payload):
+        QApplication.setOverrideCursor(Qt.ArrowCursor)
+
+        if payload["layers"]:
+            self.resultsLabel.setText(
+                tr("Showing {} result layers".format(payload["page_size"]))
+            )
+
+            for i in range(len(payload["layers"])):
+                QListWidgetItem(tr(payload["layers"][i]["title"]), self.listWidget)
+
+        else:
+            self.resultsLabel.setText(tr("No layers found"))
