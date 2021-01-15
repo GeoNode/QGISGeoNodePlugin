@@ -32,6 +32,7 @@ from qgis.PyQt.QtWidgets import QDialog, QMessageBox
 from qgis.core import QgsSettings
 
 from qgis_geonode.qgisgeonode.utils import tr
+from qgis_geonode.qgisgeonode.default import SETTINGS_GROUP_NAME
 
 from qgis_geonode.gui.connection_dialog import ConnectionDialog
 
@@ -85,7 +86,7 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def create_connections_list(self):
         """ Save connection"""
 
-        self.settings.beginGroup("/Qgis_GeoNode/")
+        self.settings.beginGroup("/{}/".format(SETTINGS_GROUP_NAME))
         self.cmbConnections.clear()
         self.cmbConnections.addItems(self.settings.childGroups())
         self.settings.endGroup()
@@ -100,7 +101,7 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
     def set_connections_position(self):
         connections_count = self.cmbConnections.count()
-        selected_item = self.settings.value("/Qgis_GeoNode/selected")
+        selected_item = self.settings.value("/{}/selected".format(SETTINGS_GROUP_NAME))
         found = False
 
         for i in range(connections_count):
@@ -126,7 +127,7 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         connection_name = self.cmbConnections.currentText()
         connection_url = self.settings.value(
-            "/Qgis_GeoNode/{}/url".format(connection_name)
+            "/{}/{}/url".format(SETTINGS_GROUP_NAME, connection_name)
         )
 
         edit_dlg = ConnectionDialog()
@@ -139,7 +140,7 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
     def delete_connection(self):
         connection_name = self.cmbConnections.currentText()
-        connection_key = "/Qgis_GeoNode/{}".format(connection_name)
+        connection_key = "/{}/{}".format(SETTINGS_GROUP_NAME, connection_name)
 
         warning = tr('Remove the following connection "{}"?').format(connection_name)
 
