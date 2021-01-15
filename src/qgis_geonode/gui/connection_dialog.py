@@ -2,8 +2,12 @@ import os
 
 from qgis.PyQt.uic import loadUiType
 
-from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox
 from qgis.core import QgsSettings
+from qgis.PyQt.QtGui import QValidator, QRegExpValidator
+from qgis.PyQt.QtCore import QRegExp, QUrl
+
+from qgis_geonode.qgisgeonode.utils import tr
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_connection.ui")
@@ -16,6 +20,13 @@ class ConnectionDialog(QDialog, DialogUi):
         self.setupUi(self)
         self.settings = QgsSettings()
         self.connection_name = None
+
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+
+        self.name.textChanged.connect(self.update_ok_button)
+        self.url.textChanged.connect(self.update_ok_button)
+
+        self.name.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name))
 
     def accept(self):
         """Add connection"""
@@ -47,3 +58,7 @@ class ConnectionDialog(QDialog, DialogUi):
 
     def set_connection_name(self, name):
         self.connection_name = name
+
+    def update_ok_button(self):
+        enabled_state = self.name.text() != "" and self.url.text() != ""
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled_state)
