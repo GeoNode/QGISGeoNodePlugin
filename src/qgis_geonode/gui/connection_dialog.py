@@ -1,15 +1,13 @@
 import os
+import typing
 
 from qgis.PyQt.uic import loadUiType
 
 from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox
-from qgis.core import QgsSettings
 from qgis.PyQt.QtGui import QValidator, QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp, QUrl
 
-from qgis_geonode.qgisgeonode.default import SETTINGS_GROUP_NAME
-
-from qgis_geonode.qgisgeonode.utils import tr
+from ..qgisgeonode.utils import settings_manager
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_connection.ui")
@@ -17,68 +15,44 @@ DialogUi, _ = loadUiType(
 
 
 class ConnectionDialog(QDialog, DialogUi):
-    def __init__(self):
-        super(ConnectionDialog, self).__init__()
+    def __init__(self, name: typing.Optional[str] = None):
+        super().__init__()
         self.setupUi(self)
-        self.settings = QgsSettings()
-        self.connection_name = None
-        self.base_group = "/{}".format(SETTINGS_GROUP_NAME)
-
+        if name is not None:
+            self.load_details(name)
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        ok_signals = [
+            self.name.textChanged,
+            self.url.textChanged,
+        ]
+        for signal in ok_signals:
+            signal.connect(self.update_ok_button)
 
-        self.name.textChanged.connect(self.update_ok_button)
-        self.url.textChanged.connect(self.update_ok_button)
-
+        # disallow names that have a slash since that is not compatible with how we
+        # are storing plugin state in QgsSettings
         self.name.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name))
+        self.update_ok_button()
+
+    def load_details(self, name: str):
+        details = settings_manager.get_connection_settings(name)
+        self.name.setText(details.get("name", ""))
+        self.url.setText(details.get("url", ""))
+        self.authConfigSelect.setConfigId(details.get("authcfg", ""))
+
+    def save_details(self):
+        details = {
+            "name": self.name.text().strip(),
+            "url": self.url.text().strip(),
+            "authcfg": self.authConfigSelect.configId()
+        }
+        settings_manager.save_connection_settings(**details)
 
     def accept(self):
         """Add connection"""
 
-        connection_name = self.name.text().strip()
-        connection_url = self.url.text().strip()
-
-        if any([connection_name == "", connection_url == ""]):
-            return
-
-        if "/" in connection_name:
-            return
-
-        if connection_name is not None:
-            name = "{}/{}".format(self.base_group, connection_name)
-            url = "{}/url".format(name)
-
-            # When editing a connection, remove the old settings before adding new ones.
-            if self.connection_name and self.connection_name != connection_name:
-                self.settings.remove(
-                    "{}/{}".format(self.base_group, self.connection_name)
-                )
-
-            self.settings.setValue(url, connection_url)
-            self.settings.setValue(
-                "{}/selected".format(self.base_group), connection_name
-            )
-
-            if self.authConfigSelect.configId():
-                self.settings.setValue(
-                    "{}/authcfg".format(self.base_group),
-                    self.authConfigSelect.configId(),
-                )
-
-            QDialog.accept(self)
-
-    def reject(self):
-        QDialog.reject(self)
-
-    def set_connection_name(self, name):
-        if name:
-            self.connection_name = name
-            self.restore_auth_config
+        self.save_details()
+        super().accept()
 
     def update_ok_button(self):
         enabled_state = self.name.text() != "" and self.url.text() != ""
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled_state)
-
-    def restore_auth_config(self):
-        authcfg = self.settings.value("{}/authcfg".format(self.base_group))
-        if authcfg:
-            self.authConfigSelect.setConfigId(authcfg)

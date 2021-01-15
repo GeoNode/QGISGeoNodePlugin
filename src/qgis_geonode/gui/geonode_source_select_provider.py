@@ -31,10 +31,10 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QDialog, QMessageBox
 from qgis.core import QgsSettings
 
-from qgis_geonode.qgisgeonode.utils import tr
-from qgis_geonode.qgisgeonode.default import SETTINGS_GROUP_NAME
+from ..qgisgeonode import utils
+from ..qgisgeonode.default import SETTINGS_GROUP_NAME
+from ..gui.connection_dialog import ConnectionDialog
 
-from qgis_geonode.gui.connection_dialog import ConnectionDialog
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_main_ui.ui")
@@ -52,10 +52,10 @@ class GeonodeSourceSelectProvider(QgsSourceSelectProvider):
         return QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
 
     def text(self):
-        return tr("GeoNode Plugin Provider")
+        return utils.tr("GeoNode Plugin Provider")
 
     def toolTip(self):
-        return tr("Add Geonode Layer")
+        return utils.tr("Add Geonode Layer")
 
     def ordering(self):
         return QgsSourceSelectProvider.OrderOtherProvider
@@ -71,89 +71,69 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnNew.clicked.connect(self.add_connection)
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
+        self.cmbConnections.activated.connect(self.update_current_connection)
 
         # Update GUI
 
-        self.create_connections_list()
+        self.update_connections_combobox()
 
     def add_connection(self):
         """Create a new connection"""
 
         connection = ConnectionDialog()
         if connection.exec_() == QDialog.Accepted:
-            self.create_connections_list()
+            self.update_connections_combobox()
 
-    def create_connections_list(self):
+    def update_connections_combobox(self):
         """ Save connection"""
 
-        self.settings.beginGroup("/{}/".format(SETTINGS_GROUP_NAME))
         self.cmbConnections.clear()
-        self.cmbConnections.addItems(self.settings.childGroups())
-        self.settings.endGroup()
-
-        self.set_connections_position()
+        existing_connections = utils.settings_manager.list_connections()
+        self.cmbConnections.addItems(existing_connections)
+        try:
+            current = utils.settings_manager.get_current_connection()
+        except ValueError:
+            current_index = len(existing_connections) - 1
+        else:
+            try:
+                current_index = existing_connections.index(current["name"])
+            except (ValueError, TypeError):
+                current_index = len(existing_connections) - 1
+        self.cmbConnections.setCurrentIndex(current_index)
 
         # Enable some buttons if there is any saved connection
-        state = self.cmbConnections.count() != 0
+        enabled = len(existing_connections) > 0
+        self.btnEdit.setEnabled(enabled)
+        self.btnDelete.setEnabled(enabled)
 
-        self.btnEdit.setEnabled(state)
-        self.btnDelete.setEnabled(state)
-
-    def set_connections_position(self):
-        connections_count = self.cmbConnections.count()
-        selected_item = self.settings.value("/{}/selected".format(SETTINGS_GROUP_NAME))
-        found = False
-
-        for i in range(connections_count):
-            if self.cmbConnections.itemText(i) == selected_item:
-                self.cmbConnections.setCurrentIndex(i)
-                found = True
-                break
-
-        # If there are connections and the selected item is not found,
-        # check if the selected item is None then set connection list index to 0,
-        # else set it to the last index.
-        if connections_count > 0 and not found:
-            index = 0 if not selected_item else connections_count - 1
-            self.cmbConnections.setCurrentIndex(index)
-
-        state = self.cmbConnections.count() != 0
-
-        self.btnEdit.setEnabled(state)
-        self.btnDelete.setEnabled(state)
+    def update_current_connection(self, index):
+        if index != -1:
+            current_name = self.cmbConnections.currentText()
+            utils.settings_manager.set_current_connection(current_name)
 
     def edit_connection(self):
         """Edit connection"""
 
-        connection_name = self.cmbConnections.currentText()
-        connection_url = self.settings.value(
-            "/{}/{}/url".format(SETTINGS_GROUP_NAME, connection_name)
-        )
-
-        edit_dlg = ConnectionDialog()
-        edit_dlg.name.setText(connection_name)
-        edit_dlg.url.setText(connection_url)
-        edit_dlg.set_connection_name(connection_name)
-
+        current = utils.settings_manager.get_current_connection()
+        edit_dlg = ConnectionDialog(name=current["name"])
         if edit_dlg.exec_() == QDialog.Accepted:
-            self.create_connections_list()
+            self.update_connections_combobox()
 
     def delete_connection(self):
         connection_name = self.cmbConnections.currentText()
-        connection_key = "/{}/{}".format(SETTINGS_GROUP_NAME, connection_name)
+        existing_connections = utils.settings_manager.list_connections()
+        index = existing_connections.index(connection_name)
+        new_index = index - 1
+        if new_index < 0 and len(existing_connections) > 1:
+            new_index = 0
+        try:
+            next_connection = existing_connections[new_index]
+        except ValueError:
+            next_connection = None
 
-        warning = tr('Remove the following connection "{}"?').format(connection_name)
-
-        if (
-            QMessageBox.warning(
-                self,
-                tr("Qgis GeoNode"),
-                warning,
-                QMessageBox.Yes,
-                QMessageBox.No,
-            )
-            == QMessageBox.Yes
-        ):
-            self.settings.remove(connection_key)
-            self.cmbConnections.removeItem(self.cmbConnections.currentIndex())
-            self.set_connections_position()
+        message = utils.tr('Remove the following connection "{}"?').format(connection_name)
+        confirmation = QMessageBox.warning(self, utils.tr("QGIS GeoNode"), message, QMessageBox.Yes, QMessageBox.No)
+        if confirmation == QMessageBox.Yes:
+            utils.settings_manager.delete_connection(connection_name)
+            utils.settings_manager.set_current_connection(next_connection)
+            self.update_connections_combobox()
