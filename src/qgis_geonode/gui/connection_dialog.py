@@ -7,6 +7,8 @@ from qgis.core import QgsSettings
 from qgis.PyQt.QtGui import QValidator, QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp, QUrl
 
+from qgis_geonode.qgisgeonode.default import SETTINGS_GROUP_NAME
+
 from qgis_geonode.qgisgeonode.utils import tr
 
 DialogUi, _ = loadUiType(
@@ -20,6 +22,7 @@ class ConnectionDialog(QDialog, DialogUi):
         self.setupUi(self)
         self.settings = QgsSettings()
         self.connection_name = None
+        self.base_group = "/{}".format(SETTINGS_GROUP_NAME)
 
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
@@ -41,15 +44,25 @@ class ConnectionDialog(QDialog, DialogUi):
             return
 
         if connection_name is not None:
-            name = "/Qgis_GeoNode/%s" % connection_name
-            url = "%s/url" % name
+            name = "{}/{}".format(self.base_group, connection_name)
+            url = "{}/url".format(name)
 
             # When editing a connection, remove the old settings before adding new ones.
             if self.connection_name and self.connection_name != connection_name:
-                self.settings.remove("/Qgis_GeoNode/{}".format(self.connection_name))
+                self.settings.remove(
+                    "{}/{}".format(self.base_group, self.connection_name)
+                )
 
             self.settings.setValue(url, connection_url)
-            self.settings.setValue("/Qgis_GeoNode/selected", connection_name)
+            self.settings.setValue(
+                "{}/selected".format(self.base_group), connection_name
+            )
+
+            if self.authConfigSelect.configId():
+                self.settings.setValue(
+                    "{}/authcfg".format(self.base_group),
+                    self.authConfigSelect.configId(),
+                )
 
             QDialog.accept(self)
 
@@ -57,8 +70,15 @@ class ConnectionDialog(QDialog, DialogUi):
         QDialog.reject(self)
 
     def set_connection_name(self, name):
-        self.connection_name = name
+        if name:
+            self.connection_name = name
+            self.restore_auth_config
 
     def update_ok_button(self):
         enabled_state = self.name.text() != "" and self.url.text() != ""
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled_state)
+
+    def restore_auth_config(self):
+        authcfg = self.settings.value("{}/authcfg".format(self.base_group))
+        if authcfg:
+            self.authConfigSelect.setConfigId(authcfg)
