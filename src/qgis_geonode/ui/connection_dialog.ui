@@ -15,7 +15,7 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="1" column="1">
-    <widget class="QLineEdit" name="name"/>
+    <widget class="QLineEdit" name="name_le"/>
    </item>
    <item row="6" column="0" colspan="2">
     <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -62,7 +62,7 @@
     </widget>
    </item>
    <item row="2" column="1">
-    <widget class="QLineEdit" name="url"/>
+    <widget class="QLineEdit" name="url_le"/>
    </item>
    <item row="5" column="0" colspan="2">
     <widget class="QGroupBox" name="optionGroupBox">
@@ -79,7 +79,7 @@
     </widget>
    </item>
    <item row="4" column="0" colspan="2">
-    <widget class="QgsAuthConfigSelect" name="authConfigSelect">
+    <widget class="QgsAuthConfigSelect" name="authcfg_acs">
      <property name="minimumSize">
       <size>
        <width>0</width>
@@ -108,8 +108,8 @@
   </customwidget>
  </customwidgets>
  <tabstops>
-  <tabstop>name</tabstop>
-  <tabstop>url</tabstop>
+  <tabstop>name_le</tabstop>
+  <tabstop>url_le</tabstop>
   <tabstop>buttonBox</tabstop>
  </tabstops>
  <resources/>

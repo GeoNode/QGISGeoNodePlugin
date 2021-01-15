@@ -21,7 +21,7 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
-       <widget class="QComboBox" name="cmbConnections"/>
+       <widget class="QComboBox" name="connections_cmb"/>
       </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -266,7 +266,7 @@
     </layout>
    </item>
    <item>
-    <widget class="QPushButton" name="btnLoad_4">
+    <widget class="QPushButton" name="search_btn">
      <property name="toolTip">
       <string>Load connections from file</string>
      </property>

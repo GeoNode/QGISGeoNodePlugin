@@ -4,13 +4,13 @@ import typing
 from qgis.PyQt.uic import loadUiType
 
 from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox
-from qgis.PyQt.QtGui import QValidator, QRegExpValidator
-from qgis.PyQt.QtCore import QRegExp, QUrl
+from qgis.PyQt.QtGui import QRegExpValidator
+from qgis.PyQt.QtCore import QRegExp
 
-from ..qgisgeonode.utils import settings_manager
+from ..qgisgeonode.conf import settings_manager
 
 DialogUi, _ = loadUiType(
-    os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_connection.ui")
+    os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
 )
 
 
@@ -22,37 +22,37 @@ class ConnectionDialog(QDialog, DialogUi):
             self.load_details(name)
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
         ok_signals = [
-            self.name.textChanged,
-            self.url.textChanged,
+            self.name_le.textChanged,
+            self.url_le.textChanged,
         ]
         for signal in ok_signals:
             signal.connect(self.update_ok_button)
 
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
-        self.name.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name))
+        self.name_le.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name_le))
         self.update_ok_button()
 
     def load_details(self, name: str):
         details = settings_manager.get_connection_settings(name)
-        self.name.setText(details.get("name", ""))
-        self.url.setText(details.get("url", ""))
-        self.authConfigSelect.setConfigId(details.get("authcfg", ""))
+        self.name_le.setText(details["name"])
+        self.url_le.setText(details["url"])
+        self.authcfg_acs.setConfigId(details.get("authcfg", ""))
 
-    def save_details(self):
+    def save_details(self) -> typing.Dict:
         details = {
-            "name": self.name.text().strip(),
-            "url": self.url.text().strip(),
-            "authcfg": self.authConfigSelect.configId()
+            "name": self.name_le.text().strip(),
+            "url": self.url_le.text().strip(),
+            "authcfg": self.authcfg_acs.configId()
         }
         settings_manager.save_connection_settings(**details)
+        return details
 
     def accept(self):
-        """Add connection"""
-
-        self.save_details()
+        details = self.save_details()
+        settings_manager.set_current_connection(details["name"])
         super().accept()
 
     def update_ok_button(self):
-        enabled_state = self.name.text() != "" and self.url.text() != ""
+        enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled_state)
