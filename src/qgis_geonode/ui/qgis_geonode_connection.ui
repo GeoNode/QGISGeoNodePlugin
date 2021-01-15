@@ -13,47 +13,45 @@
   <property name="windowTitle">
    <string>GeoNode Connection Configuration</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Name</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="name"/>
-     </item>
-    </layout>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Name</string>
+     </property>
+    </widget>
    </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>GeoNode URL</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="url"/>
-     </item>
-    </layout>
+   <item row="0" column="1">
+    <widget class="QLineEdit" name="name"/>
    </item>
-   <item>
-    <widget class="QgsAuthConfigSelect" name="mAuthConfigSelect"/>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>GeoNode URL</string>
+     </property>
+    </widget>
    </item>
-   <item>
-    <widget class="QGroupBox" name="authenticationGroupBox_2">
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="url"/>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QgsAuthConfigSelect" name="mAuthConfigSelect">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>119</height>
+      </size>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="2">
+    <widget class="QGroupBox" name="optionGroupBox">
      <property name="title">
       <string>Options</string>
      </property>
-     <layout class="QFormLayout" name="formLayout_3"/>
     </widget>
    </item>
-   <item>
+   <item row="4" column="0" colspan="2">
     <layout class="QHBoxLayout" name="horizontalLayout_3">
      <item>
       <widget class="QDialogButtonBox" name="buttonBox_2">
