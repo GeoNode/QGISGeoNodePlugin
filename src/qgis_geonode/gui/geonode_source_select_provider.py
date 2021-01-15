@@ -28,10 +28,11 @@ from qgis.PyQt.uic import loadUiType
 
 from qgis_geonode.qgisgeonode.resources import *
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QDialog
+from qgis.PyQt.QtWidgets import QDialog, QMessageBox
 from qgis.core import QgsSettings
 
 from qgis_geonode.qgisgeonode.utils import tr
+from qgis_geonode.qgisgeonode.default import SETTINGS_GROUP_NAME
 
 from qgis_geonode.gui.connection_dialog import ConnectionDialog
 
@@ -68,6 +69,12 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.settings = QgsSettings()
 
         self.btnNew.clicked.connect(self.add_connection)
+        self.btnEdit.clicked.connect(self.edit_connection)
+        self.btnDelete.clicked.connect(self.delete_connection)
+
+        # Update GUI
+
+        self.create_connections_list()
 
     def add_connection(self):
         """Create a new connection"""
@@ -79,13 +86,74 @@ class CustomGeonodeWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def create_connections_list(self):
         """ Save connection"""
 
-        self.settings.beginGroup("/Qgis_GeoNode/")
+        self.settings.beginGroup("/{}/".format(SETTINGS_GROUP_NAME))
         self.cmbConnections.clear()
         self.cmbConnections.addItems(self.settings.childGroups())
         self.settings.endGroup()
+
+        self.set_connections_position()
 
         # Enable some buttons if there is any saved connection
         state = self.cmbConnections.count() != 0
 
         self.btnEdit.setEnabled(state)
         self.btnDelete.setEnabled(state)
+
+    def set_connections_position(self):
+        connections_count = self.cmbConnections.count()
+        selected_item = self.settings.value("/{}/selected".format(SETTINGS_GROUP_NAME))
+        found = False
+
+        for i in range(connections_count):
+            if self.cmbConnections.itemText(i) == selected_item:
+                self.cmbConnections.setCurrentIndex(i)
+                found = True
+                break
+
+        # If there are connections and the selected item is not found,
+        # check if the selected item is None then set connection list index to 0,
+        # else set it to the last index.
+        if connections_count > 0 and not found:
+            index = 0 if not selected_item else connections_count - 1
+            self.cmbConnections.setCurrentIndex(index)
+
+        state = self.cmbConnections.count() != 0
+
+        self.btnEdit.setEnabled(state)
+        self.btnDelete.setEnabled(state)
+
+    def edit_connection(self):
+        """Edit connection"""
+
+        connection_name = self.cmbConnections.currentText()
+        connection_url = self.settings.value(
+            "/{}/{}/url".format(SETTINGS_GROUP_NAME, connection_name)
+        )
+
+        edit_dlg = ConnectionDialog()
+        edit_dlg.name.setText(connection_name)
+        edit_dlg.url.setText(connection_url)
+        edit_dlg.set_connection_name(connection_name)
+
+        if edit_dlg.exec_() == QDialog.Accepted:
+            self.create_connections_list()
+
+    def delete_connection(self):
+        connection_name = self.cmbConnections.currentText()
+        connection_key = "/{}/{}".format(SETTINGS_GROUP_NAME, connection_name)
+
+        warning = tr('Remove the following connection "{}"?').format(connection_name)
+
+        if (
+            QMessageBox.warning(
+                self,
+                tr("Qgis GeoNode"),
+                warning,
+                QMessageBox.Yes,
+                QMessageBox.No,
+            )
+            == QMessageBox.Yes
+        ):
+            self.settings.remove(connection_key)
+            self.cmbConnections.removeItem(self.cmbConnections.currentIndex())
+            self.set_connections_position()

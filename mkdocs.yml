@@ -9,9 +9,9 @@ site_author: Kartoza
 
 nav:
   - Home: 'index.md'
-  - About: 'about.md'
   - User guide: 'user-guide.md'
   - Development: 'development.md'
+  - About: 'about.md'
   - QGIS Repo: 'repo/plugins.xml'
 
 theme:
@@ -20,12 +20,8 @@ theme:
     primary: green
     accent: purple
     scheme: preference
-  features:
-    - navigation.tabs
-    - navigation.tabs.sticky
-    - toc.integrate
   icon:
-    - repo: fontawesome/brands/github
+    repo: fontawesome/brands/github
 
 markdown_extensions:
   - toc:
