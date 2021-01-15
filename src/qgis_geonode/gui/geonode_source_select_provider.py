@@ -21,7 +21,6 @@ WidgetUi, _ = loadUiType(
 
 
 class GeonodeSourceSelectProvider(QgsSourceSelectProvider):
-
     def createDataSourceWidget(self, parent, fl, widgetMode):
         return GeonodeDataSourceWidget(parent, fl, widgetMode)
 
@@ -48,14 +47,16 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.project = QgsProject.instance()
         self.settings = QgsSettings()
         self.connections_cmb.currentIndexChanged.connect(
-            self.toggle_connection_management_buttons)
+            self.toggle_connection_management_buttons
+        )
         self.btnNew.clicked.connect(self.add_connection)
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
         self.toggle_connection_management_buttons()
 
         settings_manager.current_connection_changed.connect(
-            self.update_connections_combobox)
+            self.update_connections_combobox
+        )
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -94,7 +95,8 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         message = tr('Remove the following connection "{}"?').format(connection_name)
         confirmation = QMessageBox.warning(
-            self, tr("QGIS GeoNode"), message, QMessageBox.Yes, QMessageBox.No)
+            self, tr("QGIS GeoNode"), message, QMessageBox.Yes, QMessageBox.No
+        )
         if confirmation == QMessageBox.Yes:
             settings_manager.delete_connection(connection_name)
             if new_index is not None:

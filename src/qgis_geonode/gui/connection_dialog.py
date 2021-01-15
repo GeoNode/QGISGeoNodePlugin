@@ -43,7 +43,7 @@ class ConnectionDialog(QDialog, DialogUi):
         details = {
             "name": self.name_le.text().strip(),
             "url": self.url_le.text().strip(),
-            "authcfg": self.authcfg_acs.configId()
+            "authcfg": self.authcfg_acs.configId(),
         }
         settings_manager.save_connection_settings(**details)
         return details

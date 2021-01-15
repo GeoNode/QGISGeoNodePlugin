@@ -40,12 +40,12 @@ class SettingsManager(QtCore.QObject):
                 details[key] = settings.value(key)
         if len(details) == 0:
             raise ValueError(
-                f"Could not find a connection named {name!r} in QgsSettings")
+                f"Could not find a connection named {name!r} in QgsSettings"
+            )
         details["name"] = name
         return details
 
-    def save_connection_settings(
-            self, name, **additional_settings):
+    def save_connection_settings(self, name, **additional_settings):
         with qgis_settings(self._get_connection_settings_base(name)) as settings:
             for name, value in additional_settings.items():
                 settings.setValue(name, value)
@@ -60,7 +60,8 @@ class SettingsManager(QtCore.QObject):
             return settings.value(self.SELECTED_CONNECTION_KEY)
 
     def set_current_connection(
-            self, name: typing.Optional[str] = None) -> typing.Optional[str]:
+        self, name: typing.Optional[str] = None
+    ) -> typing.Optional[str]:
         """Modify the current connection"""
         if name is not None and name not in self.list_connections():
             raise ValueError(f"Invalid connection name: {name!r}")
