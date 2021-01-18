@@ -38,7 +38,9 @@ tags = [
 ]
 category = "plugins"
 hasProcessingProvider = "no"
-about = "This plugin has an about here"
+about = """\
+This plugin adds GeoNode client functionality to QGIS - Search, load and manage GeoNode resources from inside QGIS\
+"""
 # changelog: dynamically pulled from the README.md file
 # description: dynamically pulled from the tool.poetry.description section
 # version: dynamically pulled from the tool.poetry.version section
