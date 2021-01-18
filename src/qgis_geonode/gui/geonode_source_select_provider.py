@@ -1,4 +1,6 @@
 import os
+import typing
+import uuid
 
 from qgis.core import QgsProject
 from qgis.gui import QgsSourceSelectProvider, QgsAbstractDataSourceWidget
@@ -8,10 +10,9 @@ from qgis.PyQt.uic import loadUiType
 from qgis_geonode.qgisgeonode.resources import *
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QDialog, QMessageBox
-from qgis.core import QgsSettings
 
 from ..qgisgeonode.utils import tr
-from ..qgisgeonode.conf import settings_manager
+from ..qgisgeonode.conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 
 
@@ -45,7 +46,6 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
         self.project = QgsProject.instance()
-        self.settings = QgsSettings()
         self.connections_cmb.currentIndexChanged.connect(
             self.toggle_connection_management_buttons
         )
@@ -54,51 +54,67 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnDelete.clicked.connect(self.delete_connection)
         self.toggle_connection_management_buttons()
 
-        settings_manager.current_connection_changed.connect(
+        connections_manager.current_connection_changed.connect(
             self.update_connections_combobox
         )
+
+        current_connection = connections_manager.get_current_connection()
+        if current_connection is None:
+            existing_connections = connections_manager.list_connections()
+            if len(existing_connections) > 0:
+                current_connection = existing_connections[0]
+                connections_manager.set_current_connection(current_connection.id)
+        else:
+            self.update_connections_combobox(str(current_connection.id))
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
         connection_dialog.exec_()
 
-    def update_connections_combobox(self, current_connection: str):
+    def edit_connection(self):
+        selected_name = self.connections_cmb.currentText()
+        connection_settings = connections_manager.find_connection_by_name(selected_name)
+        connection_dialog = ConnectionDialog(connection_settings=connection_settings)
+        connection_dialog.exec_()
+
+    def delete_connection(self):
+        name = self.connections_cmb.currentText()
+        current_connection = connections_manager.find_connection_by_name(name)
+        if self._confirm_deletion(name):
+            existing_connections = connections_manager.list_connections()
+            current_index = self.connections_cmb.currentIndex()
+            if current_index > 0:
+                next_current_connection = existing_connections[current_index - 1]
+            elif current_index == 0 and len(existing_connections) > 1:
+                next_current_connection = existing_connections[current_index + 1]
+            else:
+                next_current_connection = None
+            connections_manager.delete_connection(current_connection.id)
+            if next_current_connection is not None:
+                connections_manager.set_current_connection(next_current_connection.id)
+
+    def update_connections_combobox(
+        self, current_identifier: typing.Optional[str] = ""
+    ):
         self.connections_cmb.clear()
-        existing_connections = settings_manager.list_connections()
-        self.connections_cmb.addItems(existing_connections)
-        current_index = self.connections_cmb.findText(current_connection)
-        self.connections_cmb.setCurrentIndex(current_index)
+        existing_connections = connections_manager.list_connections()
+        self.connections_cmb.addItems(conn.name for conn in existing_connections)
+        if current_identifier != "":
+            current_connection = connections_manager.get_connection_settings(
+                uuid.UUID(current_identifier)
+            )
+            current_index = self.connections_cmb.findText(current_connection.name)
+            self.connections_cmb.setCurrentIndex(current_index)
 
     def toggle_connection_management_buttons(self):
-        enabled = len(settings_manager.list_connections()) > 0
+        enabled = len(connections_manager.list_connections()) > 0
         self.btnEdit.setEnabled(enabled)
         self.btnDelete.setEnabled(enabled)
         self.search_btn.setEnabled(enabled)
 
-    def edit_connection(self):
-        connection_dialog = ConnectionDialog(name=self.connections_cmb.currentText())
-        connection_dialog.exec_()
-
-    def delete_connection(self):
-        connection_name = self.connections_cmb.currentText()
-        existing_connections = settings_manager.list_connections()
-        current_index = existing_connections.index(connection_name)
-
-        if len(existing_connections) > 2:
-            new_index = current_index
-        elif len(existing_connections) == 2:
-            new_index = current_index - 1
-        elif len(existing_connections) == 1:
-            new_index = None
-        else:
-            raise RuntimeError("Something is wrong - there are no existing connections")
-
+    def _confirm_deletion(self, connection_name: str):
         message = tr('Remove the following connection "{}"?').format(connection_name)
         confirmation = QMessageBox.warning(
             self, tr("QGIS GeoNode"), message, QMessageBox.Yes, QMessageBox.No
         )
-        if confirmation == QMessageBox.Yes:
-            settings_manager.delete_connection(connection_name)
-            if new_index is not None:
-                new_current = settings_manager.list_connections()[new_index]
-                settings_manager.set_current_connection(new_current)
+        return confirmation == QMessageBox.Yes
