@@ -9,7 +9,7 @@ from qgis.PyQt.uic import loadUiType
 
 from qgis.PyQt.QtGui import QIcon
 
-from qgis.PyQt.QtWidgets import QMessageBox, QApplication, QListWidgetItem
+from qgis.PyQt.QtWidgets import QApplication, QMessageBox, QTreeWidgetItem
 from qgis.PyQt.QtCore import Qt
 
 from ..utils import tr
@@ -18,6 +18,7 @@ from ..gui.connection_dialog import ConnectionDialog
 
 
 from qgis_geonode.apiclient.api_client import GeonodeClient
+
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/geonode_datasource_widget.ui")
@@ -60,6 +61,12 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         connections_manager.current_connection_changed.connect(
             self.update_connections_combobox
         )
+
+        self.update_connections_combobox()
+
+        self.currentPage = 0
+        self.totalLayers = 0
+
         self.search_btn.clicked.connect(self.searchGeonode)
 
         current_connection = connections_manager.get_current_connection()
@@ -70,6 +77,14 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 connections_manager.set_current_connection(current_connection.id)
         else:
             self.update_connections_combobox(str(current_connection.id))
+
+        self.next_btn.clicked.connect(self.searchGeonode)
+        self.previous_btn.clicked.connect(self.searchGeonode)
+
+        self.next_btn.setEnabled(False)
+        self.previous_btn.setEnabled(False)
+
+        self.treeWidget.setHeaderLabels([tr("Title"), tr("Abstract")])
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -125,26 +140,48 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         return confirmation == QMessageBox.Yes
 
     def searchGeonode(self, page=None):
-        connection_name = self.cmbConnections.currentText()
-        connection_details = self.settings_manager.get_connection(connection_name)
+        sender_name = self.sender().objectName()
+        if sender_name == "next_btn":
+            self.currentPage += 1
+            page = self.currentPage
+        elif sender_name == "previous_btn":
+            self.currentPage -= 1
+            page = self.currentPage
 
-        base_url = connection_details["url"]
+        connection_name = self.connections_cmb.currentText()
+        connection = connections_manager.find_connection_by_name(connection_name)
 
-        geonodeClient = GeonodeClient(base_url)
-        geonodeClient.layer_list_received.connect(self.show_layers)
+        base_url = connection.base_url
+
+        geonode_client = GeonodeClient(base_url)
+        geonode_client.layer_list_received.connect(self.show_layers)
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        geonodeClient.get_layers(page=page)
+        geonode_client.get_layers(page=page)
 
     def show_layers(self, payload):
         QApplication.setOverrideCursor(Qt.ArrowCursor)
 
         if payload["layers"]:
-            self.resultsLabel.setText(
-                tr("Showing {} result layers".format(payload["page_size"]))
+            self.next_btn.setEnabled(
+                self.currentPage < int(payload["total"]) / int(payload["page_size"])
             )
+            self.previous_btn.setEnabled(self.currentPage > 0)
+            self.resultsLabel.setText(
+                tr(
+                    "Showing page {} of {} layers".format(
+                        payload["page"], payload["total"]
+                    )
+                )
+            )
+            self.treeWidget.clear()
 
             for i in range(len(payload["layers"])):
-                QListWidgetItem(tr(payload["layers"][i]["title"]), self.listWidget)
+                QTreeWidgetItem(
+                    self.treeWidget,
+                    [payload["layers"][i]["title"], payload["layers"][i]["abstract"]],
+                )
 
         else:
             self.resultsLabel.setText(tr("No layers found"))
+
+        self.search_btn.setEnabled(True)

@@ -291,36 +291,36 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="label_8">
+      <widget class="QLabel" name="resultsLabel">
        <property name="text">
         <string>Showing results label</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btnSave_5">
+      <widget class="QPushButton" name="previous_btn">
        <property name="toolTip">
-        <string>Save connections to file</string>
-       </property>
-       <property name="text">
-        <string>Next</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnLoad_6">
-       <property name="toolTip">
-        <string>Load connections from file</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to previous page&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
         <string>Previous</string>
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="next_btn">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to next page&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Next</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
-    <widget class="QListWidget" name="listWidget"/>
+    <widget class="QTreeWidget" name="treeWidget"/>
    </item>
    <item>
     <spacer name="verticalSpacer">
