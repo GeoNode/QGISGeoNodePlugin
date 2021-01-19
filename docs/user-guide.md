@@ -1,1 +1,3 @@
 # User guide
+
+The QGIS GeoNode plugin adds a new data provider to QGIS. This provider is able to interact with GeoNode instances...
