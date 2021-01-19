@@ -27,7 +27,7 @@ jobs:
         run: poetry install
 
       - name: Check formatting
-        run: poetry run black --check src/qgis_geonode
+        run: poetry run black --check
 
       - name: Rebuild docs
         run: poetry run mkdocs build
