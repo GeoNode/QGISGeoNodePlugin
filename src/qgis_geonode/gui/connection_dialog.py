@@ -31,7 +31,7 @@ class ConnectionDialog(QDialog, DialogUi):
         self.setupUi(self)
         self._widgets_to_toggle_during_connection_test = [
             self.test_connection_btn,
-            self.buttonBox
+            self.buttonBox,
         ]
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
@@ -78,9 +78,11 @@ class ConnectionDialog(QDialog, DialogUi):
         )
         self.geonode_client.error_received.connect(self.handle_connection_test_error)
         self.geonode_client.layer_list_received.connect(
-            self.enable_post_test_connection_buttons)
+            self.enable_post_test_connection_buttons
+        )
         self.geonode_client.error_received.connect(
-            self.enable_post_test_connection_buttons)
+            self.enable_post_test_connection_buttons
+        )
         self.geonode_client.get_layers()
 
     def handle_connection_test_success(self, payload: typing.Union[typing.Dict, int]):
