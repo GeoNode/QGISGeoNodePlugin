@@ -24,6 +24,10 @@ pytest-xvfb = "^2.0.0"
 [tool.pytest.ini_options]
 addopts = "--verbose --exitfirst"
 
+[tool.black]
+exclude = """\
+"""
+
 [tool.qgis-plugin.metadata]
 name = "QGIS GeoNode"
 qgisMinimumVersion = "3.10"
