@@ -29,6 +29,10 @@ class ConnectionDialog(QDialog, DialogUi):
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
         super().__init__()
         self.setupUi(self)
+        self._widgets_to_toggle_during_connection_test = [
+            self.test_connection_btn,
+            self.buttonBox
+        ]
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.layout().insertWidget(0, self.bar)
@@ -64,6 +68,8 @@ class ConnectionDialog(QDialog, DialogUi):
         )
 
     def test_connection(self):
+        for widget in self._widgets_to_toggle_during_connection_test:
+            widget.setEnabled(False)
         self.geonode_client = GeonodeClient.from_connection_settings(
             self.get_connection_settings()
         )
@@ -71,6 +77,10 @@ class ConnectionDialog(QDialog, DialogUi):
             self.handle_connection_test_success
         )
         self.geonode_client.error_received.connect(self.handle_connection_test_error)
+        self.geonode_client.layer_list_received.connect(
+            self.enable_post_test_connection_buttons)
+        self.geonode_client.error_received.connect(
+            self.enable_post_test_connection_buttons)
         self.geonode_client.get_layers()
 
     def handle_connection_test_success(self, payload: typing.Union[typing.Dict, int]):
@@ -78,6 +88,11 @@ class ConnectionDialog(QDialog, DialogUi):
 
     def handle_connection_test_error(self, payload: typing.Union[typing.Dict, int]):
         self.bar.pushMessage("Connection is not valid", level=Qgis.Critical)
+
+    def enable_post_test_connection_buttons(self):
+        for widget in self._widgets_to_toggle_during_connection_test:
+            widget.setEnabled(True)
+        self.update_ok_buttons()
 
     def accept(self):
         connection_settings = self.get_connection_settings()
