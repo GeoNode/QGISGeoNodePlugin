@@ -7,8 +7,8 @@ from qgis.PyQt.uic import loadUiType
 
 from PyQt5.QtGui import QIcon
 
-from qgis_geonode.qgisgeonode.resources import *
-from qgis_geonode.qgisgeonode.utils import tr
+from ..resources import *
+from ..utils import tr
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_layer_dialog.ui")

@@ -2,7 +2,7 @@ import typing
 
 import pytest
 
-from qgis_geonode.apiclient import api_client
+from qgis_geonode import api_client
 
 SIGNAL_TIMEOUT = 5  # seconds
 

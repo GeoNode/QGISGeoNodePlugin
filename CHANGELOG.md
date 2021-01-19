@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Added more metadata and documentation
+- Manage GeoNode connections via GUI
 
 ## [0.0.9] - 2021-01-11
 

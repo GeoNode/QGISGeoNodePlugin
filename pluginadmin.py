@@ -126,7 +126,7 @@ def compile_resources(
         output_dir: typing.Optional[Path] = LOCAL_ROOT_DIR / 'build/temp'
 ):
     resources_path = LOCAL_ROOT_DIR / 'resources' / 'resources.qrc'
-    target_path = output_dir / PACKAGE_NAME / 'resources.py'
+    target_path = output_dir / 'resources.py'
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _log(f'compile_resources target_path: {target_path}', context=context)
     subprocess.run(shlex.split(f'pyrcc5 -o {target_path} {resources_path}'))

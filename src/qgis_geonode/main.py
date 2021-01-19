@@ -19,12 +19,11 @@ from qgis.PyQt.QtWidgets import QAction
 # Initialize Qt resources from file resources.py
 from .resources import *
 
-from ..gui.layer_properties_config_widget import (
+from .gui.layer_properties_config_widget import (
     LayerPropertiesConfigWidgetFactory,
-    LayerPropertiesConfigWidget,
 )
 
-from ..gui.geonode_source_select_provider import GeonodeSourceSelectProvider
+from qgis_geonode.gui.geonode_source_select_provider import GeonodeSourceSelectProvider
 
 
 class QgisGeoNode:
