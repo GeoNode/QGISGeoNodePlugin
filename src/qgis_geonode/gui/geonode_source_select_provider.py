@@ -7,12 +7,11 @@ from qgis.gui import QgsSourceSelectProvider, QgsAbstractDataSourceWidget
 
 from qgis.PyQt.uic import loadUiType
 
-from qgis_geonode.qgisgeonode.resources import *
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QDialog, QMessageBox
+from qgis.PyQt.QtWidgets import QMessageBox
 
-from ..qgisgeonode.utils import tr
-from ..qgisgeonode.conf import connections_manager
+from ..utils import tr
+from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 
 
