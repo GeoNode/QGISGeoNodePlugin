@@ -1,7 +1,6 @@
 import enum
 import json
 import typing
-import os
 from functools import partial
 
 from qgis.core import (
@@ -18,6 +17,8 @@ from qgis.PyQt.QtCore import (
     pyqtSignal,
 )
 from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
+
+from ..qgisgeonode.conf import ConnectionSettings
 
 
 class GeonodeApiEndpoint(enum.Enum):
@@ -44,6 +45,13 @@ class GeonodeClient(QObject):
         super().__init__(*args, **kwargs)
         self.auth_config = auth_config or ""
         self.base_url = base_url.rstrip("/")
+
+    @classmethod
+    def from_connection_settings(cls, connection_settings: ConnectionSettings):
+        return cls(
+            base_url=connection_settings.base_url,
+            auth_config=connection_settings.auth_config,
+        )
 
     def get_layers(self, page: typing.Optional[int] = None):
         """Slot to retrieve list of layers available in GeoNode"""

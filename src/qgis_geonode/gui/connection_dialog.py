@@ -1,84 +1,106 @@
 import os
+import typing
+import uuid
 
+
+from qgis.core import Qgis
+from qgis.gui import QgsMessageBar
+from qgis.PyQt.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QSizePolicy,
+)
+from qgis.PyQt.QtGui import QRegExpValidator
+from qgis.PyQt.QtCore import QRegExp
 from qgis.PyQt.uic import loadUiType
 
-from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox
-from qgis.core import QgsSettings
-from qgis.PyQt.QtGui import QValidator, QRegExpValidator
-from qgis.PyQt.QtCore import QRegExp, QUrl
-
-from qgis_geonode.qgisgeonode.default import SETTINGS_GROUP_NAME
-
-from qgis_geonode.qgisgeonode.utils import tr
+from ..apiclient.api_client import GeonodeClient
+from ..qgisgeonode.conf import ConnectionSettings, connections_manager
 
 DialogUi, _ = loadUiType(
-    os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_connection.ui")
+    os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
 )
 
 
 class ConnectionDialog(QDialog, DialogUi):
-    def __init__(self):
-        super(ConnectionDialog, self).__init__()
+    connection_id: uuid.UUID
+    geonode_client: GeonodeClient = None
+
+    def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
+        super().__init__()
         self.setupUi(self)
-        self.settings = QgsSettings()
-        self.connection_name = None
-        self.base_group = "/{}".format(SETTINGS_GROUP_NAME)
-
+        self._widgets_to_toggle_during_connection_test = [
+            self.test_connection_btn,
+            self.buttonBox
+        ]
+        self.bar = QgsMessageBar()
+        self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.layout().insertWidget(0, self.bar)
+        if connection_settings is not None:
+            self.connection_id = connection_settings.id
+            self.load_connection_settings(connection_settings)
+        else:
+            self.connection_id = uuid.uuid4()
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        ok_signals = [
+            self.name_le.textChanged,
+            self.url_le.textChanged,
+        ]
+        for signal in ok_signals:
+            signal.connect(self.update_ok_buttons)
+        self.test_connection_btn.clicked.connect(self.test_connection)
+        # disallow names that have a slash since that is not compatible with how we
+        # are storing plugin state in QgsSettings
+        self.name_le.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name_le))
+        self.update_ok_buttons()
 
-        self.name.textChanged.connect(self.update_ok_button)
-        self.url.textChanged.connect(self.update_ok_button)
+    def load_connection_settings(self, connection_settings: ConnectionSettings):
+        self.name_le.setText(connection_settings.name)
+        self.url_le.setText(connection_settings.base_url)
+        self.authcfg_acs.setConfigId(connection_settings.auth_config)
 
-        self.name.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name))
+    def get_connection_settings(self) -> ConnectionSettings:
+        return ConnectionSettings(
+            id=self.connection_id,
+            name=self.name_le.text().strip(),
+            base_url=self.url_le.text().strip(),
+            auth_config=self.authcfg_acs.configId(),
+        )
+
+    def test_connection(self):
+        for widget in self._widgets_to_toggle_during_connection_test:
+            widget.setEnabled(False)
+        self.geonode_client = GeonodeClient.from_connection_settings(
+            self.get_connection_settings()
+        )
+        self.geonode_client.layer_list_received.connect(
+            self.handle_connection_test_success
+        )
+        self.geonode_client.error_received.connect(self.handle_connection_test_error)
+        self.geonode_client.layer_list_received.connect(
+            self.enable_post_test_connection_buttons)
+        self.geonode_client.error_received.connect(
+            self.enable_post_test_connection_buttons)
+        self.geonode_client.get_layers()
+
+    def handle_connection_test_success(self, payload: typing.Union[typing.Dict, int]):
+        self.bar.pushMessage("Connection is valid", level=Qgis.Info)
+
+    def handle_connection_test_error(self, payload: typing.Union[typing.Dict, int]):
+        self.bar.pushMessage("Connection is not valid", level=Qgis.Critical)
+
+    def enable_post_test_connection_buttons(self):
+        for widget in self._widgets_to_toggle_during_connection_test:
+            widget.setEnabled(True)
+        self.update_ok_buttons()
 
     def accept(self):
-        """Add connection"""
+        connection_settings = self.get_connection_settings()
+        connections_manager.save_connection_settings(connection_settings)
+        connections_manager.set_current_connection(connection_settings.id)
+        super().accept()
 
-        connection_name = self.name.text().strip()
-        connection_url = self.url.text().strip()
-
-        if any([connection_name == "", connection_url == ""]):
-            return
-
-        if "/" in connection_name:
-            return
-
-        if connection_name is not None:
-            name = "{}/{}".format(self.base_group, connection_name)
-            url = "{}/url".format(name)
-
-            # When editing a connection, remove the old settings before adding new ones.
-            if self.connection_name and self.connection_name != connection_name:
-                self.settings.remove(
-                    "{}/{}".format(self.base_group, self.connection_name)
-                )
-
-            self.settings.setValue(url, connection_url)
-            self.settings.setValue(
-                "{}/selected".format(self.base_group), connection_name
-            )
-
-            if self.authConfigSelect.configId():
-                self.settings.setValue(
-                    "{}/authcfg".format(self.base_group),
-                    self.authConfigSelect.configId(),
-                )
-
-            QDialog.accept(self)
-
-    def reject(self):
-        QDialog.reject(self)
-
-    def set_connection_name(self, name):
-        if name:
-            self.connection_name = name
-            self.restore_auth_config
-
-    def update_ok_button(self):
-        enabled_state = self.name.text() != "" and self.url.text() != ""
+    def update_ok_buttons(self):
+        enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled_state)
-
-    def restore_auth_config(self):
-        authcfg = self.settings.value("{}/authcfg".format(self.base_group))
-        if authcfg:
-            self.authConfigSelect.setConfigId(authcfg)
+        self.test_connection_btn.setEnabled(enabled_state)
