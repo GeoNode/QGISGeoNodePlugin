@@ -64,7 +64,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         self.update_connections_combobox()
 
-        self.currentPage = 0
+        self.currentPage = 1
         self.totalLayers = 0
 
         self.search_btn.clicked.connect(self.searchGeonode)
