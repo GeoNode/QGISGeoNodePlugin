@@ -28,7 +28,8 @@ from qgis.PyQt.QtWidgets import (
 
 from ..utils import (
     log,
-    tr,
+    http_error_description,
+    tr
 )
 from ..api_client import GeonodeClient
 from ..conf import connections_manager
@@ -159,7 +160,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.search_geonode()
 
     def search_geonode(self):
-        # TODO: clear any previous results while the search is on-going
+        self.clear_search()
         self.search_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
         self.previous_btn.setEnabled(False)
@@ -177,9 +178,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
-        # FIXME: provide a better error description
         self.message_bar.pushMessage(
-            tr("Error searching, code {}").format(error), level=Qgis.Critical
+            tr("Error searching, {}").format(
+                http_error_description(error)
+            ), level=Qgis.Critical
         )
 
     def handle_layer_list(self, layer_list_payload: typing.Dict):
