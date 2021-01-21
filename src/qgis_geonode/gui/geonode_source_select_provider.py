@@ -6,17 +6,12 @@ from qgis.core import QgsProject, Qgis
 from qgis.gui import (
     QgsSourceSelectProvider,
     QgsAbstractDataSourceWidget,
-    QgsMessageBar,
+    QgsMessageBar
 )
 
 from qgis.PyQt.uic import loadUiType
-
 from qgis.PyQt.QtGui import QIcon
-
 from qgis.PyQt.QtCore import Qt
-
-from ..utils import tr
-from ..conf import connections_manager
 
 from qgis.PyQt.QtWidgets import (
     QMessageBox,
@@ -26,9 +21,11 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..gui.connection_dialog import ConnectionDialog
+from ..utils import tr
+from ..conf import connections_manager
 
-from qgis_geonode.apiclient.api_client import GeonodeClient
-from qgis_geonode.gui.search_result_widget import SearchResultWidget
+from ..api_client import GeonodeClient
+from ..gui.search_result_widget import SearchResultWidget
 
 
 WidgetUi, _ = loadUiType(
