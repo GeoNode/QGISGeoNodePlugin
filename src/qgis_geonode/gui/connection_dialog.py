@@ -8,7 +8,7 @@ from qgis.gui import QgsMessageBar
 from qgis.PyQt.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QSizePolicy,
+    QSizePolicy
 )
 from qgis.PyQt.QtGui import QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp
