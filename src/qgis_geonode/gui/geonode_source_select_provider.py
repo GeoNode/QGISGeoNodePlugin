@@ -4,9 +4,9 @@ import uuid
 
 from qgis.core import QgsProject, Qgis
 from qgis.gui import (
-    QgsSourceSelectProvider,
     QgsAbstractDataSourceWidget,
-    QgsMessageBar
+    QgsMessageBar,
+    QgsSourceSelectProvider
 )
 
 from qgis.PyQt.uic import loadUiType
@@ -16,8 +16,8 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QMessageBox,
     QSizePolicy,
-    QWidget,
-    QVBoxLayout
+    QVBoxLayout,
+    QWidget
 )
 
 from ..gui.connection_dialog import ConnectionDialog
