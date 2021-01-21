@@ -32,6 +32,6 @@ def classFactory(iface):  # pylint: disable=invalid-name
     :type iface: QgsInterface
     """
     #
-    from .qgisgeonode.main import QgisGeoNode
+    from .main import QgisGeoNode
 
     return QgisGeoNode(iface)

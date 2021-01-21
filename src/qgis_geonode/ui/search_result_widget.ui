@@ -18,7 +18,7 @@
     <widget class="QWidget" name="resource" native="true">
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QLabel" name="label_7">
+       <widget class="QLabel" name="name">
         <property name="text">
          <string>Resource</string>
         </property>
@@ -27,7 +27,7 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QLabel" name="label">
+         <widget class="QLabel" name="description">
           <property name="text">
            <string>Description</string>
           </property>
@@ -61,7 +61,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="btnSave_5">
+         <widget class="QPushButton" name="wms_btn">
           <property name="toolTip">
            <string>Save connections to file</string>
           </property>
@@ -71,7 +71,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnSave_7">
+         <widget class="QPushButton" name="wfs_btn">
           <property name="toolTip">
            <string>Save connections to file</string>
           </property>
@@ -81,7 +81,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnLoad_6">
+         <widget class="QPushButton" name="download_btn">
           <property name="toolTip">
            <string>Load connections from file</string>
           </property>
@@ -104,7 +104,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="btnSave_8">
+         <widget class="QPushButton" name="browser_btn">
           <property name="toolTip">
            <string>Save connections to file</string>
           </property>
@@ -114,7 +114,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnSave_9">
+         <widget class="QPushButton" name="remove_btn">
           <property name="toolTip">
            <string>Save connections to file</string>
           </property>
