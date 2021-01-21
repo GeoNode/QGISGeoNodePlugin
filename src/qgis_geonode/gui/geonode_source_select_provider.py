@@ -3,21 +3,19 @@ import typing
 import uuid
 
 from qgis.core import QgsProject, Qgis
-from qgis.gui import QgsSourceSelectProvider, QgsAbstractDataSourceWidget, QgsMessageBar
+from qgis.gui import QgsAbstractDataSourceWidget, QgsMessageBar, QgsSourceSelectProvider
 
-from qgis.PyQt.uic import loadUiType
-from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.uic import loadUiType
 
-from qgis.PyQt.QtWidgets import QMessageBox, QSizePolicy, QWidget, QVBoxLayout
-
-from ..gui.connection_dialog import ConnectionDialog
-from ..utils import tr
-from ..conf import connections_manager
+from qgis.PyQt.QtWidgets import QMessageBox, QSizePolicy, QVBoxLayout, QWidget
 
 from ..api_client import GeonodeClient
+from ..conf import connections_manager
+from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-
+from ..utils import tr
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/geonode_datasource_widget.ui")
