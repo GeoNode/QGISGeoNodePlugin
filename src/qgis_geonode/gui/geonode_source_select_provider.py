@@ -1,21 +1,41 @@
+import logging
+import math
 import os
 import typing
 import uuid
 
-from qgis.core import QgsProject, Qgis
-from qgis.gui import QgsAbstractDataSourceWidget, QgsMessageBar, QgsSourceSelectProvider
+from qgis.core import (
+    QgsProject,
+    Qgis,
+)
+from qgis.gui import (
+    QgsAbstractDataSourceWidget,
+    QgsMessageBar,
+    QgsSourceSelectProvider,
+)
 
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.uic import loadUiType
 
-from qgis.PyQt.QtWidgets import QMessageBox, QSizePolicy, QVBoxLayout, QWidget
+from qgis.PyQt.QtWidgets import (
+    QMessageBox,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+    QLabel,
+)
 
+from ..utils import (
+    log,
+    tr,
+)
 from ..api_client import GeonodeClient
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from ..utils import tr
+
+logger = logging.getLogger(__name__)
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/geonode_datasource_widget.ui")
@@ -54,17 +74,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
         self.toggle_connection_management_buttons()
-
         connections_manager.current_connection_changed.connect(
             self.update_connections_combobox
         )
-
         self.update_connections_combobox()
-
-        self.current_page = 1
-
-        self.search_btn.clicked.connect(self.search_geonode)
-
         current_connection = connections_manager.get_current_connection()
         if current_connection is None:
             existing_connections = connections_manager.list_connections()
@@ -73,20 +86,15 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 connections_manager.set_current_connection(current_connection.id)
         else:
             self.update_connections_combobox(str(current_connection.id))
-
-        self.next_btn.clicked.connect(self.search_geonode)
-        self.previous_btn.clicked.connect(self.search_geonode)
-
+        self.current_page = 1
+        self.search_btn.clicked.connect(self.search_geonode)
+        self.next_btn.clicked.connect(self.request_next_page)
+        self.previous_btn.clicked.connect(self.request_previous_page)
         self.next_btn.setEnabled(False)
         self.previous_btn.setEnabled(False)
-
         self.message_bar = QgsMessageBar()
         self.message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.layout().insertWidget(4, self.message_bar)
-
-        self.progress_message_bar = QgsMessageBar()
-        self.progress_message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.layout().insertWidget(5, self.progress_message_bar)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -142,81 +150,76 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         return confirmation == QMessageBox.Yes
 
-    def search_geonode(self, page=None):
+    def request_next_page(self):
+        self.current_page += 1
+        self.search_geonode()
 
-        sender_name = self.sender().objectName()
-        if sender_name == "next_btn":
-            self.current_page += 1
-            page = self.current_page
-        elif sender_name == "previous_btn":
-            self.current_page -= 1
-            page = self.current_page
-        else:
-            self.current_page = 1
-            self.progress_message_bar.clearWidgets()
-            self.message_bar.clearWidgets()
-            self.progress_message_bar.pushMessage(
-                tr("Searching for layers..."), level=Qgis.Info
-            )
+    def request_previous_page(self):
+        self.current_page = max(self.current_page - 1, 1)
+        self.search_geonode()
 
+    def search_geonode(self):
+        # TODO: clear any previous results while the search is on-going
+        self.search_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)
+        self.previous_btn.setEnabled(False)
+        self.message_bar.pushMessage(tr("Searching..."), level=Qgis.Info)
         connection_name = self.connections_cmb.currentText()
         connection = connections_manager.find_connection_by_name(connection_name)
+        client = GeonodeClient.from_connection_settings(connection)
+        # client.layer_list_received.connect(self.show_layers)
+        client.layer_list_received.connect(self.handle_layer_list)
+        client.layer_list_received.connect(self.handle_pagination)
 
-        geonode_client = GeonodeClient.from_connection_settings(connection)
-        geonode_client.layer_list_received.connect(self.show_layers)
-        geonode_client.error_received.connect(self.search_error)
-        geonode_client.get_layers(page=page)
+        client.error_received.connect(self.show_search_error)
+        client.get_layers(page=self.current_page)
 
-    def search_error(self, error):
-        self.progress_message_bar.clearWidgets()
+    def show_search_error(self, error):
         self.message_bar.clearWidgets()
+        self.search_btn.setEnabled(True)
+        # FIXME: provide a better error description
         self.message_bar.pushMessage(
             tr("Error searching, code {}").format(error), level=Qgis.Critical
         )
 
-    def show_layers(self, payload):
-
-        self.progress_message_bar.clearWidgets()
+    def handle_layer_list(self, layer_list_payload: typing.Dict):
         self.message_bar.clearWidgets()
-        self.progress_message_bar.pushMessage(
-            tr("Search completed..."), level=Qgis.Info, duration=1
-        )
+        self.search_btn.setEnabled(True)
+        layers = layer_list_payload["layers"]
+        if len(layers) > 0:
+            self.populate_scroll_area(layers)
 
-        if payload["layers"]:
-            self.next_btn.setEnabled(
-                self.current_page < int(payload["total"]) / int(payload["page_size"])
-            )
-            self.previous_btn.setEnabled(self.current_page > 1)
+    def handle_pagination(self, layer_list_payload: typing.Dict):
+        self.current_page = layer_list_payload.get("page", 1)
+        total_results = layer_list_payload.get("total", 0)
+        page_size = layer_list_payload.get("page_size", 10)
+        total_pages = math.ceil(total_results / page_size)
+        self.previous_btn.setEnabled(self.current_page > 1)
+        self.next_btn.setEnabled(self.current_page < total_pages)
+        if total_results > 0:
             self.resultsLabel.setText(
                 tr(
-                    "Showing page {} of {} layers".format(
-                        payload["page"], payload["total"]
+                    "Showing page {} of {} ({} results)".format(
+                        self.current_page, total_pages, total_results
                     )
                 )
             )
-            self.populate_scroll_area(payload)
-
         else:
-            self.resultsLabel.setText(tr("No layers found"))
+            self.resultsLabel.setText(tr("No results found"))
 
-        self.search_btn.setEnabled(True)
-
-    def populate_scroll_area(self, payload):
-        widget = QWidget()
-        vbox = QVBoxLayout()
-
-        for i in range(len(payload["layers"])):
-            result_widget = SearchResultWidget(
-                payload["layers"][i]["title"], payload["layers"][i]["abstract"]
+    def populate_scroll_area(self, layers: typing.List[typing.Dict]):
+        scroll_container = QWidget()
+        layout = QVBoxLayout()
+        for layer in layers:
+            search_result_widget = SearchResultWidget(
+                name=layer["title"], description=layer["abstract"]
             )
-            vbox.addWidget(result_widget)
-
-        widget.setLayout(vbox)
-
+            layout.addWidget(search_result_widget)
+        scroll_container.setLayout(layout)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(widget)
+        self.scroll_area.setWidget(scroll_container)
 
     def clear_search(self):
         self.scroll_area.setWidget(QWidget())

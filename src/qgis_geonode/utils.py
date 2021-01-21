@@ -1,4 +1,13 @@
+import typing
+
 from PyQt5.QtCore import QCoreApplication
+
+from qgis.core import QgsMessageLog, Qgis
+
+
+def log(message: str, name: str = "qgis_geonode", debug: bool = True):
+    level = Qgis.Info if debug else Qgis.Warning
+    QgsMessageLog.logMessage(message, name, level=level)
 
 
 def tr(text):

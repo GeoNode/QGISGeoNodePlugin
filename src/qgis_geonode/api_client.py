@@ -3,10 +3,7 @@ import json
 import typing
 from functools import partial
 
-from qgis.core import (
-    QgsMessageLog,
-    QgsNetworkContentFetcherTask,
-)
+from qgis.core import QgsNetworkContentFetcherTask
 from qgis.PyQt.QtCore import (
     QByteArray,
     QObject,
@@ -16,7 +13,8 @@ from qgis.PyQt.QtCore import (
 )
 from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 
-from qgis_geonode.conf import ConnectionSettings
+from .conf import ConnectionSettings
+from .utils import log
 
 
 class GeonodeApiEndpoint(enum.Enum):
@@ -105,19 +103,15 @@ class GeonodeClient(QObject):
         reply: QNetworkReply = task.reply()
         error = reply.error()
         if error == QNetworkReply.NoError:
-            QgsMessageLog.logMessage("no error received", "qgis_geonode")
+            log("no error received")
             contents: QByteArray = reply.readAll()
-            QgsMessageLog.logMessage(f"contents: {contents}", "qgis_geonode")
+            log(f"contents: {contents}")
             decoded_contents: str = contents.data().decode()
-            QgsMessageLog.logMessage(
-                f"decoded_contents: {decoded_contents}", "qgis_geonode"
-            )
+            log(f"decoded_contents: {decoded_contents}")
             payload: typing.Dict = json.loads(decoded_contents)
-            QgsMessageLog.logMessage(f"payload: {payload}", "qgis_geonode")
-            QgsMessageLog.logMessage(
-                f"about to emit {signal_to_emit}...", "qgis_geonode"
-            )
+            log(f"payload: {payload}")
+            log(f"about to emit {signal_to_emit}...")
             signal_to_emit.emit(payload)
         else:
-            QgsMessageLog.logMessage("received error", "qgis_geonode")
+            log("received error")
             self.error_received.emit(error)

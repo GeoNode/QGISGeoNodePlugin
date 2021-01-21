@@ -1,8 +1,9 @@
 import os
 
+from qgis.PyQt.QtWidgets import QWidget
 from qgis.PyQt.uic import loadUiType
 
-from qgis.PyQt.QtWidgets import QWidget
+from ..resources import *
 
 
 WidgetUi, _ = loadUiType(
@@ -12,6 +13,7 @@ WidgetUi, _ = loadUiType(
 
 class SearchResultWidget(QWidget, WidgetUi):
     def __init__(self, name, description, parent=None):
-        super(SearchResultWidget, self).__init__(parent)
-        self.name = name
-        self.description = description
+        super().__init__(parent)
+        self.setupUi(self)
+        self.name_la.setText(name)
+        self.description_la.setText(description)

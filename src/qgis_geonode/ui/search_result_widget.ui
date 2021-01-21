@@ -18,7 +18,7 @@
     <widget class="QWidget" name="resource" native="true">
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QLabel" name="name">
+       <widget class="QLabel" name="name_la">
         <property name="text">
          <string>Resource</string>
         </property>
@@ -27,7 +27,7 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QLabel" name="description">
+         <widget class="QLabel" name="description_la">
           <property name="text">
            <string>Description</string>
           </property>
