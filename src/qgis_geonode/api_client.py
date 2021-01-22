@@ -178,7 +178,9 @@ class GeonodeClient(QObject):
     def get_layer_styles(self, layer_id: int):
         """Slot to retrieve layer styles available in GeoNode"""
         request = QNetworkRequest(
-            QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_DETAILS.value}{layer_id}/styles/")
+            QUrl(
+                f"{self.base_url}{GeonodeApiEndpoint.LAYER_DETAILS.value}{layer_id}/styles/"
+            )
         )
         self.run_task(request, self.handle_layer_style_list)
 
@@ -200,7 +202,7 @@ class GeonodeClient(QObject):
         task.run()
 
     def response_fetched(
-            self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
+        self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
     ):
         """Process GeoNode API response and dispatch the appropriate handler"""
         reply: QNetworkReply = task.reply()
@@ -219,7 +221,8 @@ class GeonodeClient(QObject):
         for item in payload.get("layers", []):
             layers.append(BriefGeonodeResource.from_api_response(item, self.base_url))
         self.layer_list_received.emit(
-            layers, payload["total"], payload["page"], payload["page_size"])
+            layers, payload["total"], payload["page"], payload["page_size"]
+        )
 
     def handle_layer_detail(self, payload: typing.Dict):
         layer = GeonodeResource.from_api_response(payload["layer"], self.base_url)
@@ -234,10 +237,10 @@ class GeonodeClient(QObject):
     def handle_map_list(self, payload: typing.Dict):
         maps = []
         for item in payload.get("maps", []):
-            maps.append(BriefGeonodeResource.from_api_response(
-                item, self.base_url))
+            maps.append(BriefGeonodeResource.from_api_response(item, self.base_url))
         self.map_list_received.emit(
-            maps, payload["total"], payload["page"], payload["page_size"])
+            maps, payload["total"], payload["page"], payload["page_size"]
+        )
 
 
 def _get_temporal_extent(

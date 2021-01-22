@@ -27,11 +27,6 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
 )
 
-from ..utils import (
-    enum_mapping,
-    log,
-    tr
-)
 from ..api_client import (
     GeonodeClient,
     BriefGeonodeResource,
@@ -39,6 +34,7 @@ from ..api_client import (
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
+from ..utils import enum_mapping, log, tr
 
 logger = logging.getLogger(__name__)
 
@@ -182,20 +178,20 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
-        network_error_enum = enum_mapping(
-            QNetworkReply,
-            QNetworkReply.NetworkError
-        )
+        network_error_enum = enum_mapping(QNetworkReply, QNetworkReply.NetworkError)
         self.message_bar.pushMessage(
             tr("Problem in searching, network error {} - {}").format(
-                error,
-                network_error_enum[error]
-            ), level=Qgis.Critical
+                error, network_error_enum[error]
+            ),
+            level=Qgis.Critical,
         )
 
     def handle_layer_list(
-            self, layer_list: typing.List[BriefGeonodeResource],
-            total_records: int, current_page: int, page_size: int
+        self,
+        layer_list: typing.List[BriefGeonodeResource],
+        total_records: int,
+        current_page: int,
+        page_size: int,
     ):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
@@ -203,8 +199,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             self.populate_scroll_area(layer_list)
 
     def handle_pagination(
-            self, layer_list: typing.List[BriefGeonodeResource],
-            total_records: int, current_page: int, page_size: int
+        self,
+        layer_list: typing.List[BriefGeonodeResource],
+        total_records: int,
+        current_page: int,
+        page_size: int,
     ):
         self.current_page = current_page
         total_pages = math.ceil(total_records / page_size)
