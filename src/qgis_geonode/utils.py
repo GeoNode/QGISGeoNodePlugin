@@ -19,10 +19,13 @@ def tr(text):
     return QCoreApplication.translate("QgisGeoNode", text)
 
 
-# workaround on accessing unsubscriptable sip enum types
-# from https://stackoverflow.com/a/39677321
-
 def enum_mapping(cls, enum):
+    """workaround for accessing unsubscriptable sip enum types
+
+    from https://stackoverflow.com/a/39677321
+
+    """
+
     mapping = {}
     for key in dir(cls):
         value = getattr(cls, key)

@@ -27,15 +27,14 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
 )
 
-from ..utils import (
-    enum_mapping,
-    log,
-    tr
+from ..api_client import (
+    GeonodeClient,
+    BriefGeonodeResource,
 )
-from ..api_client import GeonodeClient
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
+from ..utils import enum_mapping, log, tr
 
 logger = logging.getLogger(__name__)
 
@@ -179,49 +178,53 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
-        network_error_enum = enum_mapping(
-            QNetworkReply,
-            QNetworkReply.NetworkError
-        )
+        network_error_enum = enum_mapping(QNetworkReply, QNetworkReply.NetworkError)
         self.message_bar.pushMessage(
             tr("Problem in searching, network error {} - {}").format(
-                error,
-                network_error_enum[error]
-            ), level=Qgis.Critical
+                error, network_error_enum[error]
+            ),
+            level=Qgis.Critical,
         )
 
-    def handle_layer_list(self, layer_list_payload: typing.Dict):
+    def handle_layer_list(
+        self,
+        layer_list: typing.List[BriefGeonodeResource],
+        total_records: int,
+        current_page: int,
+        page_size: int,
+    ):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
-        layers = layer_list_payload["layers"]
-        if len(layers) > 0:
-            self.populate_scroll_area(layers)
+        if len(layer_list) > 0:
+            self.populate_scroll_area(layer_list)
 
-    def handle_pagination(self, layer_list_payload: typing.Dict):
-        self.current_page = layer_list_payload.get("page", 1)
-        total_results = layer_list_payload.get("total", 0)
-        page_size = layer_list_payload.get("page_size", 10)
-        total_pages = math.ceil(total_results / page_size)
+    def handle_pagination(
+        self,
+        layer_list: typing.List[BriefGeonodeResource],
+        total_records: int,
+        current_page: int,
+        page_size: int,
+    ):
+        self.current_page = current_page
+        total_pages = math.ceil(total_records / page_size)
         self.previous_btn.setEnabled(self.current_page > 1)
         self.next_btn.setEnabled(self.current_page < total_pages)
-        if total_results > 0:
+        if total_records > 0:
             self.resultsLabel.setText(
                 tr(
                     "Showing page {} of {} ({} results)".format(
-                        self.current_page, total_pages, total_results
+                        self.current_page, total_pages, total_records
                     )
                 )
             )
         else:
             self.resultsLabel.setText(tr("No results found"))
 
-    def populate_scroll_area(self, layers: typing.List[typing.Dict]):
+    def populate_scroll_area(self, layers: typing.List[BriefGeonodeResource]):
         scroll_container = QWidget()
         layout = QVBoxLayout()
         for layer in layers:
-            search_result_widget = SearchResultWidget(
-                name=layer["title"], description=layer["abstract"]
-            )
+            search_result_widget = SearchResultWidget(geonode_resource=layer)
             layout.addWidget(search_result_widget)
         scroll_container.setLayout(layout)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)

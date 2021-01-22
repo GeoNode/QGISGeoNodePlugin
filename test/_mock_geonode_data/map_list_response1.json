@@ -1,0 +1,176 @@
+{
+	"links": {
+		"next": "https://master.demo.geonode.org/api/v2/maps?format=json&page=2&page_size=2",
+		"previous": null
+	},
+	"total": 8,
+	"page": 1,
+	"page_size": 2,
+	"maps": [{
+		"pk": "43",
+		"uuid": "beb15732-564f-11eb-8d42-0242ac150007",
+		"zoom": 9,
+		"projection": "EPSG:3857",
+		"center_x": -3.66980212538964,
+		"center_y": 40.4455067879913,
+		"urlsuffix": "",
+		"featuredurl": "",
+		"resource_type": "map",
+		"polymorphic_ctype_id": "62",
+		"owner": {
+			"pk": 1024,
+			"username": "majid",
+			"first_name": "",
+			"last_name": "",
+			"avatar": "https://www.gravatar.com/avatar/a15b0fb3ad3665f33505d034e1bc86f8/?s=240"
+		},
+		"poc": {
+			"pk": 1024,
+			"username": "majid",
+			"first_name": "",
+			"last_name": "",
+			"avatar": "https://www.gravatar.com/avatar/a15b0fb3ad3665f33505d034e1bc86f8/?s=240"
+		},
+		"metadata_author": {
+			"pk": 1024,
+			"username": "majid",
+			"first_name": "",
+			"last_name": "",
+			"avatar": "https://www.gravatar.com/avatar/a15b0fb3ad3665f33505d034e1bc86f8/?s=240"
+		},
+		"title": "test",
+		"abstract": "test",
+		"attribution": null,
+		"doi": null,
+		"alternate": null,
+		"date": "2021-01-14T10:03:26.227889Z",
+		"date_type": "publication",
+		"temporal_extent_start": null,
+		"temporal_extent_end": null,
+		"edition": null,
+		"purpose": null,
+		"maintenance_frequency": null,
+		"constraints_other": null,
+		"language": "eng",
+		"supplemental_information": "No information provided",
+		"data_quality_statement": null,
+		"bbox_polygon": {
+			"type": "Polygon",
+			"coordinates": [
+				[
+					[-1.373323982018389, -0.960940319318705],
+					[-1.373323982018389, 0.961666975657133],
+					[1.373258049231611, 0.961666975657133],
+					[1.373258049231611, -0.960940319318705],
+					[-1.373323982018389, -0.960940319318705]
+				]
+			]
+		},
+		"srid": "EPSG:4326",
+		"group": null,
+		"popular_count": "47",
+		"share_count": "0",
+		"rating": "0",
+		"featured": false,
+		"is_published": true,
+		"is_approved": true,
+		"thumbnail_url": "https://master.demo.geonode.org/static/thumbs/map-beb15732-564f-11eb-8d42-0242ac150007-thumb.475846f1b6aa.png?v=cc5d9094",
+		"detail_url": "/maps/43",
+		"created": "2021-01-14T10:03:26.270019Z",
+		"last_updated": "2021-01-15T16:54:27.012471Z",
+		"keywords": [],
+		"regions": [{
+			"code": "GLO",
+			"name": "Global"
+		}],
+		"category": null,
+		"restriction_code_type": null,
+		"license": {
+			"identifier": "not_specified"
+		},
+		"spatial_representation_type": null
+	}, {
+		"pk": "70",
+		"uuid": "c5448d9e-5807-11eb-867c-0242ac150007",
+		"zoom": 6,
+		"projection": "EPSG:3857",
+		"center_x": 108.298542308941,
+		"center_y": 3.97606421856882,
+		"urlsuffix": "",
+		"featuredurl": "",
+		"resource_type": "map",
+		"polymorphic_ctype_id": "62",
+		"owner": {
+			"pk": 1011,
+			"username": "ikaatika",
+			"first_name": "",
+			"last_name": "",
+			"avatar": "https://www.gravatar.com/avatar/8c3de20bf80b247d329f77917914cd93/?s=240"
+		},
+		"poc": {
+			"pk": 1011,
+			"username": "ikaatika",
+			"first_name": "",
+			"last_name": "",
+			"avatar": "https://www.gravatar.com/avatar/8c3de20bf80b247d329f77917914cd93/?s=240"
+		},
+		"metadata_author": {
+			"pk": 1011,
+			"username": "ikaatika",
+			"first_name": "",
+			"last_name": "",
+			"avatar": "https://www.gravatar.com/avatar/8c3de20bf80b247d329f77917914cd93/?s=240"
+		},
+		"title": "AIRPORT",
+		"abstract": "test",
+		"attribution": null,
+		"doi": null,
+		"alternate": null,
+		"date": "2021-01-16T14:33:15.904178Z",
+		"date_type": "publication",
+		"temporal_extent_start": null,
+		"temporal_extent_end": null,
+		"edition": null,
+		"purpose": null,
+		"maintenance_frequency": null,
+		"constraints_other": null,
+		"language": "eng",
+		"supplemental_information": "No information provided",
+		"data_quality_statement": null,
+		"bbox_polygon": {
+			"type": "Polygon",
+			"coordinates": [
+				[
+					[-10.985355262641962, -7.690393965001899],
+					[-10.985355262641962, 7.690465400187064],
+					[10.987300987358042, 7.690465400187064],
+					[10.987300987358042, -7.690393965001899],
+					[-10.985355262641962, -7.690393965001899]
+				]
+			]
+		},
+		"srid": "EPSG:4326",
+		"group": null,
+		"popular_count": "5",
+		"share_count": "0",
+		"rating": "0",
+		"featured": false,
+		"is_published": true,
+		"is_approved": true,
+		"thumbnail_url": "https://master.demo.geonode.org/static/thumbs/map-c5448d9e-5807-11eb-867c-0242ac150007-thumb.0166afa7cc34.png?v=1dbc3c48",
+		"detail_url": "/maps/70",
+		"created": "2021-01-16T14:33:15.946319Z",
+		"last_updated": "2021-01-16T14:33:47.051858Z",
+		"keywords": [],
+		"regions": [{
+			"code": "GLO",
+			"name": "Global"
+		}],
+		"category": null,
+		"restriction_code_type": null,
+		"license": {
+			"identifier": "not_specified"
+		},
+		"spatial_representation_type": null
+	}]
+}
