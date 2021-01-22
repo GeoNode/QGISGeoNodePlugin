@@ -15,6 +15,7 @@ from qgis.gui import (
 )
 
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtNetwork import QNetworkReply
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.uic import loadUiType
 
@@ -27,8 +28,8 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..utils import (
+    enum_mapping,
     log,
-    http_error_description,
     tr
 )
 from ..api_client import GeonodeClient
@@ -178,9 +179,14 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
+        network_error_enum = enum_mapping(
+            QNetworkReply,
+            QNetworkReply.NetworkError
+        )
         self.message_bar.pushMessage(
-            tr("Error searching, {}").format(
-                http_error_description(error)
+            tr("Problem in searching, network error {} - {}").format(
+                error,
+                network_error_enum[error]
             ), level=Qgis.Critical
         )
 
