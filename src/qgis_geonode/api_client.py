@@ -45,17 +45,24 @@ class BriefGeonodeResource:
     detail_url: str
     keywords: typing.List[str]
     category: typing.Optional[str]
-
+    service_urls: typing.Dict[str, str]
 
     def __init__(
-            self, pk: int, uuid: uuid.UUID, name: str,
-            resource_type: GeonodeResourceType, title: str, abstract: str,
-            spatial_extent: QgsRectangle, crs: QgsCoordinateReferenceSystem,
-            thumbnail_url: str, detail_url: str,
-            published_date: typing.Optional[dt.datetime] = None,
-            temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
-            keywords: typing.Optional[typing.List[str]] = None,
-            category: typing.Optional[str] = None,
+        self,
+        pk: int,
+        uuid: uuid.UUID,
+        name: str,
+        resource_type: GeonodeResourceType,
+        title: str,
+        abstract: str,
+        spatial_extent: QgsRectangle,
+        crs: QgsCoordinateReferenceSystem,
+        thumbnail_url: str,
+        detail_url: str,
+        published_date: typing.Optional[dt.datetime] = None,
+        temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
+        keywords: typing.Optional[typing.List[str]] = None,
+        category: typing.Optional[str] = None,
     ):
         self.pk = pk
         self.uuid = uuid
@@ -71,6 +78,7 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
+        self.service_urls = {}
 
     @classmethod
     def from_api_response(cls, payload: typing.Dict):
@@ -82,14 +90,13 @@ class BriefGeonodeResource:
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
             spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
-            crs=QgsCoordinateReferenceSystem(
-                payload["srid"].replace("EPSG:", "")),
+            crs=QgsCoordinateReferenceSystem(payload["srid"].replace("EPSG:", "")),
             thumbnail_url=payload["thumbnail_url"],
             detail_url=payload["detail_url"],
             published_date=_get_published_date(payload),
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("kaywords", [])],
-            category=payload.get("category")
+            category=payload.get("category"),
         )
 
 
@@ -194,12 +201,11 @@ class GeonodeClient(QObject):
         for item in payload.get("layers", []):
             layers.append(BriefGeonodeResource.from_api_response(item))
         self.new_layer_list_received.emit(
-            layers, payload["total"], payload["page"], payload["page_size"])
+            layers, payload["total"], payload["page"], payload["page_size"]
+        )
 
     def new_response_fetched(
-            self,
-            task: QgsNetworkContentFetcherTask,
-            handler: typing.Callable
+        self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
     ):
         """Process GeoNode API response and emit the appropriate signal"""
         reply: QNetworkReply = task.reply()
@@ -241,13 +247,12 @@ class GeonodeClient(QObject):
 
 
 def _get_temporal_extent(
-        payload: typing.Dict
+    payload: typing.Dict,
 ) -> typing.Optional[typing.List[typing.Optional[dt.datetime]]]:
     start = payload["temporal_extent_start"]
     end = payload["temporal_extent_end"]
     if start is not None and end is not None:
-        result = [
-            dt.datetime.fromisoformat(start), dt.datetime.fromisoformat(end)]
+        result = [dt.datetime.fromisoformat(start), dt.datetime.fromisoformat(end)]
     elif start is not None and end is None:
         result = [dt.datetime.fromisoformat(start), None]
     elif start is None and end is not None:
@@ -265,15 +270,14 @@ def _get_published_date(payload: typing.Dict) -> typing.Optional[dt.datetime]:
     return result
 
 
-def _get_resource_type(
-        payload: typing.Dict) -> typing.Optional[GeonodeResourceType]:
+def _get_resource_type(payload: typing.Dict) -> typing.Optional[GeonodeResourceType]:
     resource_type = payload["resource_type"]
     if resource_type == "map":
         result = GeonodeResourceType.MAP
     elif resource_type == "layer":
         result = {
             "coverageStore": GeonodeResourceType.RASTER_LAYER,
-            "dataStore": GeonodeResourceType.VECTOR_LAYER
+            "dataStore": GeonodeResourceType.VECTOR_LAYER,
         }.get(payload.get("storeType"))
     else:
         result = None
