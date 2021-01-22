@@ -1,19 +1,43 @@
+import logging
+import math
 import os
 import typing
 import uuid
 
-from qgis.core import QgsProject
-from qgis.gui import QgsSourceSelectProvider, QgsAbstractDataSourceWidget
+from qgis.core import (
+    QgsProject,
+    Qgis,
+)
+from qgis.gui import (
+    QgsAbstractDataSourceWidget,
+    QgsMessageBar,
+    QgsSourceSelectProvider,
+)
 
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtNetwork import QNetworkReply
+from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.uic import loadUiType
 
-from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QMessageBox
+from qgis.PyQt.QtWidgets import (
+    QMessageBox,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+    QLabel,
+)
 
-from ..utils import tr
+from ..utils import (
+    enum_mapping,
+    log,
+    tr
+)
+from ..api_client import GeonodeClient
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
+from ..gui.search_result_widget import SearchResultWidget
 
+logger = logging.getLogger(__name__)
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/geonode_datasource_widget.ui")
@@ -52,11 +76,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
         self.toggle_connection_management_buttons()
-
         connections_manager.current_connection_changed.connect(
             self.update_connections_combobox
         )
-
+        self.update_connections_combobox()
         current_connection = connections_manager.get_current_connection()
         if current_connection is None:
             existing_connections = connections_manager.list_connections()
@@ -65,6 +88,15 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 connections_manager.set_current_connection(current_connection.id)
         else:
             self.update_connections_combobox(str(current_connection.id))
+        self.current_page = 1
+        self.search_btn.clicked.connect(self.search_geonode)
+        self.next_btn.clicked.connect(self.request_next_page)
+        self.previous_btn.clicked.connect(self.request_previous_page)
+        self.next_btn.setEnabled(False)
+        self.previous_btn.setEnabled(False)
+        self.message_bar = QgsMessageBar()
+        self.message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.layout().insertWidget(4, self.message_bar)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -110,10 +142,95 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnEdit.setEnabled(enabled)
         self.btnDelete.setEnabled(enabled)
         self.search_btn.setEnabled(enabled)
+        self.clear_search()
 
     def _confirm_deletion(self, connection_name: str):
         message = tr('Remove the following connection "{}"?').format(connection_name)
         confirmation = QMessageBox.warning(
             self, tr("QGIS GeoNode"), message, QMessageBox.Yes, QMessageBox.No
         )
+
         return confirmation == QMessageBox.Yes
+
+    def request_next_page(self):
+        self.current_page += 1
+        self.search_geonode()
+
+    def request_previous_page(self):
+        self.current_page = max(self.current_page - 1, 1)
+        self.search_geonode()
+
+    def search_geonode(self):
+        self.clear_search()
+        self.search_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)
+        self.previous_btn.setEnabled(False)
+        self.message_bar.pushMessage(tr("Searching..."), level=Qgis.Info)
+        connection_name = self.connections_cmb.currentText()
+        connection = connections_manager.find_connection_by_name(connection_name)
+        client = GeonodeClient.from_connection_settings(connection)
+        # client.layer_list_received.connect(self.show_layers)
+        client.layer_list_received.connect(self.handle_layer_list)
+        client.layer_list_received.connect(self.handle_pagination)
+
+        client.error_received.connect(self.show_search_error)
+        client.get_layers(page=self.current_page)
+
+    def show_search_error(self, error):
+        self.message_bar.clearWidgets()
+        self.search_btn.setEnabled(True)
+        network_error_enum = enum_mapping(
+            QNetworkReply,
+            QNetworkReply.NetworkError
+        )
+        self.message_bar.pushMessage(
+            tr("Problem in searching, network error {} - {}").format(
+                error,
+                network_error_enum[error]
+            ), level=Qgis.Critical
+        )
+
+    def handle_layer_list(self, layer_list_payload: typing.Dict):
+        self.message_bar.clearWidgets()
+        self.search_btn.setEnabled(True)
+        layers = layer_list_payload["layers"]
+        if len(layers) > 0:
+            self.populate_scroll_area(layers)
+
+    def handle_pagination(self, layer_list_payload: typing.Dict):
+        self.current_page = layer_list_payload.get("page", 1)
+        total_results = layer_list_payload.get("total", 0)
+        page_size = layer_list_payload.get("page_size", 10)
+        total_pages = math.ceil(total_results / page_size)
+        self.previous_btn.setEnabled(self.current_page > 1)
+        self.next_btn.setEnabled(self.current_page < total_pages)
+        if total_results > 0:
+            self.resultsLabel.setText(
+                tr(
+                    "Showing page {} of {} ({} results)".format(
+                        self.current_page, total_pages, total_results
+                    )
+                )
+            )
+        else:
+            self.resultsLabel.setText(tr("No results found"))
+
+    def populate_scroll_area(self, layers: typing.List[typing.Dict]):
+        scroll_container = QWidget()
+        layout = QVBoxLayout()
+        for layer in layers:
+            search_result_widget = SearchResultWidget(
+                name=layer["title"], description=layer["abstract"]
+            )
+            layout.addWidget(search_result_widget)
+        scroll_container.setLayout(layout)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(scroll_container)
+
+    def clear_search(self):
+        self.scroll_area.setWidget(QWidget())
+        self.resultsLabel.clear()
+        self.previous_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)

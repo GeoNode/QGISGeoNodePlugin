@@ -5,11 +5,7 @@ import uuid
 
 from qgis.core import Qgis
 from qgis.gui import QgsMessageBar
-from qgis.PyQt.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QSizePolicy,
-)
+from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox, QSizePolicy
 from qgis.PyQt.QtGui import QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp
 from qgis.PyQt.uic import loadUiType

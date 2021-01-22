@@ -105,7 +105,7 @@
    <item>
     <widget class="QgsCollapsibleGroupBox" name="mGroupBox">
      <property name="enabled">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="title">
       <string>Search Items</string>
@@ -115,6 +115,9 @@
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
          <widget class="QLabel" name="label">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>Free Text</string>
           </property>
@@ -139,13 +142,20 @@
        <layout class="QHBoxLayout" name="horizontalLayout_6">
         <item>
          <widget class="QLabel" name="label_3">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>Keywords</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBox_2"/>
+         <widget class="QComboBox" name="comboBox_2">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -153,13 +163,20 @@
        <layout class="QHBoxLayout" name="horizontalLayout_5">
         <item>
          <widget class="QLabel" name="label_2">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>Topic Category</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBox"/>
+         <widget class="QComboBox" name="comboBox">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -167,13 +184,20 @@
        <layout class="QHBoxLayout" name="horizontalLayout_8">
         <item>
          <widget class="QLabel" name="label_5">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>Resource type</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBox_4"/>
+         <widget class="QComboBox" name="comboBox_4">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -181,13 +205,20 @@
        <layout class="QHBoxLayout" name="horizontalLayout_7">
         <item>
          <widget class="QLabel" name="label_4">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>Start</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBox_3"/>
+         <widget class="QComboBox" name="comboBox_3">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -195,13 +226,20 @@
        <layout class="QHBoxLayout" name="horizontalLayout_9">
         <item>
          <widget class="QLabel" name="label_6">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>End</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="comboBox_5"/>
+         <widget class="QComboBox" name="comboBox_5">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -210,6 +248,9 @@
       </item>
       <item>
        <widget class="QgsCollapsibleGroupBox" name="mGroupBox_2">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="title">
          <string>Spatial Extent</string>
         </property>
@@ -291,49 +332,50 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="label_8">
+      <widget class="QLabel" name="resultsLabel">
        <property name="text">
-        <string>Showing results label</string>
+        <string/>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btnSave_5">
+      <widget class="QPushButton" name="previous_btn">
        <property name="toolTip">
-        <string>Save connections to file</string>
-       </property>
-       <property name="text">
-        <string>Next</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnLoad_6">
-       <property name="toolTip">
-        <string>Load connections from file</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to previous page&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
         <string>Previous</string>
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="next_btn">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to next page&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Next</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
-    <widget class="QListWidget" name="listWidget"/>
-   </item>
-   <item>
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
+    <widget class="QScrollArea" name="scroll_area">
+     <property name="widgetResizable">
+      <bool>true</bool>
      </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>770</width>
+        <height>74</height>
+       </rect>
+      </property>
+     </widget>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_13">
@@ -383,6 +425,11 @@
     </widget>
    </item>
   </layout>
+  <zorder>scroll_area</zorder>
+  <zorder>groupBox</zorder>
+  <zorder>mGroupBox</zorder>
+  <zorder>search_btn</zorder>
+  <zorder>buttonBox</zorder>
  </widget>
  <customwidgets>
   <customwidget>
