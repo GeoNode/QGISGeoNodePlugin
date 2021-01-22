@@ -1,0 +1,11 @@
+{
+	"styles": [{
+		"pk": 231,
+		"name": "TEMPERATURASMINENERO2030",
+		"workspace": "geonode",
+		"sld_title": null,
+		"sld_body": "b'<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<StyledLayerDescriptor xmlns=\"http://www.opengis.net/sld\" xmlns:gml=\"http://www.opengis.net/gml\" version=\"1.0.0\" xmlns:sld=\"http://www.opengis.net/sld\" xmlns:ogc=\"http://www.opengis.net/ogc\">\\n  <UserLayer>\\n    <sld:LayerFeatureConstraints>\\n      <sld:FeatureTypeConstraint/>\\n    </sld:LayerFeatureConstraints>\\n    <sld:UserStyle>\\n      <sld:Name>TEMPERATURASMINENERO2030</sld:Name>\\n      <sld:FeatureTypeStyle>\\n        <sld:Rule>\\n          <sld:RasterSymbolizer>\\n            <sld:ChannelSelection>\\n              <sld:GrayChannel>\\n                <sld:SourceChannelName>1</sld:SourceChannelName>\\n              </sld:GrayChannel>\\n            </sld:ChannelSelection>\\n            <sld:ColorMap type=\"intervals\">\\n              <sld:ColorMapEntry color=\"#132e58\" quantity=\"-49\" label=\"&lt;= -4.90\"/>\\n              <sld:ColorMapEntry color=\"#18558b\" quantity=\"-32\" label=\"-4.89 - -3.2\"/>\\n              <sld:ColorMapEntry color=\"#127ebd\" quantity=\"-1\" label=\"-3.19 - -1.00\"/>\\n              <sld:ColorMapEntry color=\"#55c5d3\" quantity=\"5\" label=\"-0.09 - 0.5\"/>\\n              <sld:ColorMapEntry color=\"#aefdf4\" quantity=\"17\" label=\"0.51 - 1.70\"/>\\n              <sld:ColorMapEntry color=\"#c7fd7e\" quantity=\"40\" label=\"1.71 - 4.00\"/>\\n              <sld:ColorMapEntry color=\"#83e611\" quantity=\"50\" label=\"4.01 - 5.00\"/>\\n              <sld:ColorMapEntry color=\"#6baa14\" quantity=\"83\" label=\"5.01 - 8.30\"/>\\n              <sld:ColorMapEntry color=\"#517317\" quantity=\"120\" label=\"8.31 - 12.00\"/>\\n              <sld:ColorMapEntry color=\"#337208\" quantity=\"187\" label=\"12.01 - 18.70\"/>\\n            </sld:ColorMap>\\n          </sld:RasterSymbolizer>\\n        </sld:Rule>\\n      </sld:FeatureTypeStyle>\\n    </sld:UserStyle>\\n  </UserLayer>\\n</StyledLayerDescriptor>\\n'",
+		"sld_version": null,
+		"sld_url": "http://geoserver:8080/geoserver/rest/workspaces/geonode/styles/TEMPERATURASMINENERO2030.sld"
+	}]
+}

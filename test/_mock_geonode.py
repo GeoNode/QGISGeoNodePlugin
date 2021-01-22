@@ -18,52 +18,25 @@ def _mock_layer_list():
         return result
 
 
-@geonode_flask_app.route("/api/v2/layers/<id>/")
-def _mock_layer_details(id):
-    id = int(id)
-    style = {
-        "pk": 1,
-        "name": "test_style",
-        "workspace": "test",
-        "sld_title": "",
-        "sld_body": "",
-        "sld_version": "",
-        "sld_url": "http://testUrl",
-    }
-    layers = [
-        {"pk": 1, "default_style": {}, "styles": [style]},
-        {"pk": 2, "default_style": {}, "styles": [style]},
-    ]
-
-    for layer in layers:
-        if id == layer["pk"]:
-            return {"layer": layer}
-
-    return {"detail": "Not found."}
+@geonode_flask_app.route("/api/v2/layers/<pk>/")
+def _mock_layer_details(pk):
+    data_path = ROOT / "layer_detail_response1.json"
+    with data_path.open() as fh:
+        result = json.load(fh)
+        return result
 
 
-@geonode_flask_app.route("/api/v2/layers/<id>/styles/")
-def _mock_layer_styles(id):
-    return {
-        "styles": [
-            {
-                "pk": 1,
-                "name": "test_style",
-                "workspace": "test",
-                "sld_title": "",
-                "sld_body": "",
-                "sld_version": "",
-                "sld_url": "http://testUrl",
-            }
-        ]
-    }
+@geonode_flask_app.route("/api/v2/layers/<layer_id>/styles/")
+def _mock_layer_styles(layer_id):
+    data_path = ROOT / "layer_style_list_response1.json"
+    with data_path.open() as fh:
+        result = json.load(fh)
+        return result
 
 
 @geonode_flask_app.route("/api/v2/maps/")
 def _mock_map_list():
-    return {
-        "links": {"next": "", "previous": ""},
-        "page": 1,
-        "page_size": 10,
-        "maps": [{"pk": "1"}],
-    }
+    data_path = ROOT / "map_list_response1.json"
+    with data_path.open() as fh:
+        result = json.load(fh)
+        return result

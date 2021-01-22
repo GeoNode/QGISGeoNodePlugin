@@ -7,7 +7,7 @@ from qgis_geonode import api_client
 SIGNAL_TIMEOUT = 5  # seconds
 
 
-class NewResponseCollector:
+class ResponseCollector:
     """This class is used solely for capturing the contents of the
     `GeonodeClient`-emitted signals.
 
@@ -23,33 +23,13 @@ class NewResponseCollector:
         self.received_response = response_args
 
 
-class ResponseCollector:
-    """This class is used solely for capturing the contents of the
-    `GeonodeClient`-emitted signals.
-
-    """
-
-    received_response: typing.Optional[typing.Dict]
-
-    def __init__(self):
-        self.received_response = None
-
-    def collect_response(self, payload):
-        print(f"received_response: {payload}")
-        self.received_response = payload
-
-
 @pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
-def test_new_layer_list(qtbot, qgis_application, mock_geonode_server, page):
-    app = NewResponseCollector()
-    client = api_client.GeonodeClient(
-        base_url="http://localhost:9000",
-    )
-    client.new_layer_list_received.connect(app.collect_response)
-    with qtbot.waitSignal(
-        client.new_layer_list_received, timeout=SIGNAL_TIMEOUT * 1000
-    ):
-        client.new_get_layers(page=page)
+def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
+    app = ResponseCollector()
+    client = api_client.GeonodeClient(base_url="http://localhost:9000")
+    client.layer_list_received.connect(app.collect_response)
+    with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
+        client.get_layers(page=page)
     layers, total_results, page_number, page_size = app.received_response
 
     print(f"layer ids: {[la.pk for la in layers]}")
@@ -58,69 +38,38 @@ def test_new_layer_list(qtbot, qgis_application, mock_geonode_server, page):
 
     assert layers_size == 2
     assert page_number == 1
-    assert page_size == 10
-
-
-@pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
-def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
-    app = ResponseCollector()
-    client = api_client.GeonodeClient(
-        # base_url="https://master.demo.geonode.org",
-        base_url="http://localhost:9000",
-    )
-    client.layer_list_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_layers(page=page)
-    page_size = int(app.received_response["page_size"])
-    print(f"layer ids: {[la['pk'] for la in app.received_response['layers']]}")
-
-    layers_size = len(app.received_response["layers"])
-    page_number = int(app.received_response["page"])
-
-    assert layers_size == 2
-    assert page_number == 1
     assert page_size == 2
 
 
-@pytest.mark.parametrize("id", [pytest.param(1, id="1")])
-def test_layer_details(qtbot, qgis_application, mock_geonode_server, id):
+@pytest.mark.parametrize("id_", [pytest.param(184)])
+def test_layer_details(qtbot, qgis_application, mock_geonode_server, id_):
     app = ResponseCollector()
-    client = api_client.GeonodeClient(
-        # base_url="https://master.demo.geonode.org",
-        base_url="http://localhost:9000",
-    )
-    client.layer_details_received.connect(app.collect_response)
-    with qtbot.waitSignal(client.layer_details_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_layer_details(id=id)
-
-    pk = app.received_response["layer"]["pk"]
-    assert id == int(pk)
+    client = api_client.GeonodeClient(base_url="http://localhost:9000")
+    client.layer_detail_received.connect(app.collect_response)
+    with qtbot.waitSignal(client.layer_detail_received, timeout=SIGNAL_TIMEOUT * 1000):
+        client.get_layer_detail(id_=id_)
+    layer: api_client.GeonodeResource = app.received_response[0]
+    assert id_ == layer.pk
 
 
-@pytest.mark.parametrize("id", [pytest.param(1, id="1")])
-def test_layer_styles(qtbot, qgis_application, mock_geonode_server, id):
+@pytest.mark.parametrize("id_", [184])
+def test_layer_styles(qtbot, qgis_application, mock_geonode_server, id_):
     app = ResponseCollector()
-    client = api_client.GeonodeClient(
-        base_url="http://localhost:9000",
-    )
+    client = api_client.GeonodeClient(base_url="http://localhost:9000")
     client.layer_styles_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_styles_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_layer_styles(id=id)
-        styles_size = len(app.received_response["styles"])
-    assert styles_size == 1
+        client.get_layer_styles(layer_id=id_)
+        styles = app.received_response[0]
+    assert len(styles) == 1
 
 
 @pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
 def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
     app = ResponseCollector()
-    client = api_client.GeonodeClient(
-        base_url="http://localhost:9000",
-    )
+    client = api_client.GeonodeClient(base_url="http://localhost:9000")
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_maps(page=page)
-    page_size = int(app.received_response["page_size"])
-    print(f"maps ids: {[la['pk'] for la in app.received_response['maps']]}")
-
-    assert page_size == 10
-    assert int(app.received_response["maps"][0]["pk"]) == 1
+    maps, total_results, page_number, page_size = app.received_response
+    assert page_size == 2
+    assert maps[0].pk == 43
