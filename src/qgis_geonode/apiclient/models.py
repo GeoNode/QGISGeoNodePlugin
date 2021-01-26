@@ -1,7 +1,7 @@
 import datetime as dt
 import enum
 import typing
-from uuid import UUID
+import uuid
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
@@ -16,8 +16,8 @@ class GeonodeResourceType(enum.Enum):
 
 
 class BriefGeonodeResource:
-    pk: typing.Optional[int]
-    uuid: UUID
+    pk: int
+    uuid: uuid.UUID
     name: str
     resource_type: GeonodeResourceType
     title: str
@@ -27,7 +27,7 @@ class BriefGeonodeResource:
     temporal_extent: typing.Optional[typing.List[dt.datetime]]
     crs: QgsCoordinateReferenceSystem
     thumbnail_url: str
-    api_url: typing.Optional[str]
+    api_url: str
     gui_url: str
     keywords: typing.List[str]
     category: typing.Optional[str]
@@ -35,7 +35,8 @@ class BriefGeonodeResource:
 
     def __init__(
         self,
-        uuid: UUID,
+        pk: int,
+        uuid: uuid.UUID,
         name: str,
         resource_type: GeonodeResourceType,
         title: str,
@@ -43,14 +44,12 @@ class BriefGeonodeResource:
         spatial_extent: QgsRectangle,
         crs: QgsCoordinateReferenceSystem,
         thumbnail_url: str,
+        api_url: str,
         gui_url: str,
-        pk: typing.Optional[int] = None,
-        api_url: typing.Optional[str] = None,
         published_date: typing.Optional[dt.datetime] = None,
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
-        service_urls: typing.Dict[str, str] = None,
     ):
         self.pk = pk
         self.uuid = uuid
@@ -67,28 +66,11 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
-        self.service_urls = dict(service_urls) if service_urls is not None else None
+        self.service_urls = {}
 
 
 class GeonodeResource(BriefGeonodeResource):
-    language: str
-    license: str
-    constraints: str
-    owner: typing.Dict[str, str]
-    metadata_author: typing.Dict[str, str]
-
-    def __init__(
-            self, language: str, license: str, constraints: str,
-            owner: typing.Dict[str, str], metadata_author: typing.Dict[str, str],
-            *args, **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.language = language
-        self.license = license
-        self.constraints = constraints
-        self.owner = dict(owner)
-        self.metadata_author = dict(metadata_author)
-
+    pass
 
 
 class BriefGeonodeStyle:

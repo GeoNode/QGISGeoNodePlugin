@@ -212,6 +212,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         client = get_geonode_client(connection_settings)
         client.layer_list_received.connect(self.handle_layer_list)
         client.layer_list_received.connect(self.handle_pagination)
+
         client.error_received.connect(self.show_search_error)
         resource_types = []
         search_vector = self.vector_chb.isChecked()

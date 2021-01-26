@@ -14,7 +14,6 @@ from qgis.PyQt.QtCore import (
 )
 
 from . import models
-from .models import GeonodeResourceType
 from .base import BaseGeonodeClient
 
 
@@ -28,8 +27,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     def get_layers_url_endpoint(
             self,
             page: typing.Optional[int] = None,
-            page_size: typing.Optional[int] = 10,
-            name_like: typing.Optional[str] = None,
+            page_size: typing.Optional[int] = 10
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
         if page:
@@ -37,7 +35,6 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("page", str(page))
             url.setQuery(query.query())
         # TODO: implement page_size
-        # TODO: implement name_like
         return url
 
     def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
@@ -54,10 +51,6 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             url.setQuery(query.query())
         return url
 
-    def get_layer_detail_from_brief_resource(
-            self, brief_resource: models.BriefGeonodeResource):
-        self.get_layer_detail(brief_resource.pk)
-
     def deserialize_response_contents(self, contents: QByteArray) -> typing.Dict:
         decoded_contents: str = contents.data().decode()
         return json.loads(decoded_contents)
@@ -65,14 +58,13 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     def handle_layer_list(self, payload: typing.Dict):
         layers = []
         for item in payload.get("layers", []):
-            layers.append(
-                get_brief_geonode_resource(item, self.base_url, self.auth_config))
+            layers.append(get_brief_geonode_resource(item, self.base_url))
         self.layer_list_received.emit(
             layers, payload["total"], payload["page"], payload["page_size"]
         )
 
     def handle_layer_detail(self, payload: typing.Dict):
-        layer = get_geonode_resource(payload["layer"], self.base_url, self.auth_config)
+        layer = get_geonode_resource(payload["layer"], self.base_url)
         self.layer_detail_received.emit(layer)
 
     def handle_layer_style_list(self, payload: typing.Dict):
@@ -84,8 +76,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     def handle_map_list(self, payload: typing.Dict):
         maps = []
         for item in payload.get("maps", []):
-            maps.append(
-                get_brief_geonode_resource(item, self.base_url, self.auth_config))
+            maps.append(get_brief_geonode_resource(item, self.base_url))
         self.map_list_received.emit(
             maps, payload["total"], payload["page"], payload["page_size"]
         )
@@ -93,73 +84,31 @@ class GeonodeApiV2Client(BaseGeonodeClient):
 
 def get_brief_geonode_resource(
         deserialized_resource: typing.Dict,
-        geonode_base_url: str,
-        auth_config: str,
+        geonode_base_url: str
 ) -> models.BriefGeonodeResource:
     return models.BriefGeonodeResource(
-        **_get_common_model_fields(
-            deserialized_resource, geonode_base_url, auth_config)
+        pk=int(deserialized_resource["pk"]),
+        uuid=uuid.UUID(deserialized_resource["uuid"]),
+        name=deserialized_resource.get("name", ""),
+        resource_type=_get_resource_type(deserialized_resource),
+        title=deserialized_resource.get("title", ""),
+        abstract=deserialized_resource.get("abstract", ""),
+        spatial_extent=_get_spatial_extent(deserialized_resource["bbox_polygon"]),
+        crs=QgsCoordinateReferenceSystem(
+            deserialized_resource["srid"].replace("EPSG:", "")),
+        thumbnail_url=deserialized_resource["thumbnail_url"],
+        api_url=(
+            f"{geonode_base_url}/api/v2/layers/{deserialized_resource['pk']}"),
+        gui_url=deserialized_resource["detail_url"],
+        published_date=_get_published_date(deserialized_resource),
+        temporal_extent=_get_temporal_extent(deserialized_resource),
+        keywords=[k["name"] for k in deserialized_resource.get("keywords", [])],
+        category=deserialized_resource.get("category"),
     )
 
 
-def get_geonode_resource(
-        deserialized_resource: typing.Dict,
-        geonode_base_url: str,
-        auth_config: str
-) -> models.GeonodeResource:
-    common_fields = _get_common_model_fields(
-        deserialized_resource, geonode_base_url, auth_config)
-    license_value = deserialized_resource.get("license", "")
-    if license_value and isinstance(license_value, dict):
-        license_ = license_value["identifier"]
-    else:
-        license_ = license_value
-    return models.GeonodeResource(
-        language=deserialized_resource.get("language", ""),
-        license=license_,
-        constraints=deserialized_resource.get("constraints_other", ""),
-        owner=deserialized_resource.get("owner", ""),
-        metadata_author=deserialized_resource.get("metadata_author", ""),
-        **common_fields
-    )
-
-
-def _get_common_model_fields(
-        deserialized_resource: typing.Dict, geonode_base_url: str, auth_config: str
-) -> typing.Dict:
-    resource_type = _get_resource_type(deserialized_resource)
-    if resource_type == GeonodeResourceType.VECTOR_LAYER:
-        service_urls = {
-            "wms": _get_wms_uri(auth_config, geonode_base_url, deserialized_resource),
-            "wfs": _get_wfs_uri(auth_config, geonode_base_url, deserialized_resource),
-        }
-    elif resource_type == GeonodeResourceType.RASTER_LAYER:
-        service_urls = {
-            "wms": _get_wms_uri(auth_config, geonode_base_url, deserialized_resource),
-            "wcs": _get_wcs_uri(auth_config, geonode_base_url, deserialized_resource),
-        }
-    elif resource_type == GeonodeResourceType.MAP:
-        service_urls = None  # FIXME: devise a way to retrieve WMS URL for maps
-    else:
-        service_urls = None
-    return {
-        "pk": int(deserialized_resource["pk"]),
-        "uuid": uuid.UUID(deserialized_resource["uuid"]),
-        "name": deserialized_resource.get("name", ""),
-        "resource_type": resource_type,
-        "title": deserialized_resource.get("title", ""),
-        "abstract": deserialized_resource.get("abstract", ""),
-        "spatial_extent": _get_spatial_extent(deserialized_resource["bbox_polygon"]),
-        "crs": QgsCoordinateReferenceSystem(deserialized_resource["srid"]),
-        "thumbnail_url": deserialized_resource["thumbnail_url"],
-        "api_url": (f"{geonode_base_url}/api/v2/layers/{deserialized_resource['pk']}"),
-        "gui_url": f"{geonode_base_url}{deserialized_resource['detail_url']}",
-        "published_date": _get_published_date(deserialized_resource),
-        "temporal_extent": _get_temporal_extent(deserialized_resource),
-        "keywords": [k["name"] for k in deserialized_resource.get("keywords", [])],
-        "category": deserialized_resource.get("category"),
-        "service_urls": service_urls
-    }
+def get_geonode_resource(deserialized_resource: typing.Dict, geonode_base_url: str):
+    return get_brief_geonode_resource(deserialized_resource, geonode_base_url)
 
 
 def get_brief_geonode_style(deserialized_style: typing.Dict, geonode_base_url: str):
@@ -171,8 +120,7 @@ def get_brief_geonode_style(deserialized_style: typing.Dict, geonode_base_url: s
 
 
 def _get_resource_type(
-    payload: typing.Dict,
-) -> typing.Optional[models.GeonodeResourceType]:
+        payload: typing.Dict) -> typing.Optional[models.GeonodeResourceType]:
     resource_type = payload["resource_type"]
     if resource_type == "map":
         result = models.GeonodeResourceType.MAP
@@ -201,7 +149,7 @@ def _get_spatial_extent(geojson_polygon_geometry: typing.Dict) -> QgsRectangle:
 
 
 def _get_temporal_extent(
-    payload: typing.Dict,
+        payload: typing.Dict,
 ) -> typing.Optional[typing.List[typing.Optional[dt.datetime]]]:
     start = payload["temporal_extent_start"]
     end = payload["temporal_extent_end"]
@@ -232,27 +180,3 @@ def _get_published_date(payload: typing.Dict) -> typing.Optional[dt.datetime]:
     else:
         result = None
     return result
-
-
-def _get_wms_uri(auth_config: str, base_url: str, payload: typing.Dict):
-    layer_name = f"{payload['workspace']}:{payload['name']}"
-    return (
-        f"crs={payload['srid']}&format=image/png&layers={layer_name}&"
-        f"styles&url={base_url}/geoserver/ows&authkey={auth_config}"
-    )
-
-
-def _get_wcs_uri(auth_config: str, base_url: str, payload: typing.Dict):
-    layer_name = f"{payload['workspace']}:{payload['name']}"
-    return (
-        f"identifier={layer_name}&url={base_url}/geoserver/ows&"
-        f"authkey={auth_config}"
-    )
-
-
-def _get_wfs_uri(auth_config: str, base_url: str, payload: typing.Dict):
-    layer_name = f"{payload['workspace']}:{payload['name']}"
-    return (
-        f"{base_url}/geoserver/ows?service=WFS&version=1.1.0&"
-        f"request=GetFeature&typename={layer_name}&authkey={auth_config}"
-    )

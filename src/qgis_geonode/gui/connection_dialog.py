@@ -11,6 +11,7 @@ from qgis.PyQt.QtGui import QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp
 from qgis.PyQt.uic import loadUiType
 
+from ..apiclient.base import BaseGeonodeClient
 from ..apiclient import (
     GeonodeApiVersion,
     get_geonode_client,

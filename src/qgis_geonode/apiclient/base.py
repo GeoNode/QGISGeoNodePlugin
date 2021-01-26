@@ -1,5 +1,4 @@
 import typing
-import uuid
 from functools import partial
 
 from qgis.core import (
@@ -31,7 +30,8 @@ class BaseGeonodeClient(QObject):
     error_received = pyqtSignal(int)
 
     def __init__(
-        self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
+            self, base_url: str, *args,
+            auth_config: typing.Optional[str] = None, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.auth_config = auth_config or ""
@@ -47,12 +47,11 @@ class BaseGeonodeClient(QObject):
     def get_layers_url_endpoint(
             self,
             page: typing.Optional[int] = None,
-            page_size: typing.Optional[int] = 10,
-            name_like: typing.Optional[str] = None,
+            page_size: typing.Optional[int] = 10
     ) -> QUrl:
         raise NotImplementedError
 
-    def get_layer_detail_url_endpoint(self, id_: typing.Union[int, uuid.UUID]) -> QUrl:
+    def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
         raise NotImplementedError
 
     def get_layer_styles_url_endpoint(self, layer_id: int):
@@ -79,19 +78,13 @@ class BaseGeonodeClient(QObject):
     def get_layers(
             self,
             page: typing.Optional[int] = 1,
-            page_size: typing.Optional[int] = 10,
-            name_like: typing.Optional[str] = None,
+            page_size: typing.Optional[int] = 10
     ):
-        url = self.get_layers_url_endpoint(
-            page=page, page_size=page_size, name_like=name_like)
+        url = self.get_layers_url_endpoint(page, page_size)
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
 
-    def get_layer_detail_from_brief_resource(
-            self, brief_resource: models.BriefGeonodeResource):
-        raise NotImplementedError
-
-    def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
+    def get_layer_detail(self, id_: int):
         request = QNetworkRequest(self.get_layer_detail_url_endpoint(id_))
         self.run_task(request, self.handle_layer_detail)
 
@@ -112,7 +105,7 @@ class BaseGeonodeClient(QObject):
         task.run()
 
     def response_fetched(
-        self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
+            self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
     ):
         """Process GeoNode API response and dispatch the appropriate handler"""
         reply: QNetworkReply = task.reply()
