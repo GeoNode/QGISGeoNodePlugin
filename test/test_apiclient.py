@@ -1,6 +1,7 @@
 import typing
 
 import pytest
+import qgis_geonode.apiclient.models
 
 from qgis_geonode import api_client
 
@@ -65,7 +66,7 @@ def test_layer_details(qtbot, qgis_application, mock_geonode_server, id_):
     client.layer_detail_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_detail_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layer_detail(id_=id_)
-    layer: api_client.GeonodeResource = app.received_response[0]
+    layer: qgis_geonode.apiclient.models.GeonodeResource = app.received_response[0]
     assert id_ == layer.pk
 
 

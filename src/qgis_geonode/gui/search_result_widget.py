@@ -22,7 +22,10 @@ from qgis.core import (
 
 from qgis.gui import QgsMessageBar
 
-from ..api_client import BriefGeonodeResource, GeonodeClient, GeonodeResourceType
+from ..api_client import (
+    GeonodeClient,
+)
+from ..apiclient.models import BriefGeonodeResource, GeonodeResourceType
 from ..resources import *
 from ..utils import log, tr
 from ..conf import connections_manager

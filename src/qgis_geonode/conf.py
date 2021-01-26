@@ -1,5 +1,6 @@
 import contextlib
 import dataclasses
+import enum
 import logging
 import typing
 import uuid
@@ -7,7 +8,15 @@ import uuid
 from qgis.PyQt import QtCore
 from qgis.core import QgsSettings
 
+from .apiclient.legacy import GeonodeLegacyClient
+from .apiclient.apiv2 import GeonodeApiV2Client
+
 logger = logging.getLogger(__name__)
+
+
+class GeonodeApiVersion(enum.IntEnum):
+    LEGACY = 1
+    V2 = 2
 
 
 @contextlib.contextmanager
@@ -28,6 +37,7 @@ class ConnectionSettings:
     id: uuid.UUID
     name: str
     base_url: str
+    api_version: GeonodeApiVersion
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -36,6 +46,7 @@ class ConnectionSettings:
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
             base_url=settings.value("base_url"),
+            api_version=GeonodeApiVersion[settings.value("api_version")],
             auth_config=settings.value("auth_config"),
         )
 
@@ -101,6 +112,7 @@ class ConnectionManager(QtCore.QObject):
             settings.setValue("name", connection_settings.name)
             settings.setValue("base_url", connection_settings.base_url)
             settings.setValue("auth_config", connection_settings.auth_config)
+            settings.setValue("api_version", connection_settings.api_version.name)
 
     def delete_connection(self, connection_id: uuid.UUID):
         with qgis_settings(f"{self.BASE_GROUP_NAME}/connections") as settings:
@@ -139,3 +151,11 @@ class ConnectionManager(QtCore.QObject):
 
 
 connections_manager = ConnectionManager()
+
+
+def get_geonode_client(connection_settings: ConnectionSettings):
+    client_type: typing.Type["BaseGeonodeClient"] = {
+        GeonodeApiVersion.LEGACY: GeonodeLegacyClient,
+        GeonodeApiVersion.V2: GeonodeApiV2Client,
+    }[connection_settings.api_version]
+    return client_type.from_connection_settings(connection_settings)

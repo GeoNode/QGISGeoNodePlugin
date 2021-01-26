@@ -1,6 +1,7 @@
 import os
 import typing
 import uuid
+from functools import partial
 
 
 from qgis.core import Qgis
@@ -10,10 +11,12 @@ from qgis.PyQt.QtGui import QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp
 from qgis.PyQt.uic import loadUiType
 
-from ..api_client import GeonodeClient
+from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
     connections_manager,
+    GeonodeApiVersion,
+    get_geonode_client,
 )
 
 DialogUi, _ = loadUiType(
@@ -23,11 +26,20 @@ DialogUi, _ = loadUiType(
 
 class ConnectionDialog(QDialog, DialogUi):
     connection_id: uuid.UUID
-    geonode_client: GeonodeClient = None
+    geonode_client: BaseGeonodeClient = None
+
+    _autodetection_type_order: typing.List[GeonodeApiVersion] = [
+        GeonodeApiVersion.V2,
+        GeonodeApiVersion.LEGACY,
+    ]
 
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
         super().__init__()
         self.setupUi(self)
+        api_version_names = list(GeonodeApiVersion)
+        api_version_names.sort(key=lambda member: member.name, reverse=True)
+        self.api_version_cmb.insertItems(
+            0, [member.name for member in api_version_names])
         self._widgets_to_toggle_during_connection_test = [
             self.test_connection_btn,
             self.buttonBox,
@@ -48,6 +60,7 @@ class ConnectionDialog(QDialog, DialogUi):
         for signal in ok_signals:
             signal.connect(self.update_ok_buttons)
         self.test_connection_btn.clicked.connect(self.test_connection)
+        self.detect_version_btn.clicked.connect(self.initiate_api_version_detection)
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
         self.name_le.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name_le))
@@ -57,6 +70,7 @@ class ConnectionDialog(QDialog, DialogUi):
         self.name_le.setText(connection_settings.name)
         self.url_le.setText(connection_settings.base_url)
         self.authcfg_acs.setConfigId(connection_settings.auth_config)
+        self.api_version_cmb.setCurrentText(connection_settings.api_version.name)
 
     def get_connection_settings(self) -> ConnectionSettings:
         return ConnectionSettings(
@@ -64,25 +78,18 @@ class ConnectionDialog(QDialog, DialogUi):
             name=self.name_le.text().strip(),
             base_url=self.url_le.text().strip(),
             auth_config=self.authcfg_acs.configId(),
+            api_version=GeonodeApiVersion[self.api_version_cmb.currentText().upper()]
         )
 
     def test_connection(self):
         for widget in self._widgets_to_toggle_during_connection_test:
             widget.setEnabled(False)
-        self.geonode_client = GeonodeClient.from_connection_settings(
-            self.get_connection_settings()
-        )
-        self.geonode_client.layer_list_received.connect(
-            self.handle_connection_test_success
-        )
-        self.geonode_client.error_received.connect(self.handle_connection_test_error)
-        self.geonode_client.layer_list_received.connect(
-            self.enable_post_test_connection_buttons
-        )
-        self.geonode_client.error_received.connect(
-            self.enable_post_test_connection_buttons
-        )
-        self.geonode_client.get_layers()
+        client = get_geonode_client(self.get_connection_settings())
+        client.layer_list_received.connect(self.handle_connection_test_success)
+        client.error_received.connect(self.handle_connection_test_error)
+        client.layer_list_received.connect(self.enable_post_test_connection_buttons)
+        client.error_received.connect(self.enable_post_test_connection_buttons)
+        client.get_layers()
 
     def handle_connection_test_success(self, payload: typing.Union[typing.Dict, int]):
         self.bar.pushMessage("Connection is valid", level=Qgis.Info)
@@ -94,6 +101,36 @@ class ConnectionDialog(QDialog, DialogUi):
         for widget in self._widgets_to_toggle_during_connection_test:
             widget.setEnabled(True)
         self.update_ok_buttons()
+
+    def initiate_api_version_detection(self):
+        self.detect_api_version(self._autodetection_type_order[0])
+
+    def detect_api_version(self, version: GeonodeApiVersion):
+
+        connection_settings = self.get_connection_settings()
+        connection_settings.api_version = version
+
+        client = get_geonode_client(connection_settings)
+        success_handler = partial(self.handle_autodetection_success, version)
+        error_handler = partial(self.handle_autodetection_error, version)
+        client.layer_list_received.connect(success_handler)
+        client.error_received.connect(error_handler)
+        client.get_layers()
+
+    def handle_autodetection_success(self, version: GeonodeApiVersion):
+        self.bar.pushMessage(f"Using API version: {version.name}", level=Qgis.Info)
+        self.api_version_cmb.setCurrentText(version.name)
+
+    def handle_autodetection_error(self, version: GeonodeApiVersion):
+        self.bar.pushMessage(
+            f"API version {version.name} does not work", level=Qgis.Warning)
+        current_index = self._autodetection_type_order.index(version)
+        if current_index < len(self._autodetection_type_order) - 1:
+            next_version_to_try = self._autodetection_type_order[current_index + 1]
+            self.detect_api_version(next_version_to_try)
+        else:
+            self.bar.pushMessage(
+                f"Could not detect a suitable API version", level=Qgis.Critical)
 
     def accept(self):
         connection_settings = self.get_connection_settings()

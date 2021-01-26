@@ -27,9 +27,9 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
 )
 
-from ..api_client import (
+from ..apiclient import get_geonode_client
+from ..apiclient.models import (
     BriefGeonodeResource,
-    GeonodeClient,
     GeonodeResourceType,
 )
 from ..conf import connections_manager
@@ -206,12 +206,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.previous_btn.setEnabled(False)
         self.message_bar.pushMessage(tr("Searching..."), level=Qgis.Info)
         connection_name = self.connections_cmb.currentText()
-        connection = connections_manager.find_connection_by_name(connection_name)
-        client = GeonodeClient.from_connection_settings(connection)
-        # client.layer_list_received.connect(self.show_layers)
+        connection_settings = connections_manager.find_connection_by_name(connection_name)
+        client = get_geonode_client(connection_settings)
         client.layer_list_received.connect(self.handle_layer_list)
         client.layer_list_received.connect(self.handle_pagination)
-
         client.error_received.connect(self.show_search_error)
         resource_types = []
         search_vector = self.vector_chb.isChecked()
@@ -331,7 +329,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         connection_name = self.connections_cmb.currentText()
         if connection_name:
             connection = connections_manager.find_connection_by_name(connection_name)
-            client = GeonodeClient.from_connection_settings(connection)
+            client = get_geonode_client(connection)
             client.keyword_list_received.connect(self.update_keywords)
             client.error_received.connect(self.show_search_error)
 
