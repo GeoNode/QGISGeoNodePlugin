@@ -83,7 +83,7 @@
         <item>
          <widget class="QPushButton" name="download_btn">
           <property name="toolTip">
-           <string>Load connections from file</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Direct download&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string>File Download</string>
@@ -106,7 +106,7 @@
         <item>
          <widget class="QPushButton" name="browser_btn">
           <property name="toolTip">
-           <string>Save connections to file</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Open resource in Browser&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string>Open in Browser</string>
@@ -116,7 +116,7 @@
         <item>
          <widget class="QPushButton" name="remove_btn">
           <property name="toolTip">
-           <string>Save connections to file</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Delete the resource from GeoNode repository&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string>Remove from Geonode</string>
