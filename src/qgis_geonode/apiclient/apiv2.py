@@ -25,7 +25,9 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         return f"{self.base_url}{self._api_path}"
 
     def get_layers_url_endpoint(
-        self, page: typing.Optional[int] = None, page_size: typing.Optional[int] = 10
+            self,
+            page: typing.Optional[int] = None,
+            page_size: typing.Optional[int] = 10
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
         if page:
@@ -81,7 +83,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
 
 
 def get_brief_geonode_resource(
-    deserialized_resource: typing.Dict, geonode_base_url: str
+        deserialized_resource: typing.Dict,
+        geonode_base_url: str
 ) -> models.BriefGeonodeResource:
     return models.BriefGeonodeResource(
         pk=int(deserialized_resource["pk"]),
@@ -92,10 +95,10 @@ def get_brief_geonode_resource(
         abstract=deserialized_resource.get("abstract", ""),
         spatial_extent=_get_spatial_extent(deserialized_resource["bbox_polygon"]),
         crs=QgsCoordinateReferenceSystem(
-            deserialized_resource["srid"].replace("EPSG:", "")
-        ),
+            deserialized_resource["srid"].replace("EPSG:", "")),
         thumbnail_url=deserialized_resource["thumbnail_url"],
-        api_url=(f"{geonode_base_url}/api/v2/layers/{deserialized_resource['pk']}"),
+        api_url=(
+            f"{geonode_base_url}/api/v2/layers/{deserialized_resource['pk']}"),
         gui_url=deserialized_resource["detail_url"],
         published_date=_get_published_date(deserialized_resource),
         temporal_extent=_get_temporal_extent(deserialized_resource),
@@ -117,8 +120,7 @@ def get_brief_geonode_style(deserialized_style: typing.Dict, geonode_base_url: s
 
 
 def _get_resource_type(
-    payload: typing.Dict,
-) -> typing.Optional[models.GeonodeResourceType]:
+        payload: typing.Dict) -> typing.Optional[models.GeonodeResourceType]:
     resource_type = payload["resource_type"]
     if resource_type == "map":
         result = models.GeonodeResourceType.MAP
@@ -147,7 +149,7 @@ def _get_spatial_extent(geojson_polygon_geometry: typing.Dict) -> QgsRectangle:
 
 
 def _get_temporal_extent(
-    payload: typing.Dict,
+        payload: typing.Dict,
 ) -> typing.Optional[typing.List[typing.Optional[dt.datetime]]]:
     start = payload["temporal_extent_start"]
     end = payload["temporal_extent_end"]

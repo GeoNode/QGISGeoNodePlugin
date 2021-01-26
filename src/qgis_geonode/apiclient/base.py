@@ -30,7 +30,8 @@ class BaseGeonodeClient(QObject):
     error_received = pyqtSignal(int)
 
     def __init__(
-        self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
+            self, base_url: str, *args,
+            auth_config: typing.Optional[str] = None, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.auth_config = auth_config or ""
@@ -44,7 +45,9 @@ class BaseGeonodeClient(QObject):
         )
 
     def get_layers_url_endpoint(
-        self, page: typing.Optional[int] = None, page_size: typing.Optional[int] = 10
+            self,
+            page: typing.Optional[int] = None,
+            page_size: typing.Optional[int] = 10
     ) -> QUrl:
         raise NotImplementedError
 
@@ -73,7 +76,9 @@ class BaseGeonodeClient(QObject):
         raise NotImplementedError
 
     def get_layers(
-        self, page: typing.Optional[int] = 1, page_size: typing.Optional[int] = 10
+            self,
+            page: typing.Optional[int] = 1,
+            page_size: typing.Optional[int] = 10
     ):
         url = self.get_layers_url_endpoint(page, page_size)
         request = QNetworkRequest(url)
@@ -100,7 +105,7 @@ class BaseGeonodeClient(QObject):
         task.run()
 
     def response_fetched(
-        self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
+            self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
     ):
         """Process GeoNode API response and dispatch the appropriate handler"""
         reply: QNetworkReply = task.reply()
