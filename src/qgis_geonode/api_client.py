@@ -34,6 +34,7 @@ class BriefGeonodeResource:
     pk: int
     uuid: uuid.UUID
     name: str
+    workspace: str
     resource_type: GeonodeResourceType
     title: str
     abstract: str
@@ -53,6 +54,7 @@ class BriefGeonodeResource:
         pk: int,
         uuid: uuid.UUID,
         name: str,
+        workspace: str,
         resource_type: GeonodeResourceType,
         title: str,
         abstract: str,
@@ -69,6 +71,7 @@ class BriefGeonodeResource:
         self.pk = pk
         self.uuid = uuid
         self.name = name
+        self.workspace = workspace
         self.resource_type = resource_type
         self.title = title
         self.abstract = abstract
@@ -89,6 +92,7 @@ class BriefGeonodeResource:
             pk=int(payload["pk"]),
             uuid=uuid.UUID(payload["uuid"]),
             name=payload.get("name", ""),
+            workspace=payload.get("workspace", ""),
             resource_type=_get_resource_type(payload),
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
