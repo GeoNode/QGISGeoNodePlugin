@@ -63,7 +63,7 @@
         <item>
          <widget class="QPushButton" name="wms_btn">
           <property name="toolTip">
-           <string>Save connections to file</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to load resource as a WMS layer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string>WMS</string>
@@ -73,7 +73,7 @@
         <item>
          <widget class="QPushButton" name="wfs_btn">
           <property name="toolTip">
-           <string>Save connections to file</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to load as a WFS layer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string>WFS</string>
