@@ -21,7 +21,6 @@ from qgis.PyQt.QtCore import (
 from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 
 from .conf import ConnectionSettings
-from .utils import log
 
 
 class GeonodeResourceType(enum.Enum):
@@ -65,6 +64,7 @@ class BriefGeonodeResource:
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
+        service_urls: typing.Dict[str, str] = None,
     ):
         self.pk = pk
         self.uuid = uuid
@@ -81,15 +81,23 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
-        self.service_urls = {}
+        self.service_urls = service_urls
 
     @classmethod
-    def from_api_response(cls, payload: typing.Dict, geonode_base_url: str):
+    def from_api_response(
+        cls, payload: typing.Dict, geonode_base_url: str, auth_config: str
+    ):
+        resource_type = _get_resource_type(payload)
+        service_urls = {"wms": _get_wms_uri(auth_config, geonode_base_url, payload)}
+        if resource_type == GeonodeResourceType.VECTOR_LAYER:
+            service_urls["wfs"] = _get_wfs_uri(auth_config, geonode_base_url, payload)
+        elif resource_type == GeonodeResourceType.RASTER_LAYER:
+            service_urls["wcs"] = _get_wcs_uri(auth_config, geonode_base_url, payload)
         return cls(
             pk=int(payload["pk"]),
             uuid=uuid.UUID(payload["uuid"]),
             name=payload.get("name", ""),
-            resource_type=_get_resource_type(payload),
+            resource_type=resource_type,
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
             spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
@@ -99,8 +107,9 @@ class BriefGeonodeResource:
             gui_url=payload["detail_url"],
             published_date=_get_published_date(payload),
             temporal_extent=_get_temporal_extent(payload),
-            keywords=[k["name"] for k in payload.get("kaywords", [])],
+            keywords=[k["name"] for k in payload.get("keywords", [])],
             category=payload.get("category"),
+            service_urls=service_urls,
         )
 
 
@@ -219,13 +228,19 @@ class GeonodeClient(QObject):
     def handle_layer_list(self, payload: typing.Dict):
         layers = []
         for item in payload.get("layers", []):
-            layers.append(BriefGeonodeResource.from_api_response(item, self.base_url))
+            layers.append(
+                BriefGeonodeResource.from_api_response(
+                    item, self.base_url, self.auth_config
+                )
+            )
         self.layer_list_received.emit(
             layers, payload["total"], payload["page"], payload["page_size"]
         )
 
     def handle_layer_detail(self, payload: typing.Dict):
-        layer = GeonodeResource.from_api_response(payload["layer"], self.base_url)
+        layer = GeonodeResource.from_api_response(
+            payload["layer"], self.base_url, self.auth_config
+        )
         self.layer_detail_received.emit(layer)
 
     def handle_layer_style_list(self, payload: typing.Dict):
@@ -237,7 +252,11 @@ class GeonodeClient(QObject):
     def handle_map_list(self, payload: typing.Dict):
         maps = []
         for item in payload.get("maps", []):
-            maps.append(BriefGeonodeResource.from_api_response(item, self.base_url))
+            maps.append(
+                BriefGeonodeResource.from_api_response(
+                    item, self.base_url, self.auth_config
+                )
+            )
         self.map_list_received.emit(
             maps, payload["total"], payload["page"], payload["page_size"]
         )
@@ -303,3 +322,38 @@ def _get_spatial_extent(geojson_polygon_geometry: typing.Dict) -> QgsRectangle:
         max_x = x if max_x is None else max(x, max_x)
         max_y = y if max_y is None else max(y, max_y)
     return QgsRectangle(min_x, min_y, max_x, max_y)
+
+
+def _get_wms_uri(auth_config: str, base_url: str, payload: typing.Dict) -> str:
+
+    uri = (
+        "crs={}&format={}&layers={}:{}&"
+        "styles&url={}/geoserver/ows&authkey={}".format(
+            payload["srid"],
+            "image/png",
+            payload.get("workspace", ""),
+            payload.get("name", ""),
+            base_url,
+            auth_config,
+        )
+    )
+    return uri
+
+
+def _get_wcs_uri(auth_config: str, base_url: str, payload: typing.Dict) -> str:
+
+    uri = "identifier={}:{}&" "url={}/geoserver/ows&authkey={}".format(
+        payload.get("workspace", ""), payload.get("name", ""), base_url, auth_config
+    )
+    return uri
+
+
+def _get_wfs_uri(auth_config: str, base_url: str, payload: typing.Dict) -> str:
+    uri = (
+        "{}/geoserver/ows?service=WFS&"
+        "version=1.1.0&request=GetFeature&"
+        "typename={}:{}&authkey={}".format(
+            base_url, payload.get("workspace", ""), payload.get("name", ""), auth_config
+        )
+    )
+    return uri
