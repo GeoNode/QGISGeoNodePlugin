@@ -99,7 +99,7 @@ class BriefGeonodeResource:
             gui_url=payload["detail_url"],
             published_date=_get_published_date(payload),
             temporal_extent=_get_temporal_extent(payload),
-            keywords=[k["name"] for k in payload.get("kaywords", [])],
+            keywords=[k["name"] for k in payload.get("keywords", [])],
             category=payload.get("category"),
             service_urls=cls.build_service_urls(geonode_base_url, payload)
         )
