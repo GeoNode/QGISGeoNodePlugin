@@ -84,7 +84,7 @@ class BriefGeonodeResource:
         self.service_urls = service_urls
 
     @classmethod
-    def from_api_response(cls, payload: typing.Dict, geonode_base_url: str):
+    def from_api_response(cls, payload: typing.Dict, geonode_base_url: str, auth_config: str):
         return cls(
             pk=int(payload["pk"]),
             uuid=uuid.UUID(payload["uuid"]),
@@ -101,7 +101,11 @@ class BriefGeonodeResource:
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("keywords", [])],
             category=payload.get("category"),
-            service_urls=_build_service_urls(geonode_base_url, payload)
+            service_urls=_build_service_urls(
+                auth_config,
+                geonode_base_url,
+                payload
+            )
         )
 
 
@@ -220,7 +224,13 @@ class GeonodeClient(QObject):
     def handle_layer_list(self, payload: typing.Dict):
         layers = []
         for item in payload.get("layers", []):
-            layers.append(BriefGeonodeResource.from_api_response(item, self.base_url))
+            layers.append(
+                BriefGeonodeResource.from_api_response(
+                    item,
+                    self.base_url,
+                    self.auth_config
+                )
+            )
         self.layer_list_received.emit(
             layers, payload["total"], payload["page"], payload["page_size"]
         )
@@ -306,47 +316,62 @@ def _get_spatial_extent(geojson_polygon_geometry: typing.Dict) -> QgsRectangle:
     return QgsRectangle(min_x, min_y, max_x, max_y)
 
 
-def _get_wms_uri(base_url: str, payload: typing.Dict) -> str:
+def _get_wms_uri(
+        auth_config: str,
+        base_url: str,
+        payload: typing.Dict) -> str:
+
     uri = 'crs={}&format={}&layers={}:{}&' \
-          'styles&url={}/geoserver/ows'.format(
+          'styles&url={}/geoserver/ows&authkey={}'.format(
         payload["srid"],
         'image/png',
         payload.get("workspace", ""),
         payload.get("name", ""),
-        base_url
+        base_url,
+        auth_config
     )
     return uri
 
 
-def _get_wcs_uri(base_url: str, payload: typing.Dict) -> str:
+def _get_wcs_uri(
+        auth_config: str,
+        base_url: str,
+        payload: typing.Dict) -> str:
 
-    uri = 'identifier={}:{}&url={}/geoserver/ows'.format(
+    uri = 'identifier={}:{}&' \
+          'url={}/geoserver/ows&authkey={}'.format(
         payload.get("workspace", ""),
         payload.get("name", ""),
-        base_url
+        base_url,
+        auth_config
     )
     return uri
 
 
-def _get_wfs_uri(base_url: str, payload: typing.Dict) -> str:
+def _get_wfs_uri(
+        auth_config: str,
+        base_url: str,
+        payload: typing.Dict) -> str:
     uri = '{}/geoserver/ows?service=WFS&' \
-          'version=1.1.0&request=GetFeature&typename={}:{}'.format(
+          'version=1.1.0&request=GetFeature&' \
+          'typename={}:{}&authkey={}'.format(
         base_url,
         payload.get("workspace", ""),
-        payload.get("name", "")
+        payload.get("name", ""),
+        auth_config
     )
     return uri
 
 
-def _build_service_urls(base_url, payload):
+def _build_service_urls(auth_config, base_url, payload):
     urls = {}
 
     resource_type = _get_resource_type(payload)
-    urls['wms'] = _get_wms_uri(base_url, payload)
+    urls['wms'] = _get_wms_uri(auth_config, base_url, payload)
 
     if resource_type == GeonodeResourceType.RASTER_LAYER:
-        urls['wcs'] = _get_wcs_uri(base_url, payload)
+        urls['wcs'] = _get_wcs_uri(auth_config, base_url, payload)
     elif resource_type == GeonodeResourceType.VECTOR_LAYER:
-        urls['wfs'] = _get_wfs_uri(base_url, payload)
+        urls['wfs'] = _get_wfs_uri(auth_config, base_url, payload)
 
     return urls
