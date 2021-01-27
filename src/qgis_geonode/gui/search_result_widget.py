@@ -3,12 +3,7 @@ import os
 from qgis.PyQt.QtWidgets import QWidget
 from qgis.PyQt.uic import loadUiType
 
-from qgis.core import (
-    Qgis,
-    QgsProject,
-    QgsRasterLayer,
-    QgsVectorLayer
-)
+from qgis.core import Qgis, QgsProject, QgsRasterLayer, QgsVectorLayer
 
 from qgis.gui import QgsMessageBar
 
@@ -23,10 +18,10 @@ WidgetUi, _ = loadUiType(
 
 class SearchResultWidget(QWidget, WidgetUi):
     def __init__(
-            self,
-            message_bar: QgsMessageBar,
-            geonode_resource: BriefGeonodeResource,
-            parent=None
+        self,
+        message_bar: QgsMessageBar,
+        geonode_resource: BriefGeonodeResource,
+        parent=None,
     ):
         super().__init__(parent)
         self.setupUi(self)
@@ -40,21 +35,18 @@ class SearchResultWidget(QWidget, WidgetUi):
         self.wfs_btn.clicked.connect(self.load_vector_layer)
 
         self.wcs_btn.setEnabled(
-            self.geonode_resource.resource_type ==
-            GeonodeResourceType.RASTER_LAYER
+            self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER
         )
         self.wfs_btn.setEnabled(
-            self.geonode_resource.resource_type ==
-            GeonodeResourceType.VECTOR_LAYER
+            self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER
         )
 
     def load_map_resource(self):
         self.wms_btn.setEnabled(False)
 
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls['wms'],
-            self.geonode_resource.name,
-            'wms')
+            self.geonode_resource.service_urls["wms"], self.geonode_resource.name, "wms"
+        )
 
         self.load_layer(layer)
         self.wms_btn.setEnabled(True)
@@ -62,9 +54,8 @@ class SearchResultWidget(QWidget, WidgetUi):
     def load_raster_layer(self):
         self.wcs_btn.setEnabled(False)
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls['wcs'],
-            self.geonode_resource.name,
-            'wcs')
+            self.geonode_resource.service_urls["wcs"], self.geonode_resource.name, "wcs"
+        )
 
         self.load_layer(layer)
         self.wcs_btn.setEnabled(True)
@@ -72,9 +63,8 @@ class SearchResultWidget(QWidget, WidgetUi):
     def load_vector_layer(self):
         self.wfs_btn.setEnabled(False)
         layer = QgsVectorLayer(
-            self.geonode_resource.service_urls['wfs'],
-            self.geonode_resource.name,
-            "WFS")
+            self.geonode_resource.service_urls["wfs"], self.geonode_resource.name, "WFS"
+        )
 
         self.load_layer(layer)
         self.wfs_btn.setEnabled(True)
@@ -83,9 +73,8 @@ class SearchResultWidget(QWidget, WidgetUi):
         if not layer.isValid():
             log("Problem loading the layer into QGIS")
             self.message_bar.pushMessage(
-                tr("Problem loading layer, couldn't "
-                   "add an invalid layer"),
-                level=Qgis.Critical
+                tr("Problem loading layer, couldn't " "add an invalid layer"),
+                level=Qgis.Critical,
             )
         else:
             QgsProject.instance().addMapLayer(layer)
