@@ -101,48 +101,8 @@ class BriefGeonodeResource:
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("keywords", [])],
             category=payload.get("category"),
-            service_urls=cls.build_service_urls(geonode_base_url, payload)
+            service_urls=_build_service_urls(geonode_base_url, payload)
         )
-
-    @classmethod
-    def build_service_urls(cls, base_url, payload):
-        urls = {}
-
-        for key in ['wms', 'wfs', 'wcs']:
-            urls[key] = cls.construct_ogc_uri(base_url, key, payload)
-
-        return urls
-
-    @classmethod
-    def construct_ogc_uri(cls, base_url, provider_key, payload):
-
-        if provider_key == 'wms':
-            uri = 'crs={}&format={}&layers={}:{}&' \
-                  'styles&url={}/geoserver/ows'.format(
-                payload["srid"],
-                'image/png',
-                payload.get("workspace", ""),
-                payload.get("name", ""),
-                base_url
-            )
-
-        elif provider_key == 'wfs':
-            uri = '{}/geoserver/ows?service=WFS&' \
-                  'version=1.1.0&request=GetFeature&typename={}:{}'.format(
-                base_url,
-                payload.get("workspace", ""),
-                payload.get("name", "")
-            )
-        elif provider_key == 'wcs':
-            uri = '{}/geoserver/ows?identifier={}:{}'.format(
-                base_url,
-                payload.get("workspace", ""),
-                payload.get("name", "")
-            )
-        else:
-            return ''
-
-        return uri
 
 
 class GeonodeResource(BriefGeonodeResource):
@@ -344,3 +304,49 @@ def _get_spatial_extent(geojson_polygon_geometry: typing.Dict) -> QgsRectangle:
         max_x = x if max_x is None else max(x, max_x)
         max_y = y if max_y is None else max(y, max_y)
     return QgsRectangle(min_x, min_y, max_x, max_y)
+
+
+def _get_wms_uri(base_url: str, payload: typing.Dict) -> str:
+    uri = 'crs={}&format={}&layers={}:{}&' \
+          'styles&url={}/geoserver/ows'.format(
+        payload["srid"],
+        'image/png',
+        payload.get("workspace", ""),
+        payload.get("name", ""),
+        base_url
+    )
+    return uri
+
+
+def _get_wcs_uri(base_url: str, payload: typing.Dict) -> str:
+
+    uri = 'identifier={}:{}&url={}/geoserver/ows'.format(
+        payload.get("workspace", ""),
+        payload.get("name", ""),
+        base_url
+    )
+    return uri
+
+
+def _get_wfs_uri(base_url: str, payload: typing.Dict) -> str:
+    uri = '{}/geoserver/ows?service=WFS&' \
+          'version=1.1.0&request=GetFeature&typename={}:{}'.format(
+        base_url,
+        payload.get("workspace", ""),
+        payload.get("name", "")
+    )
+    return uri
+
+
+def _build_service_urls(base_url, payload):
+    urls = {}
+
+    resource_type = _get_resource_type(payload)
+    urls['wms'] = _get_wms_uri(base_url, payload)
+
+    if resource_type == GeonodeResourceType.RASTER_LAYER:
+        urls['wcs'] = _get_wcs_uri(base_url, payload)
+    elif resource_type == GeonodeResourceType.VECTOR_LAYER:
+        urls['wfs'] = _get_wfs_uri(base_url, payload)
+
+    return urls

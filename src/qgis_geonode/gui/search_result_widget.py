@@ -12,7 +12,7 @@ from qgis.core import (
 
 from qgis.gui import QgsMessageBar
 
-from ..api_client import BriefGeonodeResource
+from ..api_client import BriefGeonodeResource, GeonodeResourceType
 from ..resources import *
 from ..utils import log, tr
 
@@ -35,33 +35,44 @@ class SearchResultWidget(QWidget, WidgetUi):
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
 
-        self.wms_btn.clicked.connect(self.wms_btn_clicked)
-        self.wfs_btn.clicked.connect(self.wfs_btn_clicked)
+        self.wms_btn.clicked.connect(self.load_map_resource)
+        self.wcs_btn.clicked.connect(self.load_raster_layer)
+        self.wfs_btn.clicked.connect(self.load_vector_layer)
 
-    def wms_btn_clicked(self):
-        self.load_ogc_layer('wms')
+        self.wcs_btn.setEnabled(
+            self.geonode_resource.resource_type ==
+            GeonodeResourceType.RASTER_LAYER
+        )
+        self.wfs_btn.setEnabled(
+            self.geonode_resource.resource_type ==
+            GeonodeResourceType.VECTOR_LAYER
+        )
 
-    def wfs_btn_clicked(self):
-        self.load_ogc_layer('wfs')
+    def load_map_resource(self):
+        layer = QgsRasterLayer(
+            self.geonode_resource.service_urls['wms'],
+            self.geonode_resource.name,
+            'wms')
 
-    def load_ogc_layer(self, provider_key: str):
-        layer_uri = self.geonode_resource.service_urls[provider_key]
+        self.load_layer(layer)
 
-        if layer_uri == '':
-            log("Problem loading the layer into QGIS, "
-                "couldn't create layer URI")
-            self.message_bar.pushMessage(
-                tr("Problem loading layer, couldn't "
-                   "create layer URI"),
-                level=Qgis.Critical
-            )
-            return
+    def load_raster_layer(self):
+        layer = QgsRasterLayer(
+            self.geonode_resource.service_urls['wcs'],
+            self.geonode_resource.name,
+            'wcs')
 
-        if provider_key == 'wms' or provider_key == 'wcs':
-            layer = QgsRasterLayer(layer_uri, self.geonode_resource.name, provider_key)
-        elif provider_key == 'wfs':
-            layer = QgsVectorLayer(layer_uri, self.geonode_resource.name, "WFS")
+        self.load_layer(layer)
 
+    def load_vector_layer(self):
+        layer = QgsVectorLayer(
+            self.geonode_resource.service_urls['wfs'],
+            self.geonode_resource.name,
+            "WFS")
+
+        self.load_layer(layer)
+
+    def load_layer(self, layer):
         if not layer.isValid():
             log("Problem loading the layer into QGIS")
             self.message_bar.pushMessage(
