@@ -236,7 +236,11 @@ class GeonodeClient(QObject):
         )
 
     def handle_layer_detail(self, payload: typing.Dict):
-        layer = GeonodeResource.from_api_response(payload["layer"], self.base_url)
+        layer = GeonodeResource.from_api_response(
+            payload["layer"],
+            self.base_url,
+            self.auth_config
+        )
         self.layer_detail_received.emit(layer)
 
     def handle_layer_style_list(self, payload: typing.Dict):
@@ -248,7 +252,13 @@ class GeonodeClient(QObject):
     def handle_map_list(self, payload: typing.Dict):
         maps = []
         for item in payload.get("maps", []):
-            maps.append(BriefGeonodeResource.from_api_response(item, self.base_url))
+            maps.append(
+                BriefGeonodeResource.from_api_response(
+                    item,
+                    self.base_url,
+                    self.auth_config
+                )
+            )
         self.map_list_received.emit(
             maps, payload["total"], payload["page"], payload["page_size"]
         )
