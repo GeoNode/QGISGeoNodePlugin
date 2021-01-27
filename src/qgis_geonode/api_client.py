@@ -21,7 +21,6 @@ from qgis.PyQt.QtCore import (
 from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 
 from .conf import ConnectionSettings
-from .utils import log
 
 
 class GeonodeResourceType(enum.Enum):
@@ -34,7 +33,6 @@ class BriefGeonodeResource:
     pk: int
     uuid: uuid.UUID
     name: str
-    workspace: str
     resource_type: GeonodeResourceType
     title: str
     abstract: str
@@ -50,28 +48,27 @@ class BriefGeonodeResource:
     service_urls: typing.Dict[str, str]
 
     def __init__(
-        self,
-        pk: int,
-        uuid: uuid.UUID,
-        name: str,
-        workspace: str,
-        resource_type: GeonodeResourceType,
-        title: str,
-        abstract: str,
-        spatial_extent: QgsRectangle,
-        crs: QgsCoordinateReferenceSystem,
-        thumbnail_url: str,
-        api_url: str,
-        gui_url: str,
-        published_date: typing.Optional[dt.datetime] = None,
-        temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
-        keywords: typing.Optional[typing.List[str]] = None,
-        category: typing.Optional[str] = None,
+            self,
+            pk: int,
+            uuid: uuid.UUID,
+            name: str,
+            resource_type: GeonodeResourceType,
+            title: str,
+            abstract: str,
+            spatial_extent: QgsRectangle,
+            crs: QgsCoordinateReferenceSystem,
+            thumbnail_url: str,
+            api_url: str,
+            gui_url: str,
+            published_date: typing.Optional[dt.datetime] = None,
+            temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
+            keywords: typing.Optional[typing.List[str]] = None,
+            category: typing.Optional[str] = None,
+            service_urls: typing.Dict[str, str] = None
     ):
         self.pk = pk
         self.uuid = uuid
         self.name = name
-        self.workspace = workspace
         self.resource_type = resource_type
         self.title = title
         self.abstract = abstract
@@ -84,7 +81,7 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
-        self.service_urls = {}
+        self.service_urls = service_urls
 
     @classmethod
     def from_api_response(cls, payload: typing.Dict, geonode_base_url: str):
@@ -92,7 +89,6 @@ class BriefGeonodeResource:
             pk=int(payload["pk"]),
             uuid=uuid.UUID(payload["uuid"]),
             name=payload.get("name", ""),
-            workspace=payload.get("workspace", ""),
             resource_type=_get_resource_type(payload),
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
@@ -105,7 +101,48 @@ class BriefGeonodeResource:
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("kaywords", [])],
             category=payload.get("category"),
+            service_urls=cls.build_service_urls(geonode_base_url, payload)
         )
+
+    @classmethod
+    def build_service_urls(cls, base_url, payload):
+        urls = {}
+
+        for key in ['wms', 'wfs', 'wcs']:
+            urls[key] = cls.construct_ogc_uri(base_url, key, payload)
+
+        return urls
+
+    @classmethod
+    def construct_ogc_uri(cls, base_url, provider_key, payload):
+
+        if provider_key == 'wms':
+            uri = 'crs={}&format={}&layers={}:{}&' \
+                  'styles&url={}/geoserver/ows'.format(
+                payload["srid"],
+                'image/png',
+                payload.get("workspace", ""),
+                payload.get("name", ""),
+                base_url
+            )
+
+        elif provider_key == 'wfs':
+            uri = '{}/geoserver/ows?service=WFS&' \
+                  'version=1.1.0&request=GetFeature&typename={}:{}'.format(
+                base_url,
+                payload.get("workspace", ""),
+                payload.get("name", "")
+            )
+        elif provider_key == 'wcs':
+            uri = '{}/geoserver/ows?identifier={}:{}'.format(
+                base_url,
+                payload.get("workspace", ""),
+                payload.get("name", "")
+            )
+        else:
+            return ''
+
+        return uri
 
 
 class GeonodeResource(BriefGeonodeResource):
@@ -150,7 +187,7 @@ class GeonodeClient(QObject):
     error_received = pyqtSignal(int)
 
     def __init__(
-        self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
+            self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.auth_config = auth_config or ""
@@ -206,7 +243,7 @@ class GeonodeClient(QObject):
         task.run()
 
     def response_fetched(
-        self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
+            self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
     ):
         """Process GeoNode API response and dispatch the appropriate handler"""
         reply: QNetworkReply = task.reply()
@@ -248,7 +285,7 @@ class GeonodeClient(QObject):
 
 
 def _get_temporal_extent(
-    payload: typing.Dict,
+        payload: typing.Dict,
 ) -> typing.Optional[typing.List[typing.Optional[dt.datetime]]]:
     start = payload["temporal_extent_start"]
     end = payload["temporal_extent_end"]

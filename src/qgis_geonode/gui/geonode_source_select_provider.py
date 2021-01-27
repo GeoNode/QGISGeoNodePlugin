@@ -224,7 +224,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         scroll_container = QWidget()
         layout = QVBoxLayout()
         for layer in layers:
-            search_result_widget = SearchResultWidget(geonode_resource=layer)
+            search_result_widget = SearchResultWidget(
+                self.message_bar,
+                geonode_resource=layer)
             layout.addWidget(search_result_widget)
         scroll_container.setLayout(layout)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
