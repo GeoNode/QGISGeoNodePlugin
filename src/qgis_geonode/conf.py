@@ -1,6 +1,5 @@
 import contextlib
 import dataclasses
-import enum
 import logging
 import typing
 import uuid
@@ -8,15 +7,9 @@ import uuid
 from qgis.PyQt import QtCore
 from qgis.core import QgsSettings
 
-from .apiclient.legacy import GeonodeLegacyClient
-from .apiclient.apiv2 import GeonodeApiV2Client
+from .apiclient import GeonodeApiVersion
 
 logger = logging.getLogger(__name__)
-
-
-class GeonodeApiVersion(enum.IntEnum):
-    LEGACY = 1
-    V2 = 2
 
 
 @contextlib.contextmanager
@@ -151,11 +144,3 @@ class ConnectionManager(QtCore.QObject):
 
 
 connections_manager = ConnectionManager()
-
-
-def get_geonode_client(connection_settings: ConnectionSettings):
-    client_type: typing.Type["BaseGeonodeClient"] = {
-        GeonodeApiVersion.LEGACY: GeonodeLegacyClient,
-        GeonodeApiVersion.V2: GeonodeApiV2Client,
-    }[connection_settings.api_version]
-    return client_type.from_connection_settings(connection_settings)

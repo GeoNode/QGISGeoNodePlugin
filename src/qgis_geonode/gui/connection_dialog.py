@@ -11,12 +11,14 @@ from qgis.PyQt.QtGui import QRegExpValidator
 from qgis.PyQt.QtCore import QRegExp
 from qgis.PyQt.uic import loadUiType
 
+from ..apiclient import (
+    GeonodeApiVersion,
+    get_geonode_client,
+)
 from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
     connections_manager,
-    GeonodeApiVersion,
-    get_geonode_client,
 )
 
 DialogUi, _ = loadUiType(

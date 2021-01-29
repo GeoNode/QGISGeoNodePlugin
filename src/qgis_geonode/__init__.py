@@ -25,6 +25,11 @@
 
 
 # noinspection PyPep8Naming
+from qgis_geonode.apiclient.apiv2 import GeonodeApiV2Client
+from qgis_geonode.apiclient.csw import GeonodeLegacyClient
+from qgis_geonode.conf import ConnectionSettings
+
+
 def classFactory(iface):  # pylint: disable=invalid-name
     """Load QgisGeoNode class from file QgisGeoNode.
 
