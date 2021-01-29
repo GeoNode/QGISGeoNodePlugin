@@ -36,6 +36,7 @@ class BriefGeonodeResource:
     resource_type: GeonodeResourceType
     title: str
     abstract: str
+    language: str
     published_date: typing.Optional[dt.datetime]
     spatial_extent: QgsRectangle
     temporal_extent: typing.Optional[typing.List[dt.datetime]]
@@ -55,6 +56,7 @@ class BriefGeonodeResource:
         resource_type: GeonodeResourceType,
         title: str,
         abstract: str,
+        language: str,
         spatial_extent: QgsRectangle,
         crs: QgsCoordinateReferenceSystem,
         thumbnail_url: str,
@@ -72,6 +74,7 @@ class BriefGeonodeResource:
         self.resource_type = resource_type
         self.title = title
         self.abstract = abstract
+        self.language = language
         self.spatial_extent = spatial_extent
         self.crs = crs
         self.thumbnail_url = thumbnail_url
@@ -100,6 +103,7 @@ class BriefGeonodeResource:
             resource_type=resource_type,
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
+            language=payload.get("language", ""),
             spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
             crs=QgsCoordinateReferenceSystem(payload["srid"].replace("EPSG:", "")),
             thumbnail_url=payload["thumbnail_url"],
@@ -111,6 +115,7 @@ class BriefGeonodeResource:
             category=payload.get("category"),
             service_urls=service_urls,
         )
+
 
 
 class GeonodeResource(BriefGeonodeResource):

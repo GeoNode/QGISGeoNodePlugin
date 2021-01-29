@@ -77,4 +77,20 @@ class SearchResultWidget(QWidget, WidgetUi):
                 level=Qgis.Critical,
             )
         else:
+            self.populate_metadata(layer)
             QgsProject.instance().addMapLayer(layer)
+
+    def populate_metadata(self, layer):
+        metadata = layer.metadata()
+        metadata.setTitle(self.geonode_resource.title)
+        metadata.setAbstract(self.geonode_resource.abstract)
+        metadata.setLanguage(self.geonode_resource.language)
+        metadata.setKeywords(
+            {'layer': self.geonode_resource.keywords}
+        )
+        metadata.setCrs(self.geonode_resource.crs)
+        # metadata.extent().setSpatialExtents(
+        #     self.geonode_resource.spatial_extent)
+        # metadata.extent().setTemporalExtents(
+        #     self.geonode_resource.temporal_extent)
+        layer.setMetadata(metadata)
