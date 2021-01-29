@@ -44,8 +44,12 @@ class BriefGeonodeResource:
     thumbnail_url: str
     api_url: str
     gui_url: str
+    license: str
+    constraints: str
     keywords: typing.List[str]
     category: typing.Optional[str]
+    owner: typing.Dict[str, str]
+    metadata_author: typing.Dict[str, str]
     service_urls: typing.Dict[str, str]
 
     def __init__(
@@ -62,10 +66,14 @@ class BriefGeonodeResource:
         thumbnail_url: str,
         api_url: str,
         gui_url: str,
+        license: str,
+        constraints: str,
         published_date: typing.Optional[dt.datetime] = None,
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
+        owner: typing.Dict[str, str] = None,
+        metadata_author: typing.Dict[str, str] = None,
         service_urls: typing.Dict[str, str] = None,
     ):
         self.pk = pk
@@ -84,6 +92,10 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
+        self.owner = owner
+        self.metadata_author = metadata_author
+        self.license = license
+        self.constraints = constraints
         self.service_urls = service_urls
 
     @classmethod
@@ -112,7 +124,11 @@ class BriefGeonodeResource:
             published_date=_get_published_date(payload),
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("keywords", [])],
-            category=payload.get("category"),
+            category=payload.get("category", ""),
+            owner=payload.get("owner", ""),
+            metadata_author=payload.get("metadata_author", ""),
+            license=payload.get("license", ""),
+            constraints=payload.get("constraints_other", ""),
             service_urls=service_urls,
         )
 

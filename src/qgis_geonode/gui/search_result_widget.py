@@ -3,7 +3,15 @@ import os
 from qgis.PyQt.QtWidgets import QWidget
 from qgis.PyQt.uic import loadUiType
 
-from qgis.core import Qgis, QgsProject, QgsRasterLayer, QgsVectorLayer
+from qgis.core import (
+    QgsAbstractMetadataBase,
+    QgsDateTimeRange,
+    Qgis,
+    QgsLayerMetadata,
+    QgsProject,
+    QgsRasterLayer,
+    QgsVectorLayer
+)
 
 from qgis.gui import QgsMessageBar
 
@@ -88,9 +96,76 @@ class SearchResultWidget(QWidget, WidgetUi):
         metadata.setKeywords(
             {'layer': self.geonode_resource.keywords}
         )
+        if self.geonode_resource.category:
+            metadata.setCategories(
+                [c["identifier"] for c in self.geonode_resource.category]
+            )
+        if self.geonode_resource.license:
+            metadata.setLicenses([self.geonode_resource.license['identifier']]
+            )
+        if self.geonode_resource.constraints:
+            constraints = [
+                QgsLayerMetadata.Constraint(
+                    self.geonode_resource.constraints
+                )
+            ]
+            metadata.setConstraints(constraints)
+
         metadata.setCrs(self.geonode_resource.crs)
-        # metadata.extent().setSpatialExtents(
-        #     self.geonode_resource.spatial_extent)
-        # metadata.extent().setTemporalExtents(
-        #     self.geonode_resource.temporal_extent)
+        if self.geonode_resource.spatial_extent:
+            spatial_extent = QgsLayerMetadata.SpatialExtent()
+            spatial_extent.extentCrs = self.geonode_resource.crs
+            spatial_extent.bounds = self.geonode_resource.spatial_extent.toBox3d(0, 0)
+
+            metadata.extent().setSpatialExtents(
+               [ spatial_extent ]
+            )
+            if self.geonode_resource.temporal_extent:
+                metadata.extent().setTemporalExtents(
+                    [QgsDateTimeRange(
+                        self.geonode_resource.temporal_extent[0],
+                        self.geonode_resource.temporal_extent[1]
+                    )]
+                )
+        if self.geonode_resource.owner:
+            owner_contact = QgsAbstractMetadataBase.Contact(
+                self.geonode_resource.owner['username']
+            )
+            owner_contact.role = tr('owner')
+            metadata.addContact(owner_contact)
+        if self.geonode_resource.metadata_author:
+            metadata_author = QgsAbstractMetadataBase.Contact(
+                self.geonode_resource.metadata_author['username']
+            )
+            metadata_author.role = tr('metadata_author')
+            metadata.addContact(metadata_author)
+
+        links = []
+
+        if self.geonode_resource.thumbnail_url:
+            link = QgsAbstractMetadataBase.Link(
+                tr("Thumbnail"),
+                tr("Thumbail_link"),
+                self.geonode_resource.thumbnail_url
+            )
+            links.append(link)
+
+        if self.geonode_resource.api_url:
+            link = QgsAbstractMetadataBase.Link(
+                tr("API"),
+                tr("API_URL"),
+                self.geonode_resource.api_url
+            )
+            links.append(link)
+
+        if self.geonode_resource.gui_url:
+            link = QgsAbstractMetadataBase.Link(
+                tr("Detail"),
+                tr("Detail_URL"),
+                self.geonode_resource.gui_url
+            )
+            links.append(link)
+
+        metadata.setLinks(links)
+
         layer.setMetadata(metadata)
