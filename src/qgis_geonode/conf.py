@@ -1,6 +1,5 @@
 import contextlib
 import dataclasses
-import enum
 import logging
 import typing
 import uuid
