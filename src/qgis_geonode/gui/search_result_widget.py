@@ -1,4 +1,5 @@
 import os
+from functools import partial
 
 from qgis.PyQt.QtWidgets import QWidget
 from qgis.PyQt.uic import loadUiType
@@ -15,9 +16,14 @@ from qgis.core import (
 
 from qgis.gui import QgsMessageBar
 
-from ..api_client import BriefGeonodeResource, GeonodeResourceType
+from ..api_client import (
+    BriefGeonodeResource,
+    GeonodeClient,
+    GeonodeResourceType
+)
 from ..resources import *
 from ..utils import log, tr
+from ..conf import connections_manager
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/search_result_widget.ui")
@@ -85,87 +91,95 @@ class SearchResultWidget(QWidget, WidgetUi):
                 level=Qgis.Critical,
             )
         else:
-            self.populate_metadata(layer)
-            QgsProject.instance().addMapLayer(layer)
+            self.get_layer(layer, self.geonode_resource.pk)
 
-    def populate_metadata(self, layer):
+    def get_layer(self, layer, pk):
+        connection = connections_manager.get_current_connection()
+        client = GeonodeClient.from_connection_settings(connection)
+
+        populate_metadata_handler = partial(self.populate_metadata, layer)
+        client.layer_detail_received.connect(populate_metadata_handler)
+        client.get_layer_detail(pk)
+
+    def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
-        metadata.setTitle(self.geonode_resource.title)
-        metadata.setAbstract(self.geonode_resource.abstract)
-        metadata.setLanguage(self.geonode_resource.language)
+        metadata.setTitle(geonode_resource.title)
+        metadata.setAbstract(geonode_resource.abstract)
+        metadata.setLanguage(geonode_resource.language)
         metadata.setKeywords(
-            {'layer': self.geonode_resource.keywords}
+            {'layer': geonode_resource.keywords}
         )
-        if self.geonode_resource.category:
+        if geonode_resource.category:
             metadata.setCategories(
-                [c["identifier"] for c in self.geonode_resource.category]
+                [c["identifier"] for c in geonode_resource.category]
             )
-        if self.geonode_resource.license:
-            metadata.setLicenses([self.geonode_resource.license['identifier']]
+        if geonode_resource.license:
+            metadata.setLicenses([geonode_resource.license['identifier']]
             )
-        if self.geonode_resource.constraints:
+        if geonode_resource.constraints:
             constraints = [
                 QgsLayerMetadata.Constraint(
-                    self.geonode_resource.constraints
+                    geonode_resource.constraints
                 )
             ]
             metadata.setConstraints(constraints)
 
-        metadata.setCrs(self.geonode_resource.crs)
-        if self.geonode_resource.spatial_extent:
+        metadata.setCrs(geonode_resource.crs)
+        if geonode_resource.spatial_extent:
             spatial_extent = QgsLayerMetadata.SpatialExtent()
-            spatial_extent.extentCrs = self.geonode_resource.crs
-            spatial_extent.bounds = self.geonode_resource.spatial_extent.toBox3d(0, 0)
+            spatial_extent.extentCrs = geonode_resource.crs
+            spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
 
             metadata.extent().setSpatialExtents(
                [ spatial_extent ]
             )
-            if self.geonode_resource.temporal_extent:
+            if geonode_resource.temporal_extent:
                 metadata.extent().setTemporalExtents(
                     [QgsDateTimeRange(
-                        self.geonode_resource.temporal_extent[0],
-                        self.geonode_resource.temporal_extent[1]
+                        geonode_resource.temporal_extent[0],
+                        geonode_resource.temporal_extent[1]
                     )]
                 )
-        if self.geonode_resource.owner:
+        if geonode_resource.owner:
             owner_contact = QgsAbstractMetadataBase.Contact(
-                self.geonode_resource.owner['username']
+                geonode_resource.owner['username']
             )
             owner_contact.role = tr('owner')
             metadata.addContact(owner_contact)
-        if self.geonode_resource.metadata_author:
+        if geonode_resource.metadata_author:
             metadata_author = QgsAbstractMetadataBase.Contact(
-                self.geonode_resource.metadata_author['username']
+                geonode_resource.metadata_author['username']
             )
             metadata_author.role = tr('metadata_author')
             metadata.addContact(metadata_author)
 
         links = []
 
-        if self.geonode_resource.thumbnail_url:
+        if geonode_resource.thumbnail_url:
             link = QgsAbstractMetadataBase.Link(
                 tr("Thumbnail"),
                 tr("Thumbail_link"),
-                self.geonode_resource.thumbnail_url
+                geonode_resource.thumbnail_url
             )
             links.append(link)
 
-        if self.geonode_resource.api_url:
+        if geonode_resource.api_url:
             link = QgsAbstractMetadataBase.Link(
                 tr("API"),
                 tr("API_URL"),
-                self.geonode_resource.api_url
+                geonode_resource.api_url
             )
             links.append(link)
 
-        if self.geonode_resource.gui_url:
+        if geonode_resource.gui_url:
             link = QgsAbstractMetadataBase.Link(
                 tr("Detail"),
                 tr("Detail_URL"),
-                self.geonode_resource.gui_url
+                geonode_resource.gui_url
             )
             links.append(link)
 
         metadata.setLinks(links)
 
         layer.setMetadata(metadata)
+        QgsProject.instance().addMapLayer(layer)

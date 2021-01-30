@@ -36,7 +36,6 @@ class BriefGeonodeResource:
     resource_type: GeonodeResourceType
     title: str
     abstract: str
-    language: str
     published_date: typing.Optional[dt.datetime]
     spatial_extent: QgsRectangle
     temporal_extent: typing.Optional[typing.List[dt.datetime]]
@@ -44,12 +43,8 @@ class BriefGeonodeResource:
     thumbnail_url: str
     api_url: str
     gui_url: str
-    license: str
-    constraints: str
     keywords: typing.List[str]
     category: typing.Optional[str]
-    owner: typing.Dict[str, str]
-    metadata_author: typing.Dict[str, str]
     service_urls: typing.Dict[str, str]
 
     def __init__(
@@ -60,20 +55,15 @@ class BriefGeonodeResource:
         resource_type: GeonodeResourceType,
         title: str,
         abstract: str,
-        language: str,
         spatial_extent: QgsRectangle,
         crs: QgsCoordinateReferenceSystem,
         thumbnail_url: str,
         api_url: str,
         gui_url: str,
-        license: str,
-        constraints: str,
         published_date: typing.Optional[dt.datetime] = None,
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
-        owner: typing.Dict[str, str] = None,
-        metadata_author: typing.Dict[str, str] = None,
         service_urls: typing.Dict[str, str] = None,
     ):
         self.pk = pk
@@ -82,7 +72,6 @@ class BriefGeonodeResource:
         self.resource_type = resource_type
         self.title = title
         self.abstract = abstract
-        self.language = language
         self.spatial_extent = spatial_extent
         self.crs = crs
         self.thumbnail_url = thumbnail_url
@@ -92,10 +81,6 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
-        self.owner = owner
-        self.metadata_author = metadata_author
-        self.license = license
-        self.constraints = constraints
         self.service_urls = service_urls
 
     @classmethod
@@ -115,7 +100,6 @@ class BriefGeonodeResource:
             resource_type=resource_type,
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
-            language=payload.get("language", ""),
             spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
             crs=QgsCoordinateReferenceSystem(payload["srid"].replace("EPSG:", "")),
             thumbnail_url=payload["thumbnail_url"],
@@ -125,17 +109,67 @@ class BriefGeonodeResource:
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("keywords", [])],
             category=payload.get("category", ""),
-            owner=payload.get("owner", ""),
-            metadata_author=payload.get("metadata_author", ""),
-            license=payload.get("license", ""),
-            constraints=payload.get("constraints_other", ""),
             service_urls=service_urls,
         )
 
 
-
 class GeonodeResource(BriefGeonodeResource):
-    pass
+    language: str
+    license: str
+    constraints: str
+    owner: typing.Dict[str, str]
+    metadata_author: typing.Dict[str, str]
+
+    def __init__(
+        self,
+        language: str,
+        license: str,
+        constraints: str,
+        owner: typing.Dict[str, str],
+        metadata_author: typing.Dict[str, str],
+        *args,
+        ** kwargs
+    ):
+        super(GeonodeResource, self).__init__(*args, **kwargs)
+        self.language = language
+        self.license = license
+        self.constraints = constraints
+        self.owner = owner
+        self.metadata_author = metadata_author
+
+    @classmethod
+    def from_api_response(
+            cls, payload: typing.Dict, geonode_base_url: str, auth_config: str
+    ):
+        # TODO use a better way to initialize superclass members
+        brief_resource = BriefGeonodeResource.from_api_response(
+            payload,
+            geonode_base_url,
+            auth_config
+        )
+        return cls(
+            language=payload.get("language", ""),
+            license=payload.get("license", ""),
+            constraints=payload.get("constraints_other", ""),
+            owner=payload.get("owner", ""),
+            metadata_author=payload.get("metadata_author", ""),
+            pk=brief_resource.pk,
+            uuid=brief_resource.uuid,
+            name=brief_resource.name,
+            resource_type=brief_resource.resource_type,
+            title=brief_resource.title,
+            abstract=brief_resource.abstract,
+            spatial_extent=brief_resource.spatial_extent,
+            crs=brief_resource.crs,
+            thumbnail_url=brief_resource.thumbnail_url,
+            api_url=brief_resource.api_url,
+            gui_url=brief_resource.gui_url,
+            published_date=brief_resource.published_date,
+            temporal_extent=brief_resource.temporal_extent,
+            keywords=brief_resource.keywords,
+            category=brief_resource.category,
+            service_urls=brief_resource.service_urls
+        )
 
 
 class BriefGeonodeStyle:
