@@ -101,7 +101,7 @@ class BriefGeonodeResource:
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
             spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
-            crs=QgsCoordinateReferenceSystem(payload["srid"].replace("EPSG:", "")),
+            crs=QgsCoordinateReferenceSystem(payload["srid"]),
             thumbnail_url=payload["thumbnail_url"],
             api_url=f"{geonode_base_url}/api/v2/layers/{payload['pk']}",
             gui_url=payload["detail_url"],

@@ -97,9 +97,14 @@ class SearchResultWidget(QWidget, WidgetUi):
         connection = connections_manager.get_current_connection()
         client = GeonodeClient.from_connection_settings(connection)
 
-        populate_metadata_handler = partial(self.populate_metadata, layer)
+        populate_metadata_handler = partial(self.show_layer, layer)
         client.layer_detail_received.connect(populate_metadata_handler)
         client.get_layer_detail(pk)
+
+    def show_layer(self, layer, geonode_resource):
+        self.populate_metadata(layer, geonode_resource)
+
+        QgsProject.instance().addMapLayer(layer)
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -125,14 +130,11 @@ class SearchResultWidget(QWidget, WidgetUi):
             metadata.setConstraints(constraints)
 
         metadata.setCrs(geonode_resource.crs)
-        if geonode_resource.spatial_extent:
-            spatial_extent = QgsLayerMetadata.SpatialExtent()
-            spatial_extent.extentCrs = geonode_resource.crs
-            spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
 
-            metadata.extent().setSpatialExtents(
-               [ spatial_extent ]
-            )
+        spatial_extent = QgsLayerMetadata.SpatialExtent()
+        spatial_extent.extentCrs = geonode_resource.crs
+        if geonode_resource.spatial_extent:
+            spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
             if geonode_resource.temporal_extent:
                 metadata.extent().setTemporalExtents(
                     [QgsDateTimeRange(
@@ -140,6 +142,9 @@ class SearchResultWidget(QWidget, WidgetUi):
                         geonode_resource.temporal_extent[1]
                     )]
                 )
+
+        metadata.extent().setSpatialExtents([spatial_extent])
+
         if geonode_resource.owner:
             owner_contact = QgsAbstractMetadataBase.Contact(
                 geonode_resource.owner['username']
@@ -182,4 +187,3 @@ class SearchResultWidget(QWidget, WidgetUi):
         metadata.setLinks(links)
 
         layer.setMetadata(metadata)
-        QgsProject.instance().addMapLayer(layer)
