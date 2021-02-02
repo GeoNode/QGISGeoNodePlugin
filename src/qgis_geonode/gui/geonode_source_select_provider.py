@@ -71,9 +71,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.connections_cmb.currentIndexChanged.connect(
             self.toggle_connection_management_buttons
         )
-        self.connections_cmb.currentIndexChanged.connect(
-            self.update_current_connection
-        )
+        self.connections_cmb.currentIndexChanged.connect(self.update_current_connection)
         self.btnNew.clicked.connect(self.add_connection)
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
