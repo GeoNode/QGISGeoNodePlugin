@@ -101,20 +101,81 @@ class BriefGeonodeResource:
             title=payload.get("title", ""),
             abstract=payload.get("abstract", ""),
             spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
-            crs=QgsCoordinateReferenceSystem(payload["srid"].replace("EPSG:", "")),
+            crs=QgsCoordinateReferenceSystem(payload["srid"]),
             thumbnail_url=payload["thumbnail_url"],
             api_url=f"{geonode_base_url}/api/v2/layers/{payload['pk']}",
-            gui_url=payload["detail_url"],
+            gui_url=f"{geonode_base_url}{payload['detail_url']}",
             published_date=_get_published_date(payload),
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("keywords", [])],
-            category=payload.get("category"),
+            category=payload.get("category", ""),
             service_urls=service_urls,
         )
 
 
 class GeonodeResource(BriefGeonodeResource):
-    pass
+    language: str
+    license: str
+    constraints: str
+    owner: typing.Dict[str, str]
+    metadata_author: typing.Dict[str, str]
+
+    def __init__(
+        self,
+        language: str,
+        license: str,
+        constraints: str,
+        owner: typing.Dict[str, str],
+        metadata_author: typing.Dict[str, str],
+        *args,
+        ** kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.language = language
+        self.license = license
+        self.constraints = constraints
+        self.owner = owner
+        self.metadata_author = metadata_author
+
+    @classmethod
+    def from_api_response(
+            cls, payload: typing.Dict, geonode_base_url: str, auth_config: str
+    ):
+        resource_type = _get_resource_type(payload)
+        service_urls = {"wms": _get_wms_uri(auth_config, geonode_base_url, payload)}
+        if resource_type == GeonodeResourceType.VECTOR_LAYER:
+            service_urls["wfs"] = _get_wfs_uri(auth_config, geonode_base_url, payload)
+        elif resource_type == GeonodeResourceType.RASTER_LAYER:
+            service_urls["wcs"] = _get_wcs_uri(auth_config, geonode_base_url, payload)
+
+        license_value = payload.get("license", "")
+        if license_value and isinstance(license_value, dict):
+            license= license_value["identifier"]
+        else:
+            license= license_value
+        return cls(
+            pk=int(payload["pk"]),
+            uuid=uuid.UUID(payload["uuid"]),
+            name=payload.get("name", ""),
+            resource_type=resource_type,
+            title=payload.get("title", ""),
+            abstract=payload.get("abstract", ""),
+            spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
+            crs=QgsCoordinateReferenceSystem(payload["srid"]),
+            thumbnail_url=payload["thumbnail_url"],
+            api_url=f"{geonode_base_url}/api/v2/layers/{payload['pk']}",
+            gui_url=f"{geonode_base_url}{payload['detail_url']}",
+            published_date=_get_published_date(payload),
+            temporal_extent=_get_temporal_extent(payload),
+            keywords=[k["name"] for k in payload.get("keywords", [])],
+            category=payload.get("category", ""),
+            service_urls=service_urls,
+            language=payload.get("language", ""),
+            license=license,
+            constraints=payload.get("constraints_other", ""),
+            owner=payload.get("owner", ""),
+            metadata_author=payload.get("metadata_author", ""),
+        )
 
 
 class BriefGeonodeStyle:
