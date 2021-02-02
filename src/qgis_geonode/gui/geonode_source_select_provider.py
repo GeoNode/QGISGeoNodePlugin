@@ -206,7 +206,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.previous_btn.setEnabled(False)
         self.message_bar.pushMessage(tr("Searching..."), level=Qgis.Info)
         connection_name = self.connections_cmb.currentText()
-        connection_settings = connections_manager.find_connection_by_name(connection_name)
+        connection_settings = connections_manager.find_connection_by_name(
+            connection_name
+        )
         client = get_geonode_client(connection_settings)
         client.layer_list_received.connect(self.handle_layer_list)
         client.layer_list_received.connect(self.handle_pagination)

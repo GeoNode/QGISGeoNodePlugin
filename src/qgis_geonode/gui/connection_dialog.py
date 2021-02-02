@@ -32,7 +32,7 @@ class ConnectionDialog(QDialog, DialogUi):
 
     _autodetection_type_order: typing.List[GeonodeApiVersion] = [
         GeonodeApiVersion.V2,
-        GeonodeApiVersion.LEGACY,
+        GeonodeApiVersion.OGC_CSW,
     ]
 
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
@@ -41,7 +41,8 @@ class ConnectionDialog(QDialog, DialogUi):
         api_version_names = list(GeonodeApiVersion)
         api_version_names.sort(key=lambda member: member.name, reverse=True)
         self.api_version_cmb.insertItems(
-            0, [member.name for member in api_version_names])
+            0, [member.name for member in api_version_names]
+        )
         self._widgets_to_toggle_during_connection_test = [
             self.test_connection_btn,
             self.buttonBox,
@@ -80,7 +81,7 @@ class ConnectionDialog(QDialog, DialogUi):
             name=self.name_le.text().strip(),
             base_url=self.url_le.text().strip(),
             auth_config=self.authcfg_acs.configId(),
-            api_version=GeonodeApiVersion[self.api_version_cmb.currentText().upper()]
+            api_version=GeonodeApiVersion[self.api_version_cmb.currentText().upper()],
         )
 
     def test_connection(self):
@@ -125,14 +126,16 @@ class ConnectionDialog(QDialog, DialogUi):
 
     def handle_autodetection_error(self, version: GeonodeApiVersion):
         self.bar.pushMessage(
-            f"API version {version.name} does not work", level=Qgis.Warning)
+            f"API version {version.name} does not work", level=Qgis.Warning
+        )
         current_index = self._autodetection_type_order.index(version)
         if current_index < len(self._autodetection_type_order) - 1:
             next_version_to_try = self._autodetection_type_order[current_index + 1]
             self.detect_api_version(next_version_to_try)
         else:
             self.bar.pushMessage(
-                f"Could not detect a suitable API version", level=Qgis.Critical)
+                f"Could not detect a suitable API version", level=Qgis.Critical
+            )
 
     def accept(self):
         connection_settings = self.get_connection_settings()
