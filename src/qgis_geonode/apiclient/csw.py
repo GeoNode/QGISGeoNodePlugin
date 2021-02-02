@@ -41,9 +41,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         return f"{self.base_url}/catalogue/csw"
 
     def get_layers_url_endpoint(
-            self,
-            page: typing.Optional[int] = 1,
-            page_size: typing.Optional[int] = 10
+        self, page: typing.Optional[int] = 1, page_size: typing.Optional[int] = 10
     ) -> QUrl:
         url = QUrl(f"{self.catalogue_url}")
         query = QUrlQuery()
@@ -90,8 +88,7 @@ class GeonodeCswClient(BaseGeonodeClient):
 
 
 def get_brief_geonode_resource(
-        record: ET.Element,
-        geonode_base_url: str
+    record: ET.Element, geonode_base_url: str
 ) -> models.BriefGeonodeResource:
     return models.BriefGeonodeResource(
         pk=None,
@@ -171,11 +168,13 @@ def get_brief_geonode_resource(
 
 
 def _get_resource_type(
-        record: ET.Element) -> typing.Optional[models.GeonodeResourceType]:
+    record: ET.Element,
+) -> typing.Optional[models.GeonodeResourceType]:
     content_info = record.find(f"{{{Csw202Namespace.GMD}}}contentInfo")
     is_raster = content_info.find(f"{{{Csw202Namespace.GMD}}}MD_CoverageDescription")
     is_vector = content_info.find(
-        f"{{{Csw202Namespace.GMD}}}MD_FeatureCatalogueDescription")
+        f"{{{Csw202Namespace.GMD}}}MD_FeatureCatalogueDescription"
+    )
     if is_raster:
         result = models.GeonodeResourceType.RASTER_LAYER
     elif is_vector:
@@ -214,7 +213,7 @@ def _get_spatial_extent(geographic_bounding_box: ET.Element) -> QgsRectangle:
 
 
 def _get_temporal_extent(
-        payload: typing.Dict,
+    payload: typing.Dict,
 ) -> typing.Optional[typing.List[typing.Optional[dt.datetime]]]:
     pass
 
