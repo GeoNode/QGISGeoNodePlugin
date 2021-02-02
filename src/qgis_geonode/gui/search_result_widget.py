@@ -44,6 +44,9 @@ class SearchResultWidget(QWidget, WidgetUi):
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
 
+        connection = connections_manager.get_current_connection()
+        self.client = GeonodeClient.from_connection_settings(connection)
+
         self.wms_btn.clicked.connect(self.load_map_resource)
         self.wcs_btn.clicked.connect(self.load_raster_layer)
         self.wfs_btn.clicked.connect(self.load_vector_layer)
@@ -77,12 +80,9 @@ class SearchResultWidget(QWidget, WidgetUi):
 
     def load_layer(self, layer):
         if layer.isValid():
-            connection = connections_manager.get_current_connection()
-            client = GeonodeClient.from_connection_settings(connection)
-
             show_layer_handler = partial(self.show_layer, layer)
-            client.layer_detail_received.connect(show_layer_handler)
-            client.get_layer_detail(self.geonode_resource.pk)
+            self.client.layer_detail_received.connect(show_layer_handler)
+            self.client.get_layer_detail(self.geonode_resource.pk)
 
         else:
             log("Problem loading the layer into QGIS")
