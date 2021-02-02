@@ -80,8 +80,8 @@ class SearchResultWidget(QWidget, WidgetUi):
             connection = connections_manager.get_current_connection()
             client = GeonodeClient.from_connection_settings(connection)
 
-            populate_metadata_handler = partial(self.show_layer, layer)
-            client.layer_detail_received.connect(populate_metadata_handler)
+            show_layer_handler = partial(self.show_layer, layer)
+            client.layer_detail_received.connect(show_layer_handler)
             client.get_layer_detail(self.geonode_resource.pk)
 
         else:
