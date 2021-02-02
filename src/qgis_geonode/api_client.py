@@ -104,7 +104,7 @@ class BriefGeonodeResource:
             crs=QgsCoordinateReferenceSystem(payload["srid"]),
             thumbnail_url=payload["thumbnail_url"],
             api_url=f"{geonode_base_url}/api/v2/layers/{payload['pk']}",
-            gui_url=payload["detail_url"],
+            gui_url=f"{geonode_base_url}{payload['detail_url']}",
             published_date=_get_published_date(payload),
             temporal_extent=_get_temporal_extent(payload),
             keywords=[k["name"] for k in payload.get("keywords", [])],
@@ -130,7 +130,7 @@ class GeonodeResource(BriefGeonodeResource):
         *args,
         ** kwargs
     ):
-        super(GeonodeResource, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.language = language
         self.license = license
         self.constraints = constraints
@@ -141,34 +141,40 @@ class GeonodeResource(BriefGeonodeResource):
     def from_api_response(
             cls, payload: typing.Dict, geonode_base_url: str, auth_config: str
     ):
-        # TODO use a better way to initialize superclass members
-        brief_resource = BriefGeonodeResource.from_api_response(
-            payload,
-            geonode_base_url,
-            auth_config
-        )
+        resource_type = _get_resource_type(payload)
+        service_urls = {"wms": _get_wms_uri(auth_config, geonode_base_url, payload)}
+        if resource_type == GeonodeResourceType.VECTOR_LAYER:
+            service_urls["wfs"] = _get_wfs_uri(auth_config, geonode_base_url, payload)
+        elif resource_type == GeonodeResourceType.RASTER_LAYER:
+            service_urls["wcs"] = _get_wcs_uri(auth_config, geonode_base_url, payload)
+
+        license_value = payload.get("license", "")
+        if license_value and isinstance(license_value, dict):
+            license= license_value["identifier"]
+        else:
+            license= license_value
         return cls(
+            pk=int(payload["pk"]),
+            uuid=uuid.UUID(payload["uuid"]),
+            name=payload.get("name", ""),
+            resource_type=resource_type,
+            title=payload.get("title", ""),
+            abstract=payload.get("abstract", ""),
+            spatial_extent=_get_spatial_extent(payload["bbox_polygon"]),
+            crs=QgsCoordinateReferenceSystem(payload["srid"]),
+            thumbnail_url=payload["thumbnail_url"],
+            api_url=f"{geonode_base_url}/api/v2/layers/{payload['pk']}",
+            gui_url=f"{geonode_base_url}{payload['detail_url']}",
+            published_date=_get_published_date(payload),
+            temporal_extent=_get_temporal_extent(payload),
+            keywords=[k["name"] for k in payload.get("keywords", [])],
+            category=payload.get("category", ""),
+            service_urls=service_urls,
             language=payload.get("language", ""),
-            license=payload.get("license", ""),
+            license=license,
             constraints=payload.get("constraints_other", ""),
             owner=payload.get("owner", ""),
             metadata_author=payload.get("metadata_author", ""),
-            pk=brief_resource.pk,
-            uuid=brief_resource.uuid,
-            name=brief_resource.name,
-            resource_type=brief_resource.resource_type,
-            title=brief_resource.title,
-            abstract=brief_resource.abstract,
-            spatial_extent=brief_resource.spatial_extent,
-            crs=brief_resource.crs,
-            thumbnail_url=brief_resource.thumbnail_url,
-            api_url=brief_resource.api_url,
-            gui_url=brief_resource.gui_url,
-            published_date=brief_resource.published_date,
-            temporal_extent=brief_resource.temporal_extent,
-            keywords=brief_resource.keywords,
-            category=brief_resource.category,
-            service_urls=brief_resource.service_urls
         )
 
 

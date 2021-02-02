@@ -71,6 +71,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.connections_cmb.currentIndexChanged.connect(
             self.toggle_connection_management_buttons
         )
+        self.connections_cmb.currentIndexChanged.connect(
+            self.update_current_connection
+        )
         self.btnNew.clicked.connect(self.add_connection)
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
@@ -126,15 +129,19 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def update_connections_combobox(
         self, current_identifier: typing.Optional[str] = ""
     ):
-        self.connections_cmb.clear()
+
         existing_connections = connections_manager.list_connections()
-        self.connections_cmb.addItems(conn.name for conn in existing_connections)
+
+        if self.connections_cmb.count() != len(existing_connections):
+            self.connections_cmb.clear()
+            self.connections_cmb.addItems(conn.name for conn in existing_connections)
         if current_identifier != "":
             current_connection = connections_manager.get_connection_settings(
                 uuid.UUID(current_identifier)
             )
-            current_index = self.connections_cmb.findText(current_connection.name)
-            self.connections_cmb.setCurrentIndex(current_index)
+            if current_connection.name != self.connections_cmb.currentText():
+                current_index = self.connections_cmb.findText(current_connection.name)
+                self.connections_cmb.setCurrentIndex(current_index)
 
     def toggle_connection_management_buttons(self):
         enabled = len(connections_manager.list_connections()) > 0
@@ -142,6 +149,14 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnDelete.setEnabled(enabled)
         self.search_btn.setEnabled(enabled)
         self.clear_search()
+        self.current_page = 1
+
+    def update_current_connection(self):
+        if self.connections_cmb.currentText() != "":
+            current_connection = connections_manager.find_connection_by_name(
+                self.connections_cmb.currentText()
+            )
+            connections_manager.set_current_connection(current_connection.id)
 
     def _confirm_deletion(self, connection_name: str):
         message = tr('Remove the following connection "{}"?').format(connection_name)

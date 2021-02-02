@@ -48,12 +48,7 @@ class SearchResultWidget(QWidget, WidgetUi):
         self.wcs_btn.clicked.connect(self.load_raster_layer)
         self.wfs_btn.clicked.connect(self.load_vector_layer)
 
-        self.wcs_btn.setEnabled(
-            self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER
-        )
-        self.wfs_btn.setEnabled(
-            self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER
-        )
+        self.reset_ogc_buttons_state()
 
     def load_map_resource(self):
         self.wms_btn.setEnabled(False)
@@ -63,7 +58,6 @@ class SearchResultWidget(QWidget, WidgetUi):
         )
 
         self.load_layer(layer)
-        self.wms_btn.setEnabled(True)
 
     def load_raster_layer(self):
         self.wcs_btn.setEnabled(False)
@@ -72,7 +66,6 @@ class SearchResultWidget(QWidget, WidgetUi):
         )
 
         self.load_layer(layer)
-        self.wcs_btn.setEnabled(True)
 
     def load_vector_layer(self):
         self.wfs_btn.setEnabled(False)
@@ -81,33 +74,32 @@ class SearchResultWidget(QWidget, WidgetUi):
         )
 
         self.load_layer(layer)
-        self.wfs_btn.setEnabled(True)
 
     def load_layer(self, layer):
-        if not layer.isValid():
+        if layer.isValid():
+            connection = connections_manager.get_current_connection()
+            client = GeonodeClient.from_connection_settings(connection)
+
+            populate_metadata_handler = partial(self.show_layer, layer)
+            client.layer_detail_received.connect(populate_metadata_handler)
+            client.get_layer_detail(self.geonode_resource.pk)
+
+        else:
             log("Problem loading the layer into QGIS")
             self.message_bar.pushMessage(
                 tr("Problem loading layer, couldn't " "add an invalid layer"),
                 level=Qgis.Critical,
             )
-        else:
-            self.get_layer(layer, self.geonode_resource.pk)
-
-    def get_layer(self, layer, pk):
-        connection = connections_manager.get_current_connection()
-        client = GeonodeClient.from_connection_settings(connection)
-
-        populate_metadata_handler = partial(self.show_layer, layer)
-        client.layer_detail_received.connect(populate_metadata_handler)
-        client.get_layer_detail(pk)
 
     def show_layer(self, layer, geonode_resource):
         self.populate_metadata(layer, geonode_resource)
 
         QgsProject.instance().addMapLayer(layer)
+        self.reset_ogc_buttons_state()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
+        metadata.setIdentifier(str(geonode_resource.uuid))
         metadata.setTitle(geonode_resource.title)
         metadata.setAbstract(geonode_resource.abstract)
         metadata.setLanguage(geonode_resource.language)
@@ -119,7 +111,7 @@ class SearchResultWidget(QWidget, WidgetUi):
                 [c["identifier"] for c in geonode_resource.category]
             )
         if geonode_resource.license:
-            metadata.setLicenses([geonode_resource.license['identifier']]
+            metadata.setLicenses([geonode_resource.license]
             )
         if geonode_resource.constraints:
             constraints = [
@@ -187,3 +179,12 @@ class SearchResultWidget(QWidget, WidgetUi):
         metadata.setLinks(links)
 
         layer.setMetadata(metadata)
+
+    def reset_ogc_buttons_state(self):
+        self.wms_btn.setEnabled(True)
+        self.wcs_btn.setEnabled(
+            self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER
+        )
+        self.wfs_btn.setEnabled(
+            self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER
+        )
