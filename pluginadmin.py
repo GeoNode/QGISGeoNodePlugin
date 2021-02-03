@@ -27,6 +27,7 @@ class GithubRelease:
     pre_release: bool
     tag_name: str
     url: str
+    published_at: dt.datetime
 
 
 @app.callback()
@@ -227,7 +228,7 @@ def generate_plugin_repo_xml(
             icon=metadata.get("icon", ""),
             author=metadata.get("author"),
             download_url=release.url,
-            update_date=dt.datetime.now(tz=dt.timezone.utc),
+            update_date=release.published_at,
             experimental=release.pre_release,
             deprecated=metadata.get("deprecated"),
             tracker=metadata.get("tracker"),
@@ -382,6 +383,9 @@ def _get_existing_releases(
                         pre_release=release.get("prerelease", True),
                         tag_name=release.get("tag_name"),
                         url=zip_download_url,
+                        published_at=dt.datetime.strptime(
+                            release["published_at"], "%Y-%m-%dT%H:%M:%SZ"
+                        ),
                     )
                 )
     return result

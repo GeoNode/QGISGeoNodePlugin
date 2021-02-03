@@ -11,16 +11,12 @@ from qgis.core import (
     QgsLayerMetadata,
     QgsProject,
     QgsRasterLayer,
-    QgsVectorLayer
+    QgsVectorLayer,
 )
 
 from qgis.gui import QgsMessageBar
 
-from ..api_client import (
-    BriefGeonodeResource,
-    GeonodeClient,
-    GeonodeResourceType
-)
+from ..api_client import BriefGeonodeResource, GeonodeClient, GeonodeResourceType
 from ..resources import *
 from ..utils import log, tr
 from ..conf import connections_manager
@@ -103,22 +99,13 @@ class SearchResultWidget(QWidget, WidgetUi):
         metadata.setTitle(geonode_resource.title)
         metadata.setAbstract(geonode_resource.abstract)
         metadata.setLanguage(geonode_resource.language)
-        metadata.setKeywords(
-            {'layer': geonode_resource.keywords}
-        )
+        metadata.setKeywords({"layer": geonode_resource.keywords})
         if geonode_resource.category:
-            metadata.setCategories(
-                [c["identifier"] for c in geonode_resource.category]
-            )
+            metadata.setCategories([c["identifier"] for c in geonode_resource.category])
         if geonode_resource.license:
-            metadata.setLicenses([geonode_resource.license]
-            )
+            metadata.setLicenses([geonode_resource.license])
         if geonode_resource.constraints:
-            constraints = [
-                QgsLayerMetadata.Constraint(
-                    geonode_resource.constraints
-                )
-            ]
+            constraints = [QgsLayerMetadata.Constraint(geonode_resource.constraints)]
             metadata.setConstraints(constraints)
 
         metadata.setCrs(geonode_resource.crs)
@@ -129,50 +116,46 @@ class SearchResultWidget(QWidget, WidgetUi):
             spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
             if geonode_resource.temporal_extent:
                 metadata.extent().setTemporalExtents(
-                    [QgsDateTimeRange(
-                        geonode_resource.temporal_extent[0],
-                        geonode_resource.temporal_extent[1]
-                    )]
+                    [
+                        QgsDateTimeRange(
+                            geonode_resource.temporal_extent[0],
+                            geonode_resource.temporal_extent[1],
+                        )
+                    ]
                 )
 
         metadata.extent().setSpatialExtents([spatial_extent])
 
         if geonode_resource.owner:
             owner_contact = QgsAbstractMetadataBase.Contact(
-                geonode_resource.owner['username']
+                geonode_resource.owner["username"]
             )
-            owner_contact.role = tr('owner')
+            owner_contact.role = tr("owner")
             metadata.addContact(owner_contact)
         if geonode_resource.metadata_author:
             metadata_author = QgsAbstractMetadataBase.Contact(
-                geonode_resource.metadata_author['username']
+                geonode_resource.metadata_author["username"]
             )
-            metadata_author.role = tr('metadata_author')
+            metadata_author.role = tr("metadata_author")
             metadata.addContact(metadata_author)
 
         links = []
 
         if geonode_resource.thumbnail_url:
             link = QgsAbstractMetadataBase.Link(
-                tr("Thumbnail"),
-                tr("Thumbail_link"),
-                geonode_resource.thumbnail_url
+                tr("Thumbnail"), tr("Thumbail_link"), geonode_resource.thumbnail_url
             )
             links.append(link)
 
         if geonode_resource.api_url:
             link = QgsAbstractMetadataBase.Link(
-                tr("API"),
-                tr("API_URL"),
-                geonode_resource.api_url
+                tr("API"), tr("API_URL"), geonode_resource.api_url
             )
             links.append(link)
 
         if geonode_resource.gui_url:
             link = QgsAbstractMetadataBase.Link(
-                tr("Detail"),
-                tr("Detail_URL"),
-                geonode_resource.gui_url
+                tr("Detail"), tr("Detail_URL"), geonode_resource.gui_url
             )
             links.append(link)
 

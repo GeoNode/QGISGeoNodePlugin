@@ -128,7 +128,7 @@ class GeonodeResource(BriefGeonodeResource):
         owner: typing.Dict[str, str],
         metadata_author: typing.Dict[str, str],
         *args,
-        ** kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.language = language
@@ -139,7 +139,7 @@ class GeonodeResource(BriefGeonodeResource):
 
     @classmethod
     def from_api_response(
-            cls, payload: typing.Dict, geonode_base_url: str, auth_config: str
+        cls, payload: typing.Dict, geonode_base_url: str, auth_config: str
     ):
         resource_type = _get_resource_type(payload)
         service_urls = {"wms": _get_wms_uri(auth_config, geonode_base_url, payload)}
@@ -150,9 +150,9 @@ class GeonodeResource(BriefGeonodeResource):
 
         license_value = payload.get("license", "")
         if license_value and isinstance(license_value, dict):
-            license= license_value["identifier"]
+            license = license_value["identifier"]
         else:
-            license= license_value
+            license = license_value
         return cls(
             pk=int(payload["pk"]),
             uuid=uuid.UUID(payload["uuid"]),
