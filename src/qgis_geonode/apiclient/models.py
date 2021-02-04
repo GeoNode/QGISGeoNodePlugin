@@ -1,7 +1,7 @@
 import datetime as dt
 import enum
 import typing
-import uuid
+from uuid import UUID
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
@@ -16,8 +16,8 @@ class GeonodeResourceType(enum.Enum):
 
 
 class BriefGeonodeResource:
-    pk: int
-    uuid: uuid.UUID
+    pk: typing.Optional[int]
+    uuid: UUID
     name: str
     resource_type: GeonodeResourceType
     title: str
@@ -27,7 +27,7 @@ class BriefGeonodeResource:
     temporal_extent: typing.Optional[typing.List[dt.datetime]]
     crs: QgsCoordinateReferenceSystem
     thumbnail_url: str
-    api_url: str
+    api_url: typing.Optional[str]
     gui_url: str
     keywords: typing.List[str]
     category: typing.Optional[str]
@@ -35,8 +35,7 @@ class BriefGeonodeResource:
 
     def __init__(
         self,
-        pk: int,
-        uuid: uuid.UUID,
+        uuid: UUID,
         name: str,
         resource_type: GeonodeResourceType,
         title: str,
@@ -44,8 +43,9 @@ class BriefGeonodeResource:
         spatial_extent: QgsRectangle,
         crs: QgsCoordinateReferenceSystem,
         thumbnail_url: str,
-        api_url: str,
         gui_url: str,
+        pk: typing.Optional[int] = None,
+        api_url: typing.Optional[str] = None,
         published_date: typing.Optional[dt.datetime] = None,
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
