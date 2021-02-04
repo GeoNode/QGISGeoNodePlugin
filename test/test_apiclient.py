@@ -41,6 +41,23 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
     assert page_size == 2
 
 
+@pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
+def test_layer_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
+    app = ResponseCollector()
+    client = api_client.GeonodeClient(base_url="http://localhost:9000")
+    client.layer_list_received.connect(app.collect_response)
+    with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
+        client.get_layers(page=page, filters={"filter{name}": "TEMPERATURASMINENERO2030"})
+    layers, total_results, page_number, page_size = app.received_response
+
+    print(f"layer ids: {[la.pk for la in layers]}")
+
+    layers_size = len(layers)
+
+    assert layers_size == 1
+    assert layers[0].name == "TEMPERATURASMINENERO2030"
+
+
 @pytest.mark.parametrize("id_", [pytest.param(184)])
 def test_layer_details(qtbot, qgis_application, mock_geonode_server, id_):
     app = ResponseCollector()
@@ -73,3 +90,17 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
     maps, total_results, page_number, page_size = app.received_response
     assert page_size == 2
     assert maps[0].pk == 43
+
+
+@pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
+def test_map_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
+    app = ResponseCollector()
+    client = api_client.GeonodeClient(base_url="http://localhost:9000")
+    client.map_list_received.connect(app.collect_response)
+    with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
+        client.get_maps(page=page, filters={"filter{title}": "AIRPORT"})
+    maps, total_results, page_number, page_size = app.received_response
+
+    assert page_size == 2
+    assert len(maps) == 1
+    assert maps[0].pk == 70

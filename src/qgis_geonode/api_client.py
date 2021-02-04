@@ -229,12 +229,27 @@ class GeonodeClient(QObject):
             auth_config=connection_settings.auth_config,
         )
 
-    def get_layers(self, page: typing.Optional[int] = None):
+    def get_layers(
+            self,
+            page: typing.Optional[int] = None,
+            filters: typing.Dict = None
+    ):
         url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}")
         if page:
             query = QUrlQuery()
             query.addQueryItem("page", str(page))
             url.setQuery(query.query())
+
+        if filters:
+            query = QUrlQuery()
+            query.addQueryItem("format", "json")
+            url.setQuery(query.query())
+
+            for key in filters:
+                query = QUrlQuery()
+                query.addQueryItem(key, filters[key])
+                url.setQuery(query.query())
+
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
 
@@ -254,13 +269,28 @@ class GeonodeClient(QObject):
         )
         self.run_task(request, self.handle_layer_style_list)
 
-    def get_maps(self, page: typing.Optional[int] = None):
+    def get_maps(
+            self,
+            page: typing.Optional[int] = None,
+            filters: typing.Dict = None
+    ):
         """Slot to retrieve list of maps available in GeoNode"""
         url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}")
         if page:
             query = QUrlQuery()
             query.addQueryItem("page", str(page))
             url.setQuery(query.query())
+
+        if filters:
+            query = QUrlQuery()
+            query.addQueryItem("format", "json")
+            url.setQuery(query.query())
+
+            for key in filters:
+                query = QUrlQuery()
+                query.addQueryItem(key, filters[key])
+                url.setQuery(query.query())
+
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)
 
