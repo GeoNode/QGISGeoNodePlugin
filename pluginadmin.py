@@ -214,7 +214,8 @@ def generate_plugin_repo_xml(
             </pyqgis_plugin>
     """.strip()
     contents = "<?xml version = '1.0' encoding = 'UTF-8'?>\n<plugins>"
-    for release in _get_existing_releases(context=context):
+    all_releases = _get_existing_releases(context=context)
+    for release in [r for r in _get_latest_releases(all_releases) if r is not None]:
         tag_name = release.tag_name
         _log(f"Processing release {tag_name}...", context=context)
         fragment = fragment_template.format(
@@ -389,6 +390,27 @@ def _get_existing_releases(
                     )
                 )
     return result
+
+
+def _get_latest_releases(
+    current_releases: typing.List[GithubRelease],
+) -> typing.Tuple[typing.Optional[GithubRelease], typing.Optional[GithubRelease]]:
+    latest_experimental = None
+    latest_stable = None
+    for release in current_releases:
+        if release.pre_release:
+            if latest_experimental is not None:
+                if release.published_at > latest_experimental.published_at:
+                    latest_experimental = release
+            else:
+                latest_experimental = release
+        else:
+            if latest_stable is not None:
+                if release.published_at > latest_stable.published_at:
+                    latest_stable = release
+            else:
+                latest_stable = release
+    return latest_stable, latest_experimental
 
 
 if __name__ == "__main__":
