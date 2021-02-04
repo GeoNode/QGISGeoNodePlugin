@@ -25,7 +25,10 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         return f"{self.base_url}{self._api_path}"
 
     def get_layers_url_endpoint(
-        self, page: typing.Optional[int] = None, page_size: typing.Optional[int] = 10
+            self,
+            page: typing.Optional[int] = None,
+            page_size: typing.Optional[int] = 10,
+            name_like: typing.Optional[str] = None,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
         if page:
@@ -33,6 +36,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("page", str(page))
             url.setQuery(query.query())
         # TODO: implement page_size
+        # TODO: implement name_like
         return url
 
     def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
