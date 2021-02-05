@@ -36,6 +36,8 @@ class GeonodeCswClient(BaseGeonodeClient):
 
     OUTPUT_SCHEMA = "http://www.isotc211.org/2005/gmd"
     TYPE_NAME = "gmd:MD_Metadata"
+    # TODO: move this to the connection settings
+    PAGE_SIZE: int = 10
 
     @property
     def catalogue_url(self):
@@ -81,12 +83,12 @@ class GeonodeCswClient(BaseGeonodeClient):
     def handle_layer_list(self, payload: ET.Element):
         layers = []
         search_results = payload.find(f"{{{Csw202Namespace.CSW.value}}}SearchResults")
-        # TODO: how does this work on the last page?
         total = int(search_results.attrib["numberOfRecordsMatched"])
-        page_size = int(search_results.attrib["numberOfRecordsReturned"])
         next_record = int(search_results.attrib["nextRecord"])
-        next_page = math.ceil(next_record / page_size)
-        current_page = next_page - 1
+        if next_record == 0:  # reached the last page
+            current_page = int(math.ceil(total / self.PAGE_SIZE))
+        else:
+            current_page = int((next_record - 1) / self.PAGE_SIZE)
         if search_results is not None:
             items = search_results.findall(
                 f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
@@ -94,20 +96,48 @@ class GeonodeCswClient(BaseGeonodeClient):
                 layers.append(get_brief_geonode_resource(item, self.base_url))
         else:
             raise RuntimeError("Could not find search results")
-        self.layer_list_received.emit(layers, total, current_page, page_size)
+        self.layer_list_received.emit(layers, total, current_page, self.PAGE_SIZE)
+
+    def handle_layer_detail(self, payload: ET.Element):
+        layer = get_geonode_resource(
+            payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"), self.base_url)
+        self.layer_detail_received.emit(layer)
 
 
 def get_brief_geonode_resource(
     record: ET.Element, geonode_base_url: str
 ) -> models.BriefGeonodeResource:
-    return models.BriefGeonodeResource(
+    return _get_model_resource(
+        record, geonode_base_url, model_class=models.BriefGeonodeResource)
+
+
+def get_geonode_resource(
+        record: ET.Element, geonode_base_url: str) -> models.GeonodeResource:
+    return _get_model_resource(
+        record, geonode_base_url, model_class=models.GeonodeResource)
+
+
+def _get_model_resource(
+        resource: ET.Element, geonode_base_url: str,
+        model_class: typing.Type
+) -> typing.Union[models.BriefGeonodeResource, models.GeonodeResource]:
+    try:
+        topic_category = resource.find(
+            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+            f"{{{Csw202Namespace.GMD.value}}}topicCategory/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_TopicCategoryCode"
+        ).text
+    except AttributeError:
+        topic_category = None
+    return model_class(
         uuid=uuid.UUID(
-            record.find(
+            resource.find(
                 f"{{{Csw202Namespace.GMD.value}}}fileIdentifier/"
                 f"{{{Csw202Namespace.GCO.value}}}CharacterString"
             ).text
         ),
-        name=record.find(
+        name=resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}citation/"
@@ -115,8 +145,8 @@ def get_brief_geonode_resource(
             f"{{{Csw202Namespace.GMD.value}}}name/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        resource_type=_get_resource_type(record),
-        title=record.find(
+        resource_type=_get_resource_type(resource),
+        title=resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}citation/"
@@ -124,14 +154,14 @@ def get_brief_geonode_resource(
             f"{{{Csw202Namespace.GMD.value}}}title/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        abstract=record.find(
+        abstract=resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}abstract/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
         spatial_extent=_get_spatial_extent(
-            record.find(
+            resource.find(
                 f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
                 f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
                 f"{{{Csw202Namespace.GMD.value}}}extent/"
@@ -141,14 +171,14 @@ def get_brief_geonode_resource(
             )
         ),
         crs=_get_crs(
-            record.find(
+            resource.find(
                 f"{{{Csw202Namespace.GMD.value}}}referenceSystemInfo/"
                 f"{{{Csw202Namespace.GMD.value}}}MD_ReferenceSystem/"
                 f"{{{Csw202Namespace.GMD.value}}}referenceSystemIdentifier/"
-                f"{{{Csw202Namespace.GMD.value}}}RS_Identifier/"
+                f"{{{Csw202Namespace.GMD.value}}}RS_Identifier"
             )
         ),
-        thumbnail_url=record.find(
+        thumbnail_url=resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}graphicOverview/"
@@ -156,7 +186,7 @@ def get_brief_geonode_resource(
             f"{{{Csw202Namespace.GMD.value}}}fileName/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        gui_url=record.find(
+        gui_url=resource.find(
             f"{{{Csw202Namespace.GMD.value}}}distributionInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_Distribution/"
             f"{{{Csw202Namespace.GMD.value}}}transferOptions/"
@@ -166,14 +196,10 @@ def get_brief_geonode_resource(
             f"{{{Csw202Namespace.GMD.value}}}linkage/"
             f"{{{Csw202Namespace.GMD.value}}}URL"
         ).text,
-        published_date=_get_published_date(record),
-        temporal_extent=_get_temporal_extent(record),
-        keywords=_get_keywords(record),
-        category=record.find(
-            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-            f"{{{Csw202Namespace.GMD.value}}}topicCategory/"
-            f"{{{Csw202Namespace.GMD.value}}}MD_TopicCategoryCode"
-        ).text,
+        published_date=_get_published_date(resource),
+        temporal_extent=_get_temporal_extent(resource),
+        keywords=_get_keywords(resource),
+        category=topic_category,
     )
 
 
@@ -207,29 +233,31 @@ def _get_crs(rs_identifier: ET.Element) -> QgsCoordinateReferenceSystem:
 
 
 def _get_spatial_extent(geographic_bounding_box: ET.Element) -> QgsRectangle:
+    # sometimes pycsw returns the extent fields with a comma as the decimal separator,
+    # so we replace a comma with a dot
     min_x = float(
         geographic_bounding_box.find(
             f"{{{Csw202Namespace.GMD.value}}}westBoundLongitude/"
             f"{{{Csw202Namespace.GCO.value}}}Decimal"
-        ).text
+        ).text.replace(",", ".")
     )
     min_y = float(
         geographic_bounding_box.find(
             f"{{{Csw202Namespace.GMD.value}}}southBoundLatitude/"
             f"{{{Csw202Namespace.GCO.value}}}Decimal"
-        ).text
+        ).text.replace(",", ".")
     )
     max_x = float(
         geographic_bounding_box.find(
             f"{{{Csw202Namespace.GMD.value}}}eastBoundLongitude/"
             f"{{{Csw202Namespace.GCO.value}}}Decimal"
-        ).text
+        ).text.replace(",", ".")
     )
     max_y = float(
         geographic_bounding_box.find(
             f"{{{Csw202Namespace.GMD.value}}}northBoundLatitude/"
             f"{{{Csw202Namespace.GCO.value}}}Decimal"
-        ).text
+        ).text.replace(",", ".")
     )
     return QgsRectangle(min_x, min_y, max_x, max_y)
 
@@ -268,7 +296,16 @@ def _parse_datetime(raw_value: str) -> dt.datetime:
 
 
 def _get_published_date(record: ET.Element) -> dt.datetime:
-    raw_date = record.find(f"{{{Csw202Namespace.DC.value}}}date").text
+    raw_date = record.find(
+        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+        f"{{{Csw202Namespace.GMD.value}}}citation/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+        f"{{{Csw202Namespace.GMD.value}}}date/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_Date/"
+        f"{{{Csw202Namespace.GMD.value}}}date/"
+        f"{{{Csw202Namespace.GCO.value}}}DateTime"
+    ).text
     result = _parse_datetime(raw_date)
     return result
 
