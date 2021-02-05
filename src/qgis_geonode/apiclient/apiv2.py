@@ -108,8 +108,29 @@ def get_brief_geonode_resource(
     )
 
 
-def get_geonode_resource(deserialized_resource: typing.Dict, geonode_base_url: str):
-    return get_brief_geonode_resource(deserialized_resource, geonode_base_url)
+def get_geonode_resource(
+        deserialized_resource: typing.Dict,
+        geonode_base_url: str
+) -> models.GeonodeResource:
+    return models.GeonodeResource(
+        pk=int(deserialized_resource["pk"]),
+        uuid=uuid.UUID(deserialized_resource["uuid"]),
+        name=deserialized_resource.get("name", ""),
+        resource_type=_get_resource_type(deserialized_resource),
+        title=deserialized_resource.get("title", ""),
+        abstract=deserialized_resource.get("abstract", ""),
+        spatial_extent=_get_spatial_extent(deserialized_resource["bbox_polygon"]),
+        crs=QgsCoordinateReferenceSystem(
+            deserialized_resource["srid"].replace("EPSG:", "")
+        ),
+        thumbnail_url=deserialized_resource["thumbnail_url"],
+        api_url=(f"{geonode_base_url}/api/v2/layers/{deserialized_resource['pk']}"),
+        gui_url=deserialized_resource["detail_url"],
+        published_date=_get_published_date(deserialized_resource),
+        temporal_extent=_get_temporal_extent(deserialized_resource),
+        keywords=[k["name"] for k in deserialized_resource.get("keywords", [])],
+        category=deserialized_resource.get("category"),
+    )
 
 
 def get_brief_geonode_style(deserialized_style: typing.Dict, geonode_base_url: str):
