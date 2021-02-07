@@ -47,7 +47,7 @@ def test_layer_list_filtering(qtbot, qgis_application, mock_geonode_server, page
     client = api_client.GeonodeClient(base_url="http://localhost:9000")
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_layers(page=page, filters={"filter{name}": "TEMPERATURASMINENERO2030"})
+        client.get_layers(page=page, title="TEMPERATURASMINENERO2030")
     layers, total_results, page_number, page_size = app.received_response
 
     print(f"layer ids: {[la.pk for la in layers]}")
@@ -98,7 +98,7 @@ def test_map_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
     client = api_client.GeonodeClient(base_url="http://localhost:9000")
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_maps(page=page, filters={"filter{title}": "AIRPORT"})
+        client.get_maps(page=page, title="AIRPORT")
     maps, total_results, page_number, page_size = app.received_response
 
     assert page_size == 2
