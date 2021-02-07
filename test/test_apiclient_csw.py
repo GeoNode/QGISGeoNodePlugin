@@ -11,5 +11,6 @@ def test_get_brief_geonode_resource():
     sample_response = ET.fromstring(sample_response_path.read_text("utf-8"))
     record = sample_response.find(f"{{{csw.Csw202Namespace.GMD.value}}}MD_Metadata")
     base_url = "https://dummy"
-    result = csw.get_brief_geonode_resource(record, base_url)
+    auth_config = "dummy_auth"
+    result = csw.get_brief_geonode_resource(record, base_url, auth_config)
     assert result.uuid == uuid.UUID("5db808ae-6671-11eb-91f3-0242ac150008")

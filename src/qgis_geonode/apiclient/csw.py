@@ -93,32 +93,38 @@ class GeonodeCswClient(BaseGeonodeClient):
             items = search_results.findall(
                 f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
             for item in items:
-                layers.append(get_brief_geonode_resource(item, self.base_url))
+                layers.append(
+                    get_brief_geonode_resource(item, self.base_url, self.auth_config))
         else:
             raise RuntimeError("Could not find search results")
         self.layer_list_received.emit(layers, total, current_page, self.PAGE_SIZE)
 
     def handle_layer_detail(self, payload: ET.Element):
         layer = get_geonode_resource(
-            payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"), self.base_url)
+            payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
+            self.base_url, self.auth_config
+        )
         self.layer_detail_received.emit(layer)
 
 
 def get_brief_geonode_resource(
-    record: ET.Element, geonode_base_url: str
+    record: ET.Element, geonode_base_url: str, auth_config: str
 ) -> models.BriefGeonodeResource:
     return _get_model_resource(
-        record, geonode_base_url, model_class=models.BriefGeonodeResource)
+        record, geonode_base_url, auth_config, model_class=models.BriefGeonodeResource)
 
 
 def get_geonode_resource(
-        record: ET.Element, geonode_base_url: str) -> models.GeonodeResource:
+        record: ET.Element, geonode_base_url: str, auth_config: str
+) -> models.GeonodeResource:
     return _get_model_resource(
-        record, geonode_base_url, model_class=models.GeonodeResource)
+        record, geonode_base_url, auth_config, model_class=models.GeonodeResource)
 
 
 def _get_model_resource(
-        resource: ET.Element, geonode_base_url: str,
+        resource: ET.Element,
+        geonode_base_url: str,
+        auth_config: str,
         model_class: typing.Type
 ) -> typing.Union[models.BriefGeonodeResource, models.GeonodeResource]:
     try:

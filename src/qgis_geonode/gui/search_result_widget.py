@@ -22,9 +22,7 @@ from qgis.core import (
 
 from qgis.gui import QgsMessageBar
 
-from ..api_client import (
-    GeonodeClient,
-)
+from ..apiclient import get_geonode_client
 from ..apiclient.models import BriefGeonodeResource, GeonodeResourceType
 from ..resources import *
 from ..utils import log, tr
@@ -49,10 +47,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.description_la.setText(geonode_resource.abstract)
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
-
-        connection = connections_manager.get_current_connection()
-        self.client = GeonodeClient.from_connection_settings(connection)
-
+        connection_settings = connections_manager.get_current_connection()
+        self.client = get_geonode_client(connection_settings)
         self.wms_btn.clicked.connect(self.load_map_resource)
         self.wcs_btn.clicked.connect(self.load_raster_layer)
         self.wfs_btn.clicked.connect(self.load_vector_layer)
