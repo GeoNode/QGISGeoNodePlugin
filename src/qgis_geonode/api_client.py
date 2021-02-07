@@ -236,6 +236,7 @@ class GeonodeClient(QObject):
             topic_category: typing.Optional[str] = None,
             resource_type: GeonodeResourceType = None,
             page: typing.Optional[int] = None):
+        """Slot to retrieve list of layers available in GeoNode"""
         url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}")
         query = QUrlQuery()
         if title:
