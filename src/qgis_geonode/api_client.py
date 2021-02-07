@@ -231,25 +231,30 @@ class GeonodeClient(QObject):
 
     def get_layers(
             self,
-            page: typing.Optional[int] = None,
-            filters: typing.Dict = None
-    ):
+            title: typing.Optional[str] = None,
+            keywords: typing.Optional[str] = None,
+            topic_category: typing.Optional[str] = None,
+            resource_type: GeonodeResourceType = None,
+            page: typing.Optional[int] = None):
         url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}")
+        query = QUrlQuery()
+        if title:
+            query.addQueryItem("filter{title.icontains}", title)
+        if keywords:
+            query.addQueryItem("filter{keywords.name.icontains}", keywords)
+        if topic_category:
+            query.addQueryItem("filter{category.identifier}", topic_category)
+        if resource_type:
+            if resource_type == GeonodeResourceType.RASTER_LAYER:
+                query.addQueryItem("filter{storeType}", "coverageStore")
+            elif resource_type == GeonodeResourceType.VECTOR_LAYER:
+                query.addQueryItem("filter{storeType}", "dataStore")
+            elif resource_type == GeonodeResourceType.MAP:
+                url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}")
         if page:
-            query = QUrlQuery()
             query.addQueryItem("page", str(page))
-            url.setQuery(query.query())
 
-        if filters:
-            query = QUrlQuery()
-            query.addQueryItem("format", "json")
-            url.setQuery(query.query())
-
-            for key in filters:
-                query = QUrlQuery()
-                query.addQueryItem(key, filters[key])
-                url.setQuery(query.query())
-
+        url.setQuery(query.query())
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
 
