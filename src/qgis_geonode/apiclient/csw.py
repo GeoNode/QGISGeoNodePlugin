@@ -1,6 +1,7 @@
 import datetime as dt
 import enum
 import math
+import re
 import typing
 import uuid
 from xml.etree import ElementTree as ET
@@ -110,25 +111,35 @@ class GeonodeCswClient(BaseGeonodeClient):
 def get_brief_geonode_resource(
     record: ET.Element, geonode_base_url: str, auth_config: str
 ) -> models.BriefGeonodeResource:
-    return _get_model_resource(
-        record, geonode_base_url, auth_config, model_class=models.BriefGeonodeResource)
+    return models.BriefGeonodeResource(
+        **_get_common_model_fields(record, geonode_base_url, auth_config))
 
 
 def get_geonode_resource(
         record: ET.Element, geonode_base_url: str, auth_config: str
 ) -> models.GeonodeResource:
-    return _get_model_resource(
-        record, geonode_base_url, auth_config, model_class=models.GeonodeResource)
+    common_fields = _get_common_model_fields(record, geonode_base_url, auth_config)
+
+    return models.GeonodeResource(
+        language=record.find(
+            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+            f"{{{Csw202Namespace.GMD.value}}}language/"
+            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+        ).text,
+        license=_get_license(record),
+        constraints="",  # FIXME: get constraints from record
+        owner="",  # FIXME: extract owner
+        metadata_author="",  # FIXME: extract metadata author
+        **common_fields
+    )
 
 
-def _get_model_resource(
-        resource: ET.Element,
-        geonode_base_url: str,
-        auth_config: str,
-        model_class: typing.Type
-) -> typing.Union[models.BriefGeonodeResource, models.GeonodeResource]:
+def _get_common_model_fields(
+        deserialized_resource: ET.Element, geonode_base_url: str, auth_config: str
+) -> typing.Dict:
     try:
-        topic_category = resource.find(
+        topic_category = deserialized_resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}topicCategory/"
@@ -136,23 +147,49 @@ def _get_model_resource(
         ).text
     except AttributeError:
         topic_category = None
-    return model_class(
-        uuid=uuid.UUID(
-            resource.find(
+    crs = _get_crs(
+        deserialized_resource.find(
+            f"{{{Csw202Namespace.GMD.value}}}referenceSystemInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_ReferenceSystem/"
+            f"{{{Csw202Namespace.GMD.value}}}referenceSystemIdentifier/"
+            f"{{{Csw202Namespace.GMD.value}}}RS_Identifier"
+        )
+    )
+    layer_name = deserialized_resource.find(
+        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+        f"{{{Csw202Namespace.GMD.value}}}citation/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+        f"{{{Csw202Namespace.GMD.value}}}name/"
+        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    ).text
+    resource_type = _get_resource_type(deserialized_resource)
+    if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
+        service_urls = {
+            "wms": _get_wms_uri(deserialized_resource, layer_name, crs, auth_config),
+            "wfs": _get_wfs_uri(deserialized_resource, layer_name, auth_config),
+        }
+    elif resource_type == models.GeonodeResourceType.RASTER_LAYER:
+        service_urls = {
+            "wms": _get_wms_uri(deserialized_resource, layer_name, crs, auth_config),
+            "wcs": _get_wcs_uri(deserialized_resource, layer_name, auth_config),
+        }
+    elif resource_type == models.GeonodeResourceType.MAP:
+        service_urls = {
+            "wms": _get_wms_uri(deserialized_resource, layer_name, crs, auth_config),
+        }
+    else:
+        service_urls = None
+    return {
+        "uuid": uuid.UUID(
+            deserialized_resource.find(
                 f"{{{Csw202Namespace.GMD.value}}}fileIdentifier/"
                 f"{{{Csw202Namespace.GCO.value}}}CharacterString"
             ).text
         ),
-        name=resource.find(
-            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-            f"{{{Csw202Namespace.GMD.value}}}citation/"
-            f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
-            f"{{{Csw202Namespace.GMD.value}}}name/"
-            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-        ).text,
-        resource_type=_get_resource_type(resource),
-        title=resource.find(
+        "name": layer_name,
+        "resource_type": resource_type,
+        "title": deserialized_resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}citation/"
@@ -160,14 +197,14 @@ def _get_model_resource(
             f"{{{Csw202Namespace.GMD.value}}}title/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        abstract=resource.find(
+        "abstract": deserialized_resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}abstract/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        spatial_extent=_get_spatial_extent(
-            resource.find(
+        "spatial_extent": _get_spatial_extent(
+            deserialized_resource.find(
                 f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
                 f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
                 f"{{{Csw202Namespace.GMD.value}}}extent/"
@@ -176,15 +213,8 @@ def _get_model_resource(
                 f"{{{Csw202Namespace.GMD.value}}}EX_GeographicBoundingBox"
             )
         ),
-        crs=_get_crs(
-            resource.find(
-                f"{{{Csw202Namespace.GMD.value}}}referenceSystemInfo/"
-                f"{{{Csw202Namespace.GMD.value}}}MD_ReferenceSystem/"
-                f"{{{Csw202Namespace.GMD.value}}}referenceSystemIdentifier/"
-                f"{{{Csw202Namespace.GMD.value}}}RS_Identifier"
-            )
-        ),
-        thumbnail_url=resource.find(
+        "crs": crs,
+        "thumbnail_url": deserialized_resource.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}graphicOverview/"
@@ -192,7 +222,8 @@ def _get_model_resource(
             f"{{{Csw202Namespace.GMD.value}}}fileName/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        gui_url=resource.find(
+        # FIXME: this XPATH is not unique
+        "gui_url": deserialized_resource.find(
             f"{{{Csw202Namespace.GMD.value}}}distributionInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_Distribution/"
             f"{{{Csw202Namespace.GMD.value}}}transferOptions/"
@@ -202,11 +233,12 @@ def _get_model_resource(
             f"{{{Csw202Namespace.GMD.value}}}linkage/"
             f"{{{Csw202Namespace.GMD.value}}}URL"
         ).text,
-        published_date=_get_published_date(resource),
-        temporal_extent=_get_temporal_extent(resource),
-        keywords=_get_keywords(resource),
-        category=topic_category,
-    )
+        "published_date": _get_published_date(deserialized_resource),
+        "temporal_extent": _get_temporal_extent(deserialized_resource),
+        "keywords": _get_keywords(deserialized_resource),
+        "category": topic_category,
+        "service_urls": service_urls,
+    }
 
 
 def _get_resource_type(
@@ -323,3 +355,97 @@ def _get_keywords(payload: ET.Element) -> typing.List[str]:
         result.append(
             keyword.find(f"{{{Csw202Namespace.GCO.value}}}CharacterString").text)
     return result
+
+
+def _get_license(record: ET.Element) -> str:
+    return record.find(
+        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+        f"{{{Csw202Namespace.GMD.value}}}resourceConstraints/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_LegalConstraints/"
+        f"{{{Csw202Namespace.GMD.value}}}useConstraints/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_RestrictionCode[@codeListValue='license']/"
+        f"../../"
+        f"{{{Csw202Namespace.GMD.value}}}otherConstraints/"
+        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    ).text
+
+
+def _get_online_elements(record: ET.Element) -> typing.List[ET.Element]:
+    return record.findall(
+        f"{{{Csw202Namespace.GMD.value}}}distributionInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_Distribution/"
+        f"{{{Csw202Namespace.GMD.value}}}transferOptions/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DigitalTransferOptions/"
+        f"{{{Csw202Namespace.GMD.value}}}onLine/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_OnlineResource"
+    )
+
+
+def _find_protocol_linkage(record: ET.Element, protocol: str) -> typing.Optional[str]:
+    online_elements = record.findall(
+        f"{{{Csw202Namespace.GMD.value}}}distributionInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_Distribution/"
+        f"{{{Csw202Namespace.GMD.value}}}transferOptions/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DigitalTransferOptions/"
+        f"{{{Csw202Namespace.GMD.value}}}onLine/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_OnlineResource"
+    )
+    for item in online_elements:
+        protocol = item.find(
+            f"{{{Csw202Namespace.GMD.value}}}protocol/"
+            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+        ).text
+        if protocol.lower() == protocol:
+            linkage_url = item.find(
+                f"{{{Csw202Namespace.GMD.value}}}linkage/"
+                f"{{{Csw202Namespace.GMD.value}}}URL"
+            ).text
+            break
+    else:
+        linkage_url = None
+    return linkage_url
+
+
+def _get_wms_uri(
+        record: ET.Element,
+        layer_name: str,
+        crs: QgsCoordinateReferenceSystem,
+        auth_config: typing.Optional[str] = None,
+        wms_format: typing.Optional[str] = "image/png"
+) -> str:
+    wms_base_url = _find_protocol_linkage(record, "ogc:wms")
+    wms_uri = (
+        f"crs={crs.postgisSrid()}&format={wms_format}&layers={layer_name}&"
+        f"styles&url={wms_base_url}"
+    )
+    if auth_config is not None:
+        wms_uri += f"&authkey={auth_config}"
+    return wms_uri
+
+
+def _get_wcs_uri(
+        record: ET.Element,
+        layer_name: str,
+        auth_config: typing.Optional[str] = None,
+) -> str:
+    wcs_base_url = _find_protocol_linkage(record, "ogc:wcs")
+    wcs_uri = f"identifier={layer_name}&url={wcs_base_url}"
+    if auth_config is not None:
+        wcs_uri += f"&authkey={auth_config}"
+    return wcs_uri
+
+
+def _get_wfs_uri(
+        record: ET.Element,
+        layer_name: str,
+        auth_config: typing.Optional[str] = None,
+) -> str:
+    wfs_base_url = _find_protocol_linkage(record, "ogc:wfs")
+    wfs_uri = (
+        f"{wfs_base_url}?service=WFS&version=1.1.0&"
+        f"request=GetFeature&typename={layer_name}"
+    )
+    if auth_config is not None:
+        wfs_uri += f"&authkey={auth_config}"
+    return wfs_uri
