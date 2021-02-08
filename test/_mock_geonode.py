@@ -1,7 +1,10 @@
 import json
+import re
+import urllib.parse
+
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, request
 import flask.logging
 
 geonode_flask_app = Flask("mock_geonode")
@@ -12,7 +15,20 @@ ROOT = Path(__file__).parent / "_mock_geonode_data"
 
 @geonode_flask_app.route("/api/v2/layers/")
 def _mock_layer_list():
-    data_path = ROOT / "layer_list_response1.json"
+    query_string = urllib.parse.unquote(
+        request.query_string.decode("utf-8")
+    )
+    if "filter" in query_string:
+        pattern = re.compile("filter(.*)")
+        match = pattern.search(query_string)
+        filter_string = match.group(1)
+        if filter_string:
+            data_path = ROOT / "layer_list_filtered_response1.json"
+        else:
+            data_path = ROOT / "layer_list_response1.json"
+    else:
+        data_path = ROOT / "layer_list_response1.json"
+
     with data_path.open() as fh:
         result = json.load(fh)
         return result
@@ -36,7 +52,20 @@ def _mock_layer_styles(layer_id):
 
 @geonode_flask_app.route("/api/v2/maps/")
 def _mock_map_list():
-    data_path = ROOT / "map_list_response1.json"
+    query_string = urllib.parse.unquote(
+        request.query_string.decode("utf-8")
+    )
+    if "filter" in query_string:
+        pattern = re.compile("filter(.*)")
+        match = pattern.search(query_string)
+        filter_string = match.group(1)
+        if filter_string:
+            data_path = ROOT / "map_list_filtered_response1.json"
+        else:
+            data_path = ROOT / "map_list_response1.json"
+    else:
+        data_path = ROOT / "map_list_response1.json"
+
     with data_path.open() as fh:
         result = json.load(fh)
         return result

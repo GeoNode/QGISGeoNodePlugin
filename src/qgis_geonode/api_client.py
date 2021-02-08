@@ -229,14 +229,55 @@ class GeonodeClient(QObject):
             auth_config=connection_settings.auth_config,
         )
 
-    def get_layers(self, page: typing.Optional[int] = None):
+    def get_layers(
+        self,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_type: typing.List[GeonodeResourceType] = None,
+        page: typing.Optional[int] = 1,
+    ):
+        """Slot to retrieve list of layers available in GeoNode"""
         url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.LAYER_LIST.value}")
-        if page:
-            query = QUrlQuery()
-            query.addQueryItem("page", str(page))
-            url.setQuery(query.query())
+        query = QUrlQuery()
+        query.addQueryItem("page", str(page))
+        if title is not None:
+            query.addQueryItem("filter{title.icontains}", title)
+        if abstract is not None:
+            query.addQueryItem("filter{abstract.icontains}", abstract)
+        if keyword is not None:  # TODO: Allow using multiple keywords
+            query.addQueryItem("filter{keywords.name.icontains}", keyword)
+        if topic_category is not None:
+            query.addQueryItem("filter{category.identifier}", topic_category)
+        if layer_type == GeonodeResourceType.RASTER_LAYER:
+            query.addQueryItem("filter{storeType}", "coverageStore")
+        elif layer_type == GeonodeResourceType.VECTOR_LAYER:
+            query.addQueryItem("filter{storeType}", "dataStore")
+        url.setQuery(query.query())
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
+
+    def get_maps(
+        self,
+        title: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        page: typing.Optional[int] = 1,
+    ):
+        """Slot to retrieve list of maps available in GeoNode"""
+        url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}")
+        query = QUrlQuery()
+        query.addQueryItem("page", str(page))
+        if title:
+            query.addQueryItem("filter{title.icontains}", title)
+        if keyword:  # TODO: Allow using multiple keywords
+            query.addQueryItem("filter{keywords.name.icontains}", keyword)
+        if topic_category:
+            query.addQueryItem("filter{category.identifier}", topic_category)
+        url.setQuery(query.query())
+        request = QNetworkRequest(url)
+        self.run_task(request, self.handle_map_list)
 
     def get_layer_detail(self, id_: int):
         """Slot to retrieve layer details available in GeoNode"""
@@ -253,16 +294,6 @@ class GeonodeClient(QObject):
             )
         )
         self.run_task(request, self.handle_layer_style_list)
-
-    def get_maps(self, page: typing.Optional[int] = None):
-        """Slot to retrieve list of maps available in GeoNode"""
-        url = QUrl(f"{self.base_url}{GeonodeApiEndpoint.MAP_LIST.value}")
-        if page:
-            query = QUrlQuery()
-            query.addQueryItem("page", str(page))
-            url.setQuery(query.query())
-        request = QNetworkRequest(url)
-        self.run_task(request, self.handle_map_list)
 
     def run_task(self, request, handler: typing.Callable):
         """Fetches the response from the GeoNode API"""
