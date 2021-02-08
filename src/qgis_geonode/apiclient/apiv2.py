@@ -232,7 +232,6 @@ def _get_published_date(payload: typing.Dict) -> typing.Optional[dt.datetime]:
     return result
 
 
-
 def _get_wms_uri(auth_config: str, base_url: str, payload: typing.Dict):
     layer_name = f"{payload['workspace']}:{payload['name']}"
     return (
