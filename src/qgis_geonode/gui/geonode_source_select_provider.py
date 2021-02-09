@@ -30,6 +30,7 @@ from qgis.PyQt.QtWidgets import (
 from ..api_client import (
     GeonodeClient,
     BriefGeonodeResource,
+    GeonodeResourceType
 )
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
@@ -98,6 +99,8 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.layout().insertWidget(4, self.message_bar)
 
+        self.populate_search_items()
+
     def add_connection(self):
         connection_dialog = ConnectionDialog()
         connection_dialog.exec_()
@@ -125,7 +128,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 connections_manager.set_current_connection(next_current_connection.id)
 
     def update_connections_combobox(
-        self, current_identifier: typing.Optional[str] = ""
+            self, current_identifier: typing.Optional[str] = ""
     ):
 
         existing_connections = connections_manager.list_connections()
@@ -147,6 +150,8 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnDelete.setEnabled(enabled)
         self.search_btn.setEnabled(enabled)
         self.clear_search()
+        self.keywords_cmb.clear()
+        self.search_keywords()
         self.current_page = 1
 
     def update_current_connection(self):
@@ -186,7 +191,41 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         client.layer_list_received.connect(self.handle_pagination)
 
         client.error_received.connect(self.show_search_error)
-        client.get_layers(page=self.current_page)
+        if self.search_group_box.isChecked():
+            title = self.free_text_edit.text()
+            keyword = self.keywords_cmb.currentText()
+            category = self.category_cmb.currentText().lower()
+            resource_type_text = self.resource_type_cmb.currentText()
+            resource_type_list = [resource_type for resource_type in GeonodeResourceType
+                                  if resource_type.value == resource_type_text
+                                  ]
+            start_date_time = self.start_date_time.dateTime()
+            end_date_time = self.end_date_time.dateTime()
+
+            if self.free_text_box.isChecked():
+                client.get_layers(
+                    page=self.current_page,
+                    title=title
+                )
+            elif self.keywords_box.isChecked():
+                client.get_layers(
+                    page=self.current_page,
+                    keyword=keyword
+                )
+            elif self.category_box.isChecked():
+                client.get_layers(
+                    page=self.current_page,
+                    topic_category=category
+                )
+            elif self.resource_type_box.isChecked():
+                client.get_layers(
+                    page=self.current_page,
+                    layer_type=resource_type_list
+                )
+            else:
+                client.get_layers(
+                    page=self.current_page
+                )
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
@@ -200,11 +239,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         )
 
     def handle_layer_list(
-        self,
-        layer_list: typing.List[BriefGeonodeResource],
-        total_records: int,
-        current_page: int,
-        page_size: int,
+            self,
+            layer_list: typing.List[BriefGeonodeResource],
+            total_records: int,
+            current_page: int,
+            page_size: int,
     ):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
@@ -212,11 +251,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             self.populate_scroll_area(layer_list)
 
     def handle_pagination(
-        self,
-        layer_list: typing.List[BriefGeonodeResource],
-        total_records: int,
-        current_page: int,
-        page_size: int,
+            self,
+            layer_list: typing.List[BriefGeonodeResource],
+            total_records: int,
+            current_page: int,
+            page_size: int,
     ):
         self.current_page = current_page
         total_pages = math.ceil(total_records / page_size)
@@ -252,3 +291,37 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.resultsLabel.clear()
         self.previous_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
+
+    def populate_search_items(self):
+        default_categories = [
+            tr("Farming"), tr("Climatology Meteorology Atmosphere"),
+            tr("Location"),tr("Intelligence Military"),
+            tr("Transportation"), tr("Structure"),
+            tr("Boundaries"), tr("Inland Waters"), tr("Planning Cadastre"),
+            tr("Geoscientific Information"), tr("Elevation"), tr("Health"),
+            tr("Biota"), tr("Oceans"), tr("Environment"),
+            tr("Utilities Communication"),
+            tr("Economy"), tr("Society"), tr("Imagery Base Maps Earth Cover")
+        ]
+
+        self.category_cmb.addItems(category for category in default_categories)
+
+        self.resource_type_cmb.addItems(
+            resource_type.value for resource_type in GeonodeResourceType
+        )
+        self.search_keywords()
+
+    def search_keywords(self):
+        connection_name = self.connections_cmb.currentText()
+        if connection_name:
+            connection = connections_manager.find_connection_by_name(connection_name)
+            client = GeonodeClient.from_connection_settings(connection)
+            client.keyword_list_received.connect(self.update_keywords)
+            client.get_keywords()
+
+    def update_keywords(
+            self,
+            keywords: typing.Optional[list] = None
+    ):
+        if keywords:
+            self.keywords_cmb.addItems(keyword['text'] for keyword in keywords)

@@ -109,7 +109,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         metadata.setLanguage(geonode_resource.language)
         metadata.setKeywords({"layer": geonode_resource.keywords})
         if geonode_resource.category:
-            metadata.setCategories([c["identifier"] for c in geonode_resource.category])
+            metadata.setCategories([geonode_resource.category['identifier']])
         if geonode_resource.license:
             metadata.setLicenses([geonode_resource.license])
         if geonode_resource.constraints:

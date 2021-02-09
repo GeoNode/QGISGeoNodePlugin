@@ -201,6 +201,7 @@ class GeonodeApiEndpoint(enum.Enum):
     LAYER_LIST = "/api/v2/layers/"
     LAYER_DETAILS = "/api/v2/layers/"
     MAP_LIST = "/api/v2/maps/"
+    KEYWORDS_LIST = "/h_keywords_api"
 
 
 class GeonodeClient(QObject):
@@ -213,6 +214,7 @@ class GeonodeClient(QObject):
     layer_detail_received = pyqtSignal(GeonodeResource)
     layer_styles_received = pyqtSignal(list)
     map_list_received = pyqtSignal(list, int, int, int)
+    keyword_list_received = pyqtSignal(list)
     error_received = pyqtSignal(int)
 
     def __init__(
@@ -250,9 +252,11 @@ class GeonodeClient(QObject):
             query.addQueryItem("filter{keywords.name.icontains}", keyword)
         if topic_category is not None:
             query.addQueryItem("filter{category.identifier}", topic_category)
-        if layer_type == GeonodeResourceType.RASTER_LAYER:
+        if layer_type is not None and \
+                GeonodeResourceType.RASTER_LAYER in layer_type:
             query.addQueryItem("filter{storeType}", "coverageStore")
-        elif layer_type == GeonodeResourceType.VECTOR_LAYER:
+        elif layer_type is not None and \
+                GeonodeResourceType.VECTOR_LAYER in layer_type:
             query.addQueryItem("filter{storeType}", "dataStore")
         url.setQuery(query.query())
         request = QNetworkRequest(url)
@@ -294,6 +298,15 @@ class GeonodeClient(QObject):
             )
         )
         self.run_task(request, self.handle_layer_style_list)
+
+    def get_keywords(self):
+        """Slot to retrieve layer styles available in GeoNode"""
+        request = QNetworkRequest(
+            QUrl(
+                f"{self.base_url}{GeonodeApiEndpoint.KEYWORDS_LIST.value}"
+            )
+        )
+        self.run_task(request, self.handle_keyword_list)
 
     def run_task(self, request, handler: typing.Callable):
         """Fetches the response from the GeoNode API"""
@@ -351,6 +364,11 @@ class GeonodeClient(QObject):
             )
         self.map_list_received.emit(
             maps, payload["total"], payload["page"], payload["page_size"]
+        )
+
+    def handle_keyword_list(self, payload: typing.Dict):
+        self.keyword_list_received.emit(
+           payload
         )
 
 
