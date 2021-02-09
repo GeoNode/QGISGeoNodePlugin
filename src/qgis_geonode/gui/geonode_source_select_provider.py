@@ -226,6 +226,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 client.get_layers(
                     page=self.current_page
                 )
+        else:
+            client.get_layers(
+                page=self.current_page
+            )
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
