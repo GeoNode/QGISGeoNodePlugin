@@ -66,14 +66,20 @@ class GeonodeCswClient(BaseGeonodeClient):
         url.setQuery(query.query())
         return url
 
-    def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
+    def get_layer_detail_from_brief_resource(
+            self, brief_resource: models.BriefGeonodeResource):
+        self.get_layer_detail(brief_resource.uuid)
+
+    def get_layer_detail_url_endpoint(self, id_: uuid.UUID) -> QUrl:
         url = QUrl(f"{self.catalogue_url}")
         query = QUrlQuery()
         query.addQueryItem("service", "CSW")
         query.addQueryItem("version", "2.0.2")
         query.addQueryItem("request", "GetRecordById")
+        query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
         query.addQueryItem("elementsetname", "full")
         query.addQueryItem("id", str(id_))
+        url.setQuery(query.query())
         return url
 
     def deserialize_response_contents(self, contents: QByteArray) -> ET.Element:
@@ -136,10 +142,10 @@ def get_geonode_resource(
 
 
 def _get_common_model_fields(
-        deserialized_resource: ET.Element, geonode_base_url: str, auth_config: str
+        record: ET.Element, geonode_base_url: str, auth_config: str
 ) -> typing.Dict:
     try:
-        topic_category = deserialized_resource.find(
+        topic_category = record.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}topicCategory/"
@@ -148,14 +154,14 @@ def _get_common_model_fields(
     except AttributeError:
         topic_category = None
     crs = _get_crs(
-        deserialized_resource.find(
+        record.find(
             f"{{{Csw202Namespace.GMD.value}}}referenceSystemInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_ReferenceSystem/"
             f"{{{Csw202Namespace.GMD.value}}}referenceSystemIdentifier/"
             f"{{{Csw202Namespace.GMD.value}}}RS_Identifier"
         )
     )
-    layer_name = deserialized_resource.find(
+    layer_name = record.find(
         f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
         f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
         f"{{{Csw202Namespace.GMD.value}}}citation/"
@@ -163,33 +169,33 @@ def _get_common_model_fields(
         f"{{{Csw202Namespace.GMD.value}}}name/"
         f"{{{Csw202Namespace.GCO.value}}}CharacterString"
     ).text
-    resource_type = _get_resource_type(deserialized_resource)
+    resource_type = _get_resource_type(record)
     if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
         service_urls = {
-            "wms": _get_wms_uri(deserialized_resource, layer_name, crs, auth_config),
-            "wfs": _get_wfs_uri(deserialized_resource, layer_name, auth_config),
+            "wms": _get_wms_uri(record, layer_name, crs, auth_config),
+            "wfs": _get_wfs_uri(record, layer_name, auth_config),
         }
     elif resource_type == models.GeonodeResourceType.RASTER_LAYER:
         service_urls = {
-            "wms": _get_wms_uri(deserialized_resource, layer_name, crs, auth_config),
-            "wcs": _get_wcs_uri(deserialized_resource, layer_name, auth_config),
+            "wms": _get_wms_uri(record, layer_name, crs, auth_config),
+            "wcs": _get_wcs_uri(record, layer_name, auth_config),
         }
     elif resource_type == models.GeonodeResourceType.MAP:
         service_urls = {
-            "wms": _get_wms_uri(deserialized_resource, layer_name, crs, auth_config),
+            "wms": _get_wms_uri(record, layer_name, crs, auth_config),
         }
     else:
         service_urls = None
     return {
         "uuid": uuid.UUID(
-            deserialized_resource.find(
+            record.find(
                 f"{{{Csw202Namespace.GMD.value}}}fileIdentifier/"
                 f"{{{Csw202Namespace.GCO.value}}}CharacterString"
             ).text
         ),
         "name": layer_name,
         "resource_type": resource_type,
-        "title": deserialized_resource.find(
+        "title": record.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}citation/"
@@ -197,14 +203,14 @@ def _get_common_model_fields(
             f"{{{Csw202Namespace.GMD.value}}}title/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
-        "abstract": deserialized_resource.find(
+        "abstract": record.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}abstract/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
         "spatial_extent": _get_spatial_extent(
-            deserialized_resource.find(
+            record.find(
                 f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
                 f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
                 f"{{{Csw202Namespace.GMD.value}}}extent/"
@@ -214,7 +220,7 @@ def _get_common_model_fields(
             )
         ),
         "crs": crs,
-        "thumbnail_url": deserialized_resource.find(
+        "thumbnail_url": record.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}graphicOverview/"
@@ -223,7 +229,7 @@ def _get_common_model_fields(
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text,
         # FIXME: this XPATH is not unique
-        "gui_url": deserialized_resource.find(
+        "gui_url": record.find(
             f"{{{Csw202Namespace.GMD.value}}}distributionInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_Distribution/"
             f"{{{Csw202Namespace.GMD.value}}}transferOptions/"
@@ -233,9 +239,9 @@ def _get_common_model_fields(
             f"{{{Csw202Namespace.GMD.value}}}linkage/"
             f"{{{Csw202Namespace.GMD.value}}}URL"
         ).text,
-        "published_date": _get_published_date(deserialized_resource),
-        "temporal_extent": _get_temporal_extent(deserialized_resource),
-        "keywords": _get_keywords(deserialized_resource),
+        "published_date": _get_published_date(record),
+        "temporal_extent": _get_temporal_extent(record),
+        "keywords": _get_keywords(record),
         "category": topic_category,
         "service_urls": service_urls,
     }
@@ -305,26 +311,31 @@ def _get_temporal_extent(
 ) -> typing.Optional[typing.List[typing.Optional[dt.datetime]]]:
     time_period = payload.find(
         f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
         f"{{{Csw202Namespace.GMD.value}}}extent/"
         f"{{{Csw202Namespace.GMD.value}}}EX_Extent/"
         f"{{{Csw202Namespace.GMD.value}}}temporalElement/"
         f"{{{Csw202Namespace.GMD.value}}}EX_TemporalExtent/"
         f"{{{Csw202Namespace.GMD.value}}}extent/"
-        f"{{{Csw202Namespace.GML.value}}}TimePeriod/"
+        f"{{{Csw202Namespace.GML.value}}}TimePeriod"
     )
     if time_period is not None:
+        temporal_format = "%Y-%m-%dT%H:%M:%S%z"
         start = _parse_datetime(
-            time_period.find(f"{{{Csw202Namespace.GML.value}}}beginPosition").text)
+            time_period.find(f"{{{Csw202Namespace.GML.value}}}beginPosition").text,
+            format_=temporal_format
+        )
         end = _parse_datetime(
-            time_period.find(f"{{{Csw202Namespace.GML.value}}}endPosition").text)
+            time_period.find(f"{{{Csw202Namespace.GML.value}}}endPosition").text,
+            format_=temporal_format
+        )
         result = [start, end]
     else:
         result = None
     return result
 
 
-def _parse_datetime(raw_value: str) -> dt.datetime:
-    format_ = "%Y-%m-%dT%H:%M:%SZ"
+def _parse_datetime(raw_value: str, format_="%Y-%m-%dT%H:%M:%SZ") -> dt.datetime:
     try:
         result = dt.datetime.strptime(raw_value, format_)
     except ValueError:
@@ -392,11 +403,11 @@ def _find_protocol_linkage(record: ET.Element, protocol: str) -> typing.Optional
         f"{{{Csw202Namespace.GMD.value}}}CI_OnlineResource"
     )
     for item in online_elements:
-        protocol = item.find(
+        reported_protocol = item.find(
             f"{{{Csw202Namespace.GMD.value}}}protocol/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
         ).text
-        if protocol.lower() == protocol:
+        if reported_protocol.lower() == protocol.lower():
             linkage_url = item.find(
                 f"{{{Csw202Namespace.GMD.value}}}linkage/"
                 f"{{{Csw202Namespace.GMD.value}}}URL"
@@ -416,7 +427,7 @@ def _get_wms_uri(
 ) -> str:
     wms_base_url = _find_protocol_linkage(record, "ogc:wms")
     wms_uri = (
-        f"crs={crs.postgisSrid()}&format={wms_format}&layers={layer_name}&"
+        f"crs=EPSG:{crs.postgisSrid()}&format={wms_format}&layers={layer_name}&"
         f"styles&url={wms_base_url}"
     )
     if auth_config is not None:

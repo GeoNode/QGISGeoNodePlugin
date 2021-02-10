@@ -54,6 +54,10 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             url.setQuery(query.query())
         return url
 
+    def get_layer_detail_from_brief_resource(
+            self, brief_resource: models.BriefGeonodeResource):
+        self.get_layer_detail(brief_resource.pk)
+
     def deserialize_response_contents(self, contents: QByteArray) -> typing.Dict:
         decoded_contents: str = contents.data().decode()
         return json.loads(decoded_contents)
@@ -135,9 +139,7 @@ def _get_common_model_fields(
             "wcs": _get_wcs_uri(auth_config, geonode_base_url, deserialized_resource),
         }
     elif resource_type == GeonodeResourceType.MAP:
-        service_urls = {
-            "wms": _get_wms_uri(auth_config, geonode_base_url, deserialized_resource),
-        }
+        service_urls = None  # FIXME: devise a way to retrieve WMS URL for maps
     else:
         service_urls = None
     return {

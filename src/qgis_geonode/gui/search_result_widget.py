@@ -85,8 +85,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         if layer.isValid():
             show_layer_handler = partial(self.show_layer, layer)
             self.client.layer_detail_received.connect(show_layer_handler)
-            self.client.get_layer_detail(self.geonode_resource.pk)
-
+            self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
         else:
             log("Problem loading the layer into QGIS")
             self.message_bar.pushMessage(

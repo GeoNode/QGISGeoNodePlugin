@@ -1,4 +1,5 @@
 import typing
+import uuid
 from functools import partial
 
 from qgis.core import (
@@ -51,7 +52,7 @@ class BaseGeonodeClient(QObject):
     ) -> QUrl:
         raise NotImplementedError
 
-    def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
+    def get_layer_detail_url_endpoint(self, id_: typing.Union[int, uuid.UUID]) -> QUrl:
         raise NotImplementedError
 
     def get_layer_styles_url_endpoint(self, layer_id: int):
@@ -86,7 +87,11 @@ class BaseGeonodeClient(QObject):
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
 
-    def get_layer_detail(self, id_: int):
+    def get_layer_detail_from_brief_resource(
+            self, brief_resource: models.BriefGeonodeResource):
+        raise NotImplementedError
+
+    def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
         request = QNetworkRequest(self.get_layer_detail_url_endpoint(id_))
         self.run_task(request, self.handle_layer_detail)
 

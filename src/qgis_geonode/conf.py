@@ -35,12 +35,13 @@ class ConnectionSettings:
 
     @classmethod
     def from_qgs_settings(cls, connection_identifier: str, settings: QgsSettings):
+        reported_auth_cfg = settings.value("auth_config").strip()
         return cls(
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
             base_url=settings.value("base_url"),
             api_version=GeonodeApiVersion[settings.value("api_version")],
-            auth_config=settings.value("auth_config"),
+            auth_config=reported_auth_cfg if reported_auth_cfg != "" else None,
         )
 
 
