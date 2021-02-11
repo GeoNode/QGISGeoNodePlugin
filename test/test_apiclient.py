@@ -1,9 +1,11 @@
 import typing
 
 import pytest
-import qgis_geonode.apiclient.models
 
-from qgis_geonode.apiclient import apiv2
+from qgis_geonode.apiclient import (
+    apiv2,
+    models,
+)
 
 SIGNAL_TIMEOUT = 5  # seconds
 
@@ -45,7 +47,7 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
 @pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
 def test_layer_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
     app = ResponseCollector()
-    client = api_client.GeonodeClient(base_url="http://localhost:9000")
+    client = apiv2.GeonodeApiV2Client(base_url="http://localhost:9000")
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layers(page=page, title="TEMPERATURASMINENERO2030")
@@ -66,7 +68,7 @@ def test_layer_details(qtbot, qgis_application, mock_geonode_server, id_):
     client.layer_detail_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_detail_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layer_detail(id_=id_)
-    layer: qgis_geonode.apiclient.models.GeonodeResource = app.received_response[0]
+    layer: models.GeonodeResource = app.received_response[0]
     assert id_ == layer.pk
 
 
@@ -96,7 +98,7 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
 @pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
 def test_map_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
     app = ResponseCollector()
-    client = api_client.GeonodeClient(base_url="http://localhost:9000")
+    client = apiv2.GeonodeApiV2Client(base_url="http://localhost:9000")
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_maps(page=page, title="AIRPORT")

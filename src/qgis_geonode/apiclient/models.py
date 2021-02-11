@@ -78,9 +78,14 @@ class GeonodeResource(BriefGeonodeResource):
     metadata_author: typing.Dict[str, str]
 
     def __init__(
-            self, language: str, license: str, constraints: str,
-            owner: typing.Dict[str, str], metadata_author: typing.Dict[str, str],
-            *args, **kwargs
+        self,
+        language: str,
+        license: str,
+        constraints: str,
+        owner: typing.Dict[str, str],
+        metadata_author: typing.Dict[str, str],
+        *args,
+        **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.language = language
@@ -88,7 +93,6 @@ class GeonodeResource(BriefGeonodeResource):
         self.constraints = constraints
         self.owner = dict(owner)
         self.metadata_author = dict(metadata_author)
-
 
 
 class BriefGeonodeStyle:

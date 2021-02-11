@@ -26,18 +26,32 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         return f"{self.base_url}{self._api_path}"
 
     def get_layers_url_endpoint(
-            self,
-            page: typing.Optional[int] = None,
-            page_size: typing.Optional[int] = 10,
-            name_like: typing.Optional[str] = None,
+        self,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_type: typing.Optional[models.GeonodeResourceType] = None,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
-        if page:
-            query = QUrlQuery()
-            query.addQueryItem("page", str(page))
-            url.setQuery(query.query())
+        query = QUrlQuery()
+        query.addQueryItem("page", str(page))
         # TODO: implement page_size
-        # TODO: implement name_like
+        if title is not None:
+            query.addQueryItem("filter{title.icontains}", title)
+        if abstract is not None:
+            query.addQueryItem("filter{abstract.icontains}", abstract)
+        if keyword is not None:  # TODO: Allow using multiple keywords
+            query.addQueryItem("filter{keywords.name.icontains}", keyword)
+        if topic_category is not None:
+            query.addQueryItem("filter{category.identifier}", topic_category)
+        if layer_type == GeonodeResourceType.RASTER_LAYER:
+            query.addQueryItem("filter{storeType}", "coverageStore")
+        elif layer_type == GeonodeResourceType.VECTOR_LAYER:
+            query.addQueryItem("filter{storeType}", "dataStore")
+        url.setQuery(query.query())
         return url
 
     def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
@@ -46,16 +60,30 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     def get_layer_styles_url_endpoint(self, layer_id: int):
         return QUrl(f"{self.api_url}/layers/{layer_id}/styles/")
 
-    def get_maps_url_endpoint(self, page: typing.Optional[int] = None) -> QUrl:
+    def get_maps_url_endpoint(
+        self,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+        title: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+    ) -> QUrl:
         url = QUrl(f"{self.api_url}/maps/")
-        if page:
-            query = QUrlQuery()
-            query.addQueryItem("page", str(page))
-            url.setQuery(query.query())
+        query = QUrlQuery()
+        query.addQueryItem("page", str(page))
+        # TODO: implement page_size
+        if title:
+            query.addQueryItem("filter{title.icontains}", title)
+        if keyword:  # TODO: Allow using multiple keywords
+            query.addQueryItem("filter{keywords.name.icontains}", keyword)
+        if topic_category:
+            query.addQueryItem("filter{category.identifier}", topic_category)
+        url.setQuery(query.query())
         return url
 
     def get_layer_detail_from_brief_resource(
-            self, brief_resource: models.BriefGeonodeResource):
+        self, brief_resource: models.BriefGeonodeResource
+    ):
         self.get_layer_detail(brief_resource.pk)
 
     def deserialize_response_contents(self, contents: QByteArray) -> typing.Dict:
@@ -66,7 +94,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         layers = []
         for item in payload.get("layers", []):
             layers.append(
-                get_brief_geonode_resource(item, self.base_url, self.auth_config))
+                get_brief_geonode_resource(item, self.base_url, self.auth_config)
+            )
         self.layer_list_received.emit(
             layers, payload["total"], payload["page"], payload["page_size"]
         )
@@ -85,30 +114,29 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         maps = []
         for item in payload.get("maps", []):
             maps.append(
-                get_brief_geonode_resource(item, self.base_url, self.auth_config))
+                get_brief_geonode_resource(item, self.base_url, self.auth_config)
+            )
         self.map_list_received.emit(
             maps, payload["total"], payload["page"], payload["page_size"]
         )
 
 
 def get_brief_geonode_resource(
-        deserialized_resource: typing.Dict,
-        geonode_base_url: str,
-        auth_config: str,
+    deserialized_resource: typing.Dict,
+    geonode_base_url: str,
+    auth_config: str,
 ) -> models.BriefGeonodeResource:
     return models.BriefGeonodeResource(
-        **_get_common_model_fields(
-            deserialized_resource, geonode_base_url, auth_config)
+        **_get_common_model_fields(deserialized_resource, geonode_base_url, auth_config)
     )
 
 
 def get_geonode_resource(
-        deserialized_resource: typing.Dict,
-        geonode_base_url: str,
-        auth_config: str
+    deserialized_resource: typing.Dict, geonode_base_url: str, auth_config: str
 ) -> models.GeonodeResource:
     common_fields = _get_common_model_fields(
-        deserialized_resource, geonode_base_url, auth_config)
+        deserialized_resource, geonode_base_url, auth_config
+    )
     license_value = deserialized_resource.get("license", "")
     if license_value and isinstance(license_value, dict):
         license_ = license_value["identifier"]
@@ -120,12 +148,12 @@ def get_geonode_resource(
         constraints=deserialized_resource.get("constraints_other", ""),
         owner=deserialized_resource.get("owner", ""),
         metadata_author=deserialized_resource.get("metadata_author", ""),
-        **common_fields
+        **common_fields,
     )
 
 
 def _get_common_model_fields(
-        deserialized_resource: typing.Dict, geonode_base_url: str, auth_config: str
+    deserialized_resource: typing.Dict, geonode_base_url: str, auth_config: str
 ) -> typing.Dict:
     resource_type = _get_resource_type(deserialized_resource)
     if resource_type == GeonodeResourceType.VECTOR_LAYER:
@@ -158,7 +186,7 @@ def _get_common_model_fields(
         "temporal_extent": _get_temporal_extent(deserialized_resource),
         "keywords": [k["name"] for k in deserialized_resource.get("keywords", [])],
         "category": deserialized_resource.get("category"),
-        "service_urls": service_urls
+        "service_urls": service_urls,
     }
 
 

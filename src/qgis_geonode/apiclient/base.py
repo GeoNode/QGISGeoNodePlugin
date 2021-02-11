@@ -45,10 +45,14 @@ class BaseGeonodeClient(QObject):
         )
 
     def get_layers_url_endpoint(
-            self,
-            page: typing.Optional[int] = None,
-            page_size: typing.Optional[int] = 10,
-            name_like: typing.Optional[str] = None,
+        self,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_type: typing.Optional[models.GeonodeResourceType] = None,
     ) -> QUrl:
         raise NotImplementedError
 
@@ -58,7 +62,14 @@ class BaseGeonodeClient(QObject):
     def get_layer_styles_url_endpoint(self, layer_id: int):
         raise NotImplementedError
 
-    def get_maps_url_endpoint(self, page: typing.Optional[int] = None) -> QUrl:
+    def get_maps_url_endpoint(
+        self,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+        title: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+    ) -> QUrl:
         raise NotImplementedError
 
     def deserialize_response_contents(self, contents: QByteArray) -> typing.Any:
@@ -77,18 +88,30 @@ class BaseGeonodeClient(QObject):
         raise NotImplementedError
 
     def get_layers(
-            self,
-            page: typing.Optional[int] = 1,
-            page_size: typing.Optional[int] = 10,
-            name_like: typing.Optional[str] = None,
+        self,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_type: typing.Optional[models.GeonodeResourceType] = None,
     ):
         url = self.get_layers_url_endpoint(
-            page=page, page_size=page_size, name_like=name_like)
+            page=page,
+            page_size=page_size,
+            title=title,
+            abstract=abstract,
+            keyword=keyword,
+            topic_category=topic_category,
+            layer_type=layer_type,
+        )
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
 
     def get_layer_detail_from_brief_resource(
-            self, brief_resource: models.BriefGeonodeResource):
+        self, brief_resource: models.BriefGeonodeResource
+    ):
         raise NotImplementedError
 
     def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
@@ -99,8 +122,21 @@ class BaseGeonodeClient(QObject):
         request = QNetworkRequest(self.get_layer_styles_url_endpoint(layer_id))
         self.run_task(request, self.handle_layer_style_list)
 
-    def get_maps(self, page: typing.Optional[int] = None):
-        url = self.get_maps_url_endpoint(page)
+    def get_maps(
+        self,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+        title: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+    ):
+        url = self.get_maps_url_endpoint(
+            page=page,
+            page_size=page_size,
+            title=title,
+            keyword=keyword,
+            topic_category=topic_category,
+        )
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)
 

@@ -13,7 +13,8 @@ class GeonodeApiVersion(enum.IntEnum):
 
 
 def get_geonode_client(
-        connection_settings: "ConnectionSettings") -> "BaseGeonodeClient":
+    connection_settings: "ConnectionSettings",
+) -> "BaseGeonodeClient":
     client_type: typing.Type["BaseGeonodeClient"] = {
         GeonodeApiVersion.OGC_CSW: csw.GeonodeCswClient,
         GeonodeApiVersion.V2: apiv2.GeonodeApiV2Client,

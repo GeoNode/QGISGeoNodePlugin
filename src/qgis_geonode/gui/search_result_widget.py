@@ -60,7 +60,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.wms_btn.setEnabled(False)
 
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls["wms"], self.geonode_resource.name, "wms"
+            self.geonode_resource.service_urls["wms"],
+            self.geonode_resource.title,
+            "wms",
         )
 
         self.load_layer(layer)
@@ -68,7 +70,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_raster_layer(self):
         self.wcs_btn.setEnabled(False)
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls["wcs"], self.geonode_resource.name, "wcs"
+            self.geonode_resource.service_urls["wcs"],
+            self.geonode_resource.title,
+            "wcs",
         )
 
         self.load_layer(layer)
@@ -76,7 +80,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_vector_layer(self):
         self.wfs_btn.setEnabled(False)
         layer = QgsVectorLayer(
-            self.geonode_resource.service_urls["wfs"], self.geonode_resource.name, "WFS"
+            self.geonode_resource.service_urls["wfs"],
+            self.geonode_resource.title,
+            "WFS",
         )
 
         self.load_layer(layer)
