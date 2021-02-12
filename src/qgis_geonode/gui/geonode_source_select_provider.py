@@ -28,13 +28,18 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..api_client import (
-    GeonodeClient,
     BriefGeonodeResource,
+    GeonodeClient,
+    GeonodeResourceType,
 )
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from ..utils import enum_mapping, log, tr
+from ..utils import (
+    enum_mapping,
+    IsoTopicCategory,
+    tr,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +73,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
         self.project = QgsProject.instance()
+        self.resource_types_btngrp.buttonClicked.connect(self.toggle_search_buttons)
         self.connections_cmb.currentIndexChanged.connect(
             self.toggle_connection_management_buttons
         )
@@ -97,6 +103,12 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.message_bar = QgsMessageBar()
         self.message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.layout().insertWidget(4, self.message_bar)
+
+        self.keyword_tool_btn.clicked.connect(self.search_keywords)
+        self.toggle_search_buttons()
+        self.start_dte.clear()
+        self.end_dte.clear()
+        self.load_categories()
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -140,6 +152,21 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             if current_connection.name != self.connections_cmb.currentText():
                 current_index = self.connections_cmb.findText(current_connection.name)
                 self.connections_cmb.setCurrentIndex(current_index)
+
+    def toggle_search_buttons(self):
+        search_buttons = (
+            self.search_btn,
+            self.previous_btn,
+            self.next_btn,
+        )
+        for check_box in self.resource_types_btngrp.buttons():
+            if check_box.isChecked():
+                enabled = True
+                break
+        else:
+            enabled = False
+        for button in search_buttons:
+            button.setEnabled(enabled)
 
     def toggle_connection_management_buttons(self):
         enabled = len(connections_manager.list_connections()) > 0
@@ -186,7 +213,28 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         client.layer_list_received.connect(self.handle_pagination)
 
         client.error_received.connect(self.show_search_error)
-        client.get_layers(page=self.current_page)
+        resource_types = []
+        search_vector = self.vector_chb.isChecked()
+        search_raster = self.raster_chb.isChecked()
+        search_map = self.map_chb.isChecked()
+        if any((search_vector, search_raster, search_map)):
+            if search_vector:
+                resource_types.append(GeonodeResourceType.VECTOR_LAYER)
+            if search_raster:
+                resource_types.append(GeonodeResourceType.RASTER_LAYER)
+            if search_map:
+                resource_types.append(GeonodeResourceType.MAP)
+            # FIXME: Implement these as search filters
+            start = self.start_dte.dateTime()
+            end = self.end_dte.dateTime()
+            client.get_layers(
+                page=self.current_page,
+                title=self.title_le.text() or None,
+                abstract=self.abstract_le.text() or None,
+                keyword=self.keyword_cmb.currentText() or None,
+                topic_category=self.category_cmb.currentText().lower() or None,
+                layer_types=resource_types,
+            )
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
@@ -252,3 +300,48 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.resultsLabel.clear()
         self.previous_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
+
+    def load_categories(self):
+        self.category_cmb.addItems(
+            [
+                "",
+                tr(IsoTopicCategory.FARMING.value),
+                tr(IsoTopicCategory.CLIMATOLOGY_METEOROLOGY_ATMOSPHERE.value),
+                tr(IsoTopicCategory.LOCATION.value),
+                tr(IsoTopicCategory.INTELLIGENCE_MILITARY.value),
+                tr(IsoTopicCategory.TRANSPORTATION.value),
+                tr(IsoTopicCategory.STRUCTURE.value),
+                tr(IsoTopicCategory.BOUNDARIES.value),
+                tr(IsoTopicCategory.INLAND_WATERS.value),
+                tr(IsoTopicCategory.PLANNING_CADASTRE.value),
+                tr(IsoTopicCategory.GEOSCIENTIFIC_INFORMATION.value),
+                tr(IsoTopicCategory.ELEVATION.value),
+                tr(IsoTopicCategory.HEALTH.value),
+                tr(IsoTopicCategory.BIOTA.value),
+                tr(IsoTopicCategory.OCEANS.value),
+                tr(IsoTopicCategory.ENVIRONMENT.value),
+                tr(IsoTopicCategory.UTILITIES_COMMUNICATION.value),
+                tr(IsoTopicCategory.ECONOMY.value),
+                tr(IsoTopicCategory.SOCIETY.value),
+                tr(IsoTopicCategory.IMAGERY_BASE_MAPS_EARTH_COVER.value),
+            ]
+        )
+
+    def search_keywords(self):
+        connection_name = self.connections_cmb.currentText()
+        if connection_name:
+            connection = connections_manager.find_connection_by_name(connection_name)
+            client = GeonodeClient.from_connection_settings(connection)
+            client.keyword_list_received.connect(self.update_keywords)
+            client.error_received.connect(self.show_search_error)
+
+            self.message_bar.pushMessage(
+                tr("Searching for keywords..."), level=Qgis.Info
+            )
+
+            client.get_keywords()
+
+    def update_keywords(self, keywords: typing.Optional[typing.List[str]] = None):
+        if keywords:
+            self.keyword_cmb.addItem("")
+            self.keyword_cmb.addItems(keywords)
