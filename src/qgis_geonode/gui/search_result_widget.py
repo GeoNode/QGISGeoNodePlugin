@@ -1,7 +1,12 @@
 import os
 from functools import partial
 
-from qgis.PyQt.QtWidgets import QWidget
+from qgis.PyQt import (
+    QtCore,
+    QtGui,
+    QtNetwork,
+    QtWidgets,
+)
 from qgis.PyQt.uic import loadUiType
 
 from qgis.core import (
@@ -9,6 +14,7 @@ from qgis.core import (
     QgsDateTimeRange,
     Qgis,
     QgsLayerMetadata,
+    QgsNetworkContentFetcherTask,
     QgsProject,
     QgsRasterLayer,
     QgsVectorLayer,
@@ -26,7 +32,7 @@ WidgetUi, _ = loadUiType(
 )
 
 
-class SearchResultWidget(QWidget, WidgetUi):
+class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def __init__(
         self,
         message_bar: QgsMessageBar,
@@ -48,6 +54,7 @@ class SearchResultWidget(QWidget, WidgetUi):
         self.wfs_btn.clicked.connect(self.load_vector_layer)
 
         self.reset_ogc_buttons_state()
+        self.load_thumbnail()
 
     def load_map_resource(self):
         self.wms_btn.setEnabled(False)
@@ -171,3 +178,22 @@ class SearchResultWidget(QWidget, WidgetUi):
         self.wfs_btn.setEnabled(
             self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER
         )
+
+    def load_thumbnail(self):
+        """Fetch the thumbnail from its remote URL and load it"""
+        request = QtCore.QUrl(self.geonode_resource.thumbnail_url)
+        # TODO: do we need to provide auth config here?
+        task = QgsNetworkContentFetcherTask(request)
+        task.fetched.connect(partial(self.handle_thumbnail_response, task))
+        task.run()
+
+    def handle_thumbnail_response(self, task: QgsNetworkContentFetcherTask):
+        reply: QtNetwork.QNetworkReply = task.reply()
+        error = reply.error()
+        if error == QtNetwork.QNetworkReply.NoError:
+            contents: QtCore.QByteArray = reply.readAll()
+            thumbnail = QtGui.QPixmap()
+            thumbnail.loadFromData(contents)
+            self.thumbnail_la.setPixmap(thumbnail)
+        else:
+            log(f"Error retrieving thumbnail for {self.geonode_resource.name}")
