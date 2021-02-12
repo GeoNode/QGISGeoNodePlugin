@@ -41,7 +41,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     ):
         super().__init__(parent)
         self.setupUi(self)
-        self.name_la.setText(geonode_resource.title)
+        self.name_la.setText(f"<h3>{geonode_resource.title}</h3>")
+        self.resource_type_la.setText(geonode_resource.resource_type.value)
         self.description_la.setText(geonode_resource.abstract)
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
@@ -196,4 +197,4 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             thumbnail.loadFromData(contents)
             self.thumbnail_la.setPixmap(thumbnail)
         else:
-            log(f"Error retrieving thumbnail for {self.geonode_resource.name}")
+            log(f"Error retrieving thumbnail for {self.geonode_resource.title}")
