@@ -30,13 +30,16 @@ from qgis.PyQt.QtWidgets import (
 from ..api_client import (
     BriefGeonodeResource,
     GeonodeClient,
-    GeonodeKeyword,
     GeonodeResourceType,
 )
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from ..utils import enum_mapping, log, tr
+from ..utils import (
+    enum_mapping,
+    IsoTopicCategory,
+    tr,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +73,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
         self.project = QgsProject.instance()
+        self.resource_types_btngrp.buttonClicked.connect(self.toggle_search_buttons)
         self.connections_cmb.currentIndexChanged.connect(
             self.toggle_connection_management_buttons
         )
@@ -101,10 +105,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.layout().insertWidget(4, self.message_bar)
 
         self.keyword_tool_btn.clicked.connect(self.search_keywords)
-        self.start_date_time.clear()
-        self.end_date_time.clear()
+        self.toggle_search_buttons()
+        self.start_dte.clear()
+        self.end_dte.clear()
         self.load_categories()
-        self.load_resource_types()
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -133,7 +137,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 connections_manager.set_current_connection(next_current_connection.id)
 
     def update_connections_combobox(
-            self, current_identifier: typing.Optional[str] = ""
+        self, current_identifier: typing.Optional[str] = ""
     ):
 
         existing_connections = connections_manager.list_connections()
@@ -148,6 +152,21 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             if current_connection.name != self.connections_cmb.currentText():
                 current_index = self.connections_cmb.findText(current_connection.name)
                 self.connections_cmb.setCurrentIndex(current_index)
+
+    def toggle_search_buttons(self):
+        search_buttons = (
+            self.search_btn,
+            self.previous_btn,
+            self.next_btn,
+        )
+        for check_box in self.resource_types_btngrp.buttons():
+            if check_box.isChecked():
+                enabled = True
+                break
+        else:
+            enabled = False
+        for button in search_buttons:
+            button.setEnabled(enabled)
 
     def toggle_connection_management_buttons(self):
         enabled = len(connections_manager.list_connections()) > 0
@@ -194,39 +213,28 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         client.layer_list_received.connect(self.handle_pagination)
 
         client.error_received.connect(self.show_search_error)
-
-        title = self.free_text_edit.text() \
-            if self.free_text_edit.text() is not '' else None
-        abstract = self.abstract_edit.text() \
-            if self.abstract_edit.text() is not '' else None
-        keyword = self.keywords_cmb.currentText() \
-            if self.keywords_cmb.currentText() is not '' \
-            else None
-        category = self.category_cmb.currentText().lower() \
-            if self.category_cmb.currentText() is not '' \
-            else None
-        if self.resource_type_cmb.currentText() is not '':
-            resource_type_text = self.resource_type_cmb.currentText()
-            resource_type = (resource_type for resource_type in GeonodeResourceType
-                             if resource_type.value == resource_type_text)
-        else:
-            resource_type = None
-
-        start_date_time = self.start_date_time.dateTime() \
-            if self.start_date_time.dateTime() is not None \
-            else None
-        end_date_time = self.end_date_time.dateTime() \
-            if self.end_date_time.dateTime() is not None \
-            else None
-
-        client.get_layers(
-            page=self.current_page,
-            title=title,
-            abstract=abstract,
-            keyword=keyword,
-            topic_category=category,
-            layer_type=resource_type
-        )
+        resource_types = []
+        search_vector = self.vector_chb.isChecked()
+        search_raster = self.raster_chb.isChecked()
+        search_map = self.map_chb.isChecked()
+        if any((search_vector, search_raster, search_map)):
+            if search_vector:
+                resource_types.append(GeonodeResourceType.VECTOR_LAYER)
+            if search_raster:
+                resource_types.append(GeonodeResourceType.RASTER_LAYER)
+            if search_map:
+                resource_types.append(GeonodeResourceType.MAP)
+            # FIXME: Implement these as search filters
+            start = self.start_dte.dateTime()
+            end = self.end_dte.dateTime()
+            client.get_layers(
+                page=self.current_page,
+                title=self.title_le.text() or None,
+                abstract=self.abstract_le.text() or None,
+                keyword=self.keyword_cmb.currentText() or None,
+                topic_category=self.category_cmb.currentText().lower() or None,
+                layer_types=resource_types,
+            )
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
@@ -240,11 +248,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         )
 
     def handle_layer_list(
-            self,
-            layer_list: typing.List[BriefGeonodeResource],
-            total_records: int,
-            current_page: int,
-            page_size: int,
+        self,
+        layer_list: typing.List[BriefGeonodeResource],
+        total_records: int,
+        current_page: int,
+        page_size: int,
     ):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
@@ -252,11 +260,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             self.populate_scroll_area(layer_list)
 
     def handle_pagination(
-            self,
-            layer_list: typing.List[BriefGeonodeResource],
-            total_records: int,
-            current_page: int,
-            page_size: int,
+        self,
+        layer_list: typing.List[BriefGeonodeResource],
+        total_records: int,
+        current_page: int,
+        page_size: int,
     ):
         self.current_page = current_page
         total_pages = math.ceil(total_records / page_size)
@@ -294,24 +302,29 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.next_btn.setEnabled(False)
 
     def load_categories(self):
-        default_categories = [
-            tr(""),
-            tr("Farming"), tr("Climatology Meteorology Atmosphere"),
-            tr("Location"), tr("Intelligence Military"),
-            tr("Transportation"), tr("Structure"),
-            tr("Boundaries"), tr("Inland Waters"), tr("Planning Cadastre"),
-            tr("Geoscientific Information"), tr("Elevation"), tr("Health"),
-            tr("Biota"), tr("Oceans"), tr("Environment"),
-            tr("Utilities Communication"),
-            tr("Economy"), tr("Society"), tr("Imagery Base Maps Earth Cover")
-        ]
-
-        self.category_cmb.addItems(category for category in default_categories)
-
-    def load_resource_types(self):
-        self.resource_type_cmb.addItem(tr(""))
-        self.resource_type_cmb.addItems(
-            resource_type.value for resource_type in GeonodeResourceType
+        self.category_cmb.addItems(
+            [
+                "",
+                tr(IsoTopicCategory.FARMING.value),
+                tr(IsoTopicCategory.CLIMATOLOGY_METEOROLOGY_ATMOSPHERE.value),
+                tr(IsoTopicCategory.LOCATION.value),
+                tr(IsoTopicCategory.INTELLIGENCE_MILITARY.value),
+                tr(IsoTopicCategory.TRANSPORTATION.value),
+                tr(IsoTopicCategory.STRUCTURE.value),
+                tr(IsoTopicCategory.BOUNDARIES.value),
+                tr(IsoTopicCategory.INLAND_WATERS.value),
+                tr(IsoTopicCategory.PLANNING_CADASTRE.value),
+                tr(IsoTopicCategory.GEOSCIENTIFIC_INFORMATION.value),
+                tr(IsoTopicCategory.ELEVATION.value),
+                tr(IsoTopicCategory.HEALTH.value),
+                tr(IsoTopicCategory.BIOTA.value),
+                tr(IsoTopicCategory.OCEANS.value),
+                tr(IsoTopicCategory.ENVIRONMENT.value),
+                tr(IsoTopicCategory.UTILITIES_COMMUNICATION.value),
+                tr(IsoTopicCategory.ECONOMY.value),
+                tr(IsoTopicCategory.SOCIETY.value),
+                tr(IsoTopicCategory.IMAGERY_BASE_MAPS_EARTH_COVER.value),
+            ]
         )
 
     def search_keywords(self):
@@ -322,14 +335,13 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             client.keyword_list_received.connect(self.update_keywords)
             client.error_received.connect(self.show_search_error)
 
-            self.message_bar.pushMessage(tr("Searching for keywords..."), level=Qgis.Info)
+            self.message_bar.pushMessage(
+                tr("Searching for keywords..."), level=Qgis.Info
+            )
 
             client.get_keywords()
 
-    def update_keywords(
-            self,
-            keywords: typing.List[GeonodeKeyword] = None
-    ):
+    def update_keywords(self, keywords: typing.Optional[typing.List[str]] = None):
         if keywords:
-            self.keywords_cmb.addItem(tr(""))
-            self.keywords_cmb.addItems(keyword.text for keyword in keywords)
+            self.keyword_cmb.addItem("")
+            self.keyword_cmb.addItems(keywords)
