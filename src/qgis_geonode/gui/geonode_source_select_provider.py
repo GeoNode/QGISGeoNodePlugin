@@ -28,9 +28,10 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..api_client import (
-    GeonodeClient,
     BriefGeonodeResource,
-    GeonodeResourceType
+    GeonodeClient,
+    GeonodeKeyword,
+    GeonodeResourceType,
 )
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
@@ -99,7 +100,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self.layout().insertWidget(4, self.message_bar)
 
-        self.populate_search_items()
+        self.keyword_tool_btn.clicked.connect(self.search_keywords)
+        self.start_date_time.clear()
+        self.end_date_time.clear()
+        self.load_categories()
+        self.load_resource_types()
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -150,8 +155,6 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.btnDelete.setEnabled(enabled)
         self.search_btn.setEnabled(enabled)
         self.clear_search()
-        self.keywords_cmb.clear()
-        self.search_keywords()
         self.current_page = 1
 
     def update_current_connection(self):
@@ -191,45 +194,39 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         client.layer_list_received.connect(self.handle_pagination)
 
         client.error_received.connect(self.show_search_error)
-        if self.search_group_box.isChecked():
-            title = self.free_text_edit.text()
-            keyword = self.keywords_cmb.currentText()
-            category = self.category_cmb.currentText().lower()
-            resource_type_text = self.resource_type_cmb.currentText()
-            resource_type_list = [resource_type for resource_type in GeonodeResourceType
-                                  if resource_type.value == resource_type_text
-                                  ]
-            start_date_time = self.start_date_time.dateTime()
-            end_date_time = self.end_date_time.dateTime()
 
-            if self.free_text_box.isChecked():
-                client.get_layers(
-                    page=self.current_page,
-                    title=title
-                )
-            elif self.keywords_box.isChecked():
-                client.get_layers(
-                    page=self.current_page,
-                    keyword=keyword
-                )
-            elif self.category_box.isChecked():
-                client.get_layers(
-                    page=self.current_page,
-                    topic_category=category
-                )
-            elif self.resource_type_box.isChecked():
-                client.get_layers(
-                    page=self.current_page,
-                    layer_type=resource_type_list
-                )
-            else:
-                client.get_layers(
-                    page=self.current_page
-                )
+        title = self.free_text_edit.text() \
+            if self.free_text_edit.text() is not '' else None
+        abstract = self.abstract_edit.text() \
+            if self.abstract_edit.text() is not '' else None
+        keyword = self.keywords_cmb.currentText() \
+            if self.keywords_cmb.currentText() is not '' \
+            else None
+        category = self.category_cmb.currentText().lower() \
+            if self.category_cmb.currentText() is not '' \
+            else None
+        if self.resource_type_cmb.currentText() is not '':
+            resource_type_text = self.resource_type_cmb.currentText()
+            resource_type = (resource_type for resource_type in GeonodeResourceType
+                             if resource_type.value == resource_type_text)
         else:
-            client.get_layers(
-                page=self.current_page
-            )
+            resource_type = None
+
+        start_date_time = self.start_date_time.dateTime() \
+            if self.start_date_time.dateTime() is not None \
+            else None
+        end_date_time = self.end_date_time.dateTime() \
+            if self.end_date_time.dateTime() is not None \
+            else None
+
+        client.get_layers(
+            page=self.current_page,
+            title=title,
+            abstract=abstract,
+            keyword=keyword,
+            topic_category=category,
+            layer_type=resource_type
+        )
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
@@ -296,10 +293,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.previous_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
 
-    def populate_search_items(self):
+    def load_categories(self):
         default_categories = [
+            tr(""),
             tr("Farming"), tr("Climatology Meteorology Atmosphere"),
-            tr("Location"),tr("Intelligence Military"),
+            tr("Location"), tr("Intelligence Military"),
             tr("Transportation"), tr("Structure"),
             tr("Boundaries"), tr("Inland Waters"), tr("Planning Cadastre"),
             tr("Geoscientific Information"), tr("Elevation"), tr("Health"),
@@ -310,10 +308,11 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         self.category_cmb.addItems(category for category in default_categories)
 
+    def load_resource_types(self):
+        self.resource_type_cmb.addItem(tr(""))
         self.resource_type_cmb.addItems(
             resource_type.value for resource_type in GeonodeResourceType
         )
-        self.search_keywords()
 
     def search_keywords(self):
         connection_name = self.connections_cmb.currentText()
@@ -321,11 +320,16 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             connection = connections_manager.find_connection_by_name(connection_name)
             client = GeonodeClient.from_connection_settings(connection)
             client.keyword_list_received.connect(self.update_keywords)
+            client.error_received.connect(self.show_search_error)
+
+            self.message_bar.pushMessage(tr("Searching for keywords..."), level=Qgis.Info)
+
             client.get_keywords()
 
     def update_keywords(
             self,
-            keywords: typing.Optional[list] = None
+            keywords: typing.List[GeonodeKeyword] = None
     ):
         if keywords:
-            self.keywords_cmb.addItems(keyword['text'] for keyword in keywords)
+            self.keywords_cmb.addItem(tr(""))
+            self.keywords_cmb.addItems(keyword.text for keyword in keywords)

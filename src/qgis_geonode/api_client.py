@@ -197,6 +197,28 @@ class BriefGeonodeStyle:
         )
 
 
+class GeonodeKeyword:
+    id: int
+    text: str
+    href: str
+    tags: list
+
+    def __init__(self, id: int, text: str, href: str, tags: list):
+        self.id = id
+        self.text = text
+        self.href = href
+        self.tags = tags
+
+    @classmethod
+    def from_api_response(cls, payload: typing.Dict):
+        return cls(
+            id=payload["id"],
+            text=payload["text"],
+            href=payload["href"],
+            tags=payload["tags"]
+        )
+
+
 class GeonodeApiEndpoint(enum.Enum):
     LAYER_LIST = "/api/v2/layers/"
     LAYER_DETAILS = "/api/v2/layers/"
@@ -237,7 +259,7 @@ class GeonodeClient(QObject):
         abstract: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
-        layer_type: typing.List[GeonodeResourceType] = None,
+        layer_type: typing.Optional[GeonodeResourceType] = None,
         page: typing.Optional[int] = 1,
     ):
         """Slot to retrieve list of layers available in GeoNode"""
@@ -253,10 +275,10 @@ class GeonodeClient(QObject):
         if topic_category is not None:
             query.addQueryItem("filter{category.identifier}", topic_category)
         if layer_type is not None and \
-                GeonodeResourceType.RASTER_LAYER in layer_type:
+                layer_type == GeonodeResourceType.RASTER_LAYER:
             query.addQueryItem("filter{storeType}", "coverageStore")
         elif layer_type is not None and \
-                GeonodeResourceType.VECTOR_LAYER in layer_type:
+                layer_type == GeonodeResourceType.VECTOR_LAYER:
             query.addQueryItem("filter{storeType}", "dataStore")
         url.setQuery(query.query())
         request = QNetworkRequest(url)
@@ -367,8 +389,15 @@ class GeonodeClient(QObject):
         )
 
     def handle_keyword_list(self, payload: typing.Dict):
+        keywords = []
+        for keyword in payload:
+            keywords.append(
+                GeonodeKeyword.from_api_response(
+                    keyword
+                )
+            )
         self.keyword_list_received.emit(
-           payload
+           keywords
         )
 
 
