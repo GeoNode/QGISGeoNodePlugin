@@ -24,10 +24,10 @@ class BaseGeonodeClient(QObject):
     auth_config: str
     base_url: str
 
-    layer_list_received = pyqtSignal(list, int, int, int)
+    layer_list_received = pyqtSignal(list, models.GeoNodePaginationInfo)
     layer_detail_received = pyqtSignal(models.GeonodeResource)
     layer_styles_received = pyqtSignal(list)
-    map_list_received = pyqtSignal(list, int, int, int)
+    map_list_received = pyqtSignal(list, models.GeoNodePaginationInfo)
     error_received = pyqtSignal(int)
 
     def __init__(

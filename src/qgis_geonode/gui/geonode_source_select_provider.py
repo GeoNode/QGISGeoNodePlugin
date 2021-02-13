@@ -27,12 +27,8 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
 )
 
-from ..conf import connections_manager
 from ..apiclient import get_geonode_client
-from ..apiclient.models import (
-    BriefGeonodeResource,
-    GeonodeResourceType,
-)
+from ..apiclient import models
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
@@ -220,16 +216,17 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         search_map = self.map_chb.isChecked()
         if any((search_vector, search_raster, search_map)):
             if search_vector:
-                resource_types.append(GeonodeResourceType.VECTOR_LAYER)
+                resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
             if search_raster:
-                resource_types.append(GeonodeResourceType.RASTER_LAYER)
+                resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
             if search_map:
-                resource_types.append(GeonodeResourceType.MAP)
+                resource_types.append(models.GeonodeResourceType.MAP)
             # FIXME: Implement these as search filters
             start = self.start_dte.dateTime()
             end = self.end_dte.dateTime()
             client.get_layers(
                 page=self.current_page,
+                page_size=connection_settings.page_size,
                 title=self.title_le.text() or None,
                 abstract=self.abstract_le.text() or None,
                 keyword=self.keyword_cmb.currentText() or None,
@@ -249,11 +246,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         )
 
     def handle_layer_list(
-        self,
-        layer_list: typing.List[BriefGeonodeResource],
-        total_records: int,
-        current_page: int,
-        page_size: int,
+            self,
+            layer_list: typing.List[models.BriefGeonodeResource],
+            pagination_info: models.GeoNodePaginationInfo,
     ):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
@@ -261,28 +256,22 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             self.populate_scroll_area(layer_list)
 
     def handle_pagination(
-        self,
-        layer_list: typing.List[BriefGeonodeResource],
-        total_records: int,
-        current_page: int,
-        page_size: int,
+            self,
+            layer_list: typing.List[models.BriefGeonodeResource],
+            pagination_info: models.GeoNodePaginationInfo,
     ):
-        self.current_page = current_page
-        total_pages = math.ceil(total_records / page_size)
+        self.current_page = pagination_info.current_page
         self.previous_btn.setEnabled(self.current_page > 1)
-        self.next_btn.setEnabled(self.current_page < total_pages)
-        if total_records > 0:
-            self.resultsLabel.setText(
-                tr(
-                    "Showing page {} of {} ({} results)".format(
-                        self.current_page, total_pages, total_records
-                    )
-                )
-            )
+        self.next_btn.setEnabled(self.current_page < pagination_info.total_pages)
+        if pagination_info.total_records > 0:
+            self.resultsLabel.setText(tr(
+                f"Showing page {self.current_page} of {pagination_info.total_pages} "
+                f"({pagination_info.total_records} results)"
+            ))
         else:
             self.resultsLabel.setText(tr("No results found"))
 
-    def populate_scroll_area(self, layers: typing.List[BriefGeonodeResource]):
+    def populate_scroll_area(self, layers: typing.List[models.BriefGeonodeResource]):
         scroll_container = QWidget()
         layout = QVBoxLayout()
         for layer in layers:

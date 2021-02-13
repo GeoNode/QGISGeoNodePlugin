@@ -39,7 +39,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         url = QUrl(f"{self.api_url}/layers/")
         query = QUrlQuery()
         query.addQueryItem("page", str(page))
-        # TODO: implement page_size
+        query.addQueryItem("page_size", str(page_size))
         if title is not None:
             query.addQueryItem("filter{title.icontains}", title)
         if abstract is not None:
@@ -87,7 +87,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         url = QUrl(f"{self.api_url}/maps/")
         query = QUrlQuery()
         query.addQueryItem("page", str(page))
-        # TODO: implement page_size
+        query.addQueryItem("page_size", str(page_size))
         if title:
             query.addQueryItem("filter{title.icontains}", title)
         if keyword:  # TODO: Allow using multiple keywords
@@ -112,9 +112,12 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             layers.append(
                 get_brief_geonode_resource(item, self.base_url, self.auth_config)
             )
-        self.layer_list_received.emit(
-            layers, payload["total"], payload["page"], payload["page_size"]
+        pagination_info = models.GeoNodePaginationInfo(
+            total_records=payload["total"],
+            current_page=payload["page"],
+            page_size=payload["page_size"]
         )
+        self.layer_list_received.emit(layers, pagination_info)
 
     def handle_layer_detail(self, payload: typing.Dict):
         layer = get_geonode_resource(payload["layer"], self.base_url, self.auth_config)
@@ -132,9 +135,12 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             maps.append(
                 get_brief_geonode_resource(item, self.base_url, self.auth_config)
             )
-        self.map_list_received.emit(
-            maps, payload["total"], payload["page"], payload["page_size"]
+        pagination_info = models.GeoNodePaginationInfo(
+            total_records=payload["total"],
+            current_page=payload["page"],
+            page_size=payload["page_size"]
         )
+        self.map_list_received.emit(maps, pagination_info)
 
 
 def get_brief_geonode_resource(

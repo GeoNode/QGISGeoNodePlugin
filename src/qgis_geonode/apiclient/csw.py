@@ -61,7 +61,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         query.addQueryItem("version", "2.0.2")
         query.addQueryItem("request", "GetRecords")
         query.addQueryItem("resulttype", "results")
-        query.addQueryItem("startposition", str(page_size * page))
+        query.addQueryItem("startposition", str((page_size * page + 1) - page_size))
         query.addQueryItem("maxrecords", str(page_size))
         query.addQueryItem("typenames", self.TYPE_NAME)
         query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
@@ -117,7 +117,9 @@ class GeonodeCswClient(BaseGeonodeClient):
                 )
         else:
             raise RuntimeError("Could not find search results")
-        self.layer_list_received.emit(layers, total, current_page, self.PAGE_SIZE)
+        pagination_info = models.GeoNodePaginationInfo(
+            total_records=total, current_page=current_page, page_size=self.PAGE_SIZE)
+        self.layer_list_received.emit(layers, pagination_info)
 
     def handle_layer_detail(self, payload: ET.Element):
         layer = get_geonode_resource(

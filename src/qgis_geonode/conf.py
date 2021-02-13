@@ -31,6 +31,7 @@ class ConnectionSettings:
     name: str
     base_url: str
     api_version: GeonodeApiVersion
+    page_size: int
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -41,6 +42,7 @@ class ConnectionSettings:
             name=settings.value("name"),
             base_url=settings.value("base_url"),
             api_version=GeonodeApiVersion[settings.value("api_version")],
+            page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg if reported_auth_cfg != "" else None,
         )
 
@@ -105,6 +107,7 @@ class ConnectionManager(QtCore.QObject):
         with qgis_settings(settings_key) as settings:
             settings.setValue("name", connection_settings.name)
             settings.setValue("base_url", connection_settings.base_url)
+            settings.setValue("page_size", connection_settings.page_size)
             settings.setValue("auth_config", connection_settings.auth_config)
             settings.setValue("api_version", connection_settings.api_version.name)
 

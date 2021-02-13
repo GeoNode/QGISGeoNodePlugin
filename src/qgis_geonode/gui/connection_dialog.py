@@ -16,11 +16,6 @@ from ..apiclient import (
     get_geonode_client,
 )
 from ..apiclient.base import BaseGeonodeClient
-from ..apiclient import (
-    GeonodeApiVersion,
-    get_geonode_client,
-)
-from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
     connections_manager,
@@ -79,6 +74,7 @@ class ConnectionDialog(QDialog, DialogUi):
         self.url_le.setText(connection_settings.base_url)
         self.authcfg_acs.setConfigId(connection_settings.auth_config)
         self.api_version_cmb.setCurrentText(connection_settings.api_version.name)
+        self.page_size_sb.setValue(connection_settings.page_size)
 
     def get_connection_settings(self) -> ConnectionSettings:
         return ConnectionSettings(
@@ -87,6 +83,7 @@ class ConnectionDialog(QDialog, DialogUi):
             base_url=self.url_le.text().strip(),
             auth_config=self.authcfg_acs.configId(),
             api_version=GeonodeApiVersion[self.api_version_cmb.currentText().upper()],
+            page_size=self.page_size_sb.value()
         )
 
     def test_connection(self):
