@@ -22,7 +22,8 @@ from qgis.core import (
 
 from qgis.gui import QgsMessageBar
 
-from ..api_client import BriefGeonodeResource, GeonodeClient, GeonodeResourceType
+from ..apiclient import get_geonode_client
+from ..apiclient.models import BriefGeonodeResource, GeonodeResourceType
 from ..resources import *
 from ..utils import log, tr
 from ..conf import connections_manager
@@ -42,14 +43,15 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         super().__init__(parent)
         self.setupUi(self)
         self.name_la.setText(f"<h3>{geonode_resource.title}</h3>")
-        self.resource_type_la.setText(geonode_resource.resource_type.value)
+        if geonode_resource.resource_type is not None:
+            self.resource_type_la.setText(geonode_resource.resource_type.value)
+        else:
+            self.resource_type_la.setText("unknown")
         self.description_la.setText(geonode_resource.abstract)
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
-
-        connection = connections_manager.get_current_connection()
-        self.client = GeonodeClient.from_connection_settings(connection)
-
+        connection_settings = connections_manager.get_current_connection()
+        self.client = get_geonode_client(connection_settings)
         self.wms_btn.clicked.connect(self.load_map_resource)
         self.wcs_btn.clicked.connect(self.load_raster_layer)
         self.wfs_btn.clicked.connect(self.load_vector_layer)
@@ -61,7 +63,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.wms_btn.setEnabled(False)
 
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls["wms"], self.geonode_resource.name, "wms"
+            self.geonode_resource.service_urls["wms"],
+            self.geonode_resource.title,
+            "wms",
         )
 
         self.load_layer(layer)
@@ -69,7 +73,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_raster_layer(self):
         self.wcs_btn.setEnabled(False)
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls["wcs"], self.geonode_resource.name, "wcs"
+            self.geonode_resource.service_urls["wcs"],
+            self.geonode_resource.title,
+            "wcs",
         )
 
         self.load_layer(layer)
@@ -77,7 +83,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_vector_layer(self):
         self.wfs_btn.setEnabled(False)
         layer = QgsVectorLayer(
-            self.geonode_resource.service_urls["wfs"], self.geonode_resource.name, "WFS"
+            self.geonode_resource.service_urls["wfs"],
+            self.geonode_resource.title,
+            "WFS",
         )
 
         self.load_layer(layer)
@@ -86,8 +94,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         if layer.isValid():
             show_layer_handler = partial(self.show_layer, layer)
             self.client.layer_detail_received.connect(show_layer_handler)
-            self.client.get_layer_detail(self.geonode_resource.pk)
-
+            self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
         else:
             log("Problem loading the layer into QGIS")
             self.message_bar.pushMessage(

@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>GeoNode Connection Configuration</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
     <layout class="QFormLayout" name="formLayout">
      <item row="0" column="0">
@@ -53,6 +53,29 @@
      <property name="title">
       <string>Options</string>
      </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>API version</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="api_version_cmb"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="detect_version_btn">
+          <property name="text">
+           <string>Auto-detect</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>
