@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Fix invalid update date for versions released via custom plugin repo
+- Add support for earlier GeoNode versions
+- Add support for search filters
+- Display GeoNode resource thumbnail on search results section
+- Improve look of search results
 
 
 ## [0.1.1] - 2021-02-02
