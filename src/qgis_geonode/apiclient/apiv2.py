@@ -26,14 +26,15 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         return f"{self.base_url}{self._api_path}"
 
     def get_layers_url_endpoint(
-        self,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_type: typing.Optional[models.GeonodeResourceType] = None,
+            self,
+            title: typing.Optional[str] = None,
+            abstract: typing.Optional[str] = None,
+            keyword: typing.Optional[str] = None,
+            topic_category: typing.Optional[str] = None,
+            layer_types: typing.Optional[
+                typing.List[models.GeonodeResourceType]] = None,
+            page: typing.Optional[int] = 1,
+            page_size: typing.Optional[int] = 10,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
         query = QUrlQuery()
@@ -47,10 +48,25 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("filter{keywords.name.icontains}", keyword)
         if topic_category is not None:
             query.addQueryItem("filter{category.identifier}", topic_category)
-        if layer_type == GeonodeResourceType.RASTER_LAYER:
-            query.addQueryItem("filter{storeType}", "coverageStore")
-        elif layer_type == GeonodeResourceType.VECTOR_LAYER:
+        if layer_types is None:
+            types = [
+                GeonodeResourceType.VECTOR_LAYER,
+                GeonodeResourceType.RASTER_LAYER,
+                GeonodeResourceType.MAP,
+            ]
+        else:
+            types = list(layer_types)
+        is_vector = GeonodeResourceType.VECTOR_LAYER in types
+        is_raster = GeonodeResourceType.RASTER_LAYER in types
+        is_map = GeonodeResourceType.MAP in types
+        if is_vector and is_raster:
+            pass
+        elif is_vector:
             query.addQueryItem("filter{storeType}", "dataStore")
+        elif is_raster:
+            query.addQueryItem("filter{storeType}", "coverageStore")
+        else:
+            raise NotImplementedError
         url.setQuery(query.query())
         return url
 
@@ -170,6 +186,8 @@ def _get_common_model_fields(
         service_urls = None  # FIXME: devise a way to retrieve WMS URL for maps
     else:
         service_urls = None
+    reported_category = deserialized_resource.get("category")
+    category = reported_category["identifier"] if reported_category else None
     return {
         "pk": int(deserialized_resource["pk"]),
         "uuid": uuid.UUID(deserialized_resource["uuid"]),
@@ -185,7 +203,7 @@ def _get_common_model_fields(
         "published_date": _get_published_date(deserialized_resource),
         "temporal_extent": _get_temporal_extent(deserialized_resource),
         "keywords": [k["name"] for k in deserialized_resource.get("keywords", [])],
-        "category": deserialized_resource.get("category"),
+        "category": category,
         "service_urls": service_urls,
     }
 

@@ -45,14 +45,15 @@ class GeonodeCswClient(BaseGeonodeClient):
         return f"{self.base_url}/catalogue/csw"
 
     def get_layers_url_endpoint(
-        self,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_type: typing.Optional[models.GeonodeResourceType] = None,
+            self,
+            title: typing.Optional[str] = None,
+            abstract: typing.Optional[str] = None,
+            keyword: typing.Optional[str] = None,
+            topic_category: typing.Optional[str] = None,
+            layer_types: typing.Optional[
+                typing.List[models.GeonodeResourceType]] = None,
+            page: typing.Optional[int] = 1,
+            page_size: typing.Optional[int] = 10,
     ) -> QUrl:
         url = QUrl(f"{self.catalogue_url}")
         query = QUrlQuery()
@@ -65,13 +66,13 @@ class GeonodeCswClient(BaseGeonodeClient):
         query.addQueryItem("typenames", self.TYPE_NAME)
         query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
         query.addQueryItem("elementsetname", "full")
-        if any((title, abstract, keyword, topic_category, layer_type)):
-            query.addQueryItem("constraintlanguage", "CQL_TEXT")
-            constraint_values = []
-            if title is not None:
-                constraint_values.append(f"dc:title like '{title}'")
-            # FIXME: Add support for filtering with the other parameters
-            query.addQueryItem("constraint", " AND ".join(constraint_values))
+        # if any((title, abstract, keyword, topic_category, layer_types)):
+        #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
+        #     constraint_values = []
+        #     if title is not None:
+        #         constraint_values.append(f"dc:title like '{title}'")
+        #     # FIXME: Add support for filtering with the other parameters
+        #     query.addQueryItem("constraint", " AND ".join(constraint_values))
         url.setQuery(query.query())
         return url
 

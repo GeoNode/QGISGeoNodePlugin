@@ -43,7 +43,10 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         super().__init__(parent)
         self.setupUi(self)
         self.name_la.setText(f"<h3>{geonode_resource.title}</h3>")
-        self.resource_type_la.setText(geonode_resource.resource_type.value)
+        if geonode_resource.resource_type is not None:
+            self.resource_type_la.setText(geonode_resource.resource_type.value)
+        else:
+            self.resource_type_la.setText("unknown")
         self.description_la.setText(geonode_resource.abstract)
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
