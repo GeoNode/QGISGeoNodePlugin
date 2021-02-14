@@ -1,5 +1,7 @@
+import dataclasses
 import datetime as dt
 import enum
+import math
 import typing
 from uuid import UUID
 
@@ -13,6 +15,17 @@ class GeonodeResourceType(enum.Enum):
     VECTOR_LAYER = "vector"
     RASTER_LAYER = "raster"
     MAP = "map"
+
+
+@dataclasses.dataclass
+class GeoNodePaginationInfo:
+    total_records: int
+    current_page: int
+    page_size: int
+
+    @property
+    def total_pages(self):
+        return math.ceil(self.total_records / self.page_size)
 
 
 class BriefGeonodeResource:

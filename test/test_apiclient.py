@@ -33,15 +33,16 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layers(page=page)
-    layers, total_results, page_number, page_size = app.received_response
+    layers, pagination_info = app.received_response
+    pagination_info: models.GeoNodePaginationInfo
 
     print(f"layer ids: {[la.pk for la in layers]}")
 
     layers_size = len(layers)
 
     assert layers_size == 2
-    assert page_number == 1
-    assert page_size == 2
+    assert pagination_info.current_page == 1
+    assert pagination_info.page_size == 2
 
 
 @pytest.mark.parametrize("page", [pytest.param(None, id="no explicit page")])
@@ -51,13 +52,9 @@ def test_layer_list_filtering(qtbot, qgis_application, mock_geonode_server, page
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layers(page=page, title="TEMPERATURASMINENERO2030")
-    layers, total_results, page_number, page_size = app.received_response
-
+    layers, pagination_info = app.received_response
     print(f"layer ids: {[la.pk for la in layers]}")
-
-    layers_size = len(layers)
-
-    assert layers_size == 1
+    assert len(layers) == 1
     assert layers[0].name == "TEMPERATURASMINENERO2030"
 
 
@@ -90,8 +87,9 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_maps(page=page)
-    maps, total_results, page_number, page_size = app.received_response
-    assert page_size == 2
+    maps, pagination_info = app.received_response
+    pagination_info: models.GeoNodePaginationInfo
+    assert pagination_info.page_size == 2
     assert maps[0].pk == 43
 
 
@@ -102,8 +100,9 @@ def test_map_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_maps(page=page, title="AIRPORT")
-    maps, total_results, page_number, page_size = app.received_response
+    maps, pagination_info = app.received_response
+    pagination_info: models.GeoNodePaginationInfo
 
-    assert page_size == 2
+    assert pagination_info.page_size == 2
     assert len(maps) == 1
     assert maps[0].pk == 70
