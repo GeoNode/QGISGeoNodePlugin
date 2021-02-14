@@ -83,7 +83,7 @@ class ConnectionDialog(QDialog, DialogUi):
             base_url=self.url_le.text().strip(),
             auth_config=self.authcfg_acs.configId(),
             api_version=GeonodeApiVersion[self.api_version_cmb.currentText().upper()],
-            page_size=self.page_size_sb.value()
+            page_size=self.page_size_sb.value(),
         )
 
     def test_connection(self):

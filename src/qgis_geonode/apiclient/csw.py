@@ -45,15 +45,14 @@ class GeonodeCswClient(BaseGeonodeClient):
         return f"{self.base_url}/catalogue/csw"
 
     def get_layers_url_endpoint(
-            self,
-            title: typing.Optional[str] = None,
-            abstract: typing.Optional[str] = None,
-            keyword: typing.Optional[str] = None,
-            topic_category: typing.Optional[str] = None,
-            layer_types: typing.Optional[
-                typing.List[models.GeonodeResourceType]] = None,
-            page: typing.Optional[int] = 1,
-            page_size: typing.Optional[int] = 10,
+        self,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
     ) -> QUrl:
         url = QUrl(f"{self.catalogue_url}")
         query = QUrlQuery()
@@ -118,7 +117,8 @@ class GeonodeCswClient(BaseGeonodeClient):
         else:
             raise RuntimeError("Could not find search results")
         pagination_info = models.GeoNodePaginationInfo(
-            total_records=total, current_page=current_page, page_size=self.PAGE_SIZE)
+            total_records=total, current_page=current_page, page_size=self.PAGE_SIZE
+        )
         self.layer_list_received.emit(layers, pagination_info)
 
     def handle_layer_detail(self, payload: ET.Element):

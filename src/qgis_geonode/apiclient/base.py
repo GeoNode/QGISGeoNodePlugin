@@ -88,15 +88,14 @@ class BaseGeonodeClient(QObject):
         raise NotImplementedError
 
     def get_layers(
-            self,
-            title: typing.Optional[str] = None,
-            abstract: typing.Optional[str] = None,
-            keyword: typing.Optional[str] = None,
-            topic_category: typing.Optional[str] = None,
-            layer_types: typing.Optional[
-                typing.List[models.GeonodeResourceType]] = None,
-            page: typing.Optional[int] = 1,
-            page_size: typing.Optional[int] = 10,
+        self,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
     ):
         url = self.get_layers_url_endpoint(
             title=title,

@@ -246,9 +246,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         )
 
     def handle_layer_list(
-            self,
-            layer_list: typing.List[models.BriefGeonodeResource],
-            pagination_info: models.GeoNodePaginationInfo,
+        self,
+        layer_list: typing.List[models.BriefGeonodeResource],
+        pagination_info: models.GeoNodePaginationInfo,
     ):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
@@ -256,18 +256,20 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             self.populate_scroll_area(layer_list)
 
     def handle_pagination(
-            self,
-            layer_list: typing.List[models.BriefGeonodeResource],
-            pagination_info: models.GeoNodePaginationInfo,
+        self,
+        layer_list: typing.List[models.BriefGeonodeResource],
+        pagination_info: models.GeoNodePaginationInfo,
     ):
         self.current_page = pagination_info.current_page
         self.previous_btn.setEnabled(self.current_page > 1)
         self.next_btn.setEnabled(self.current_page < pagination_info.total_pages)
         if pagination_info.total_records > 0:
-            self.resultsLabel.setText(tr(
-                f"Showing page {self.current_page} of {pagination_info.total_pages} "
-                f"({pagination_info.total_records} results)"
-            ))
+            self.resultsLabel.setText(
+                tr(
+                    f"Showing page {self.current_page} of {pagination_info.total_pages} "
+                    f"({pagination_info.total_records} results)"
+                )
+            )
         else:
             self.resultsLabel.setText(tr("No results found"))
 
