@@ -27,15 +27,18 @@ This is a QGIS plugin to allow working with and managing GeoNode resources in QG
 
 Development for this plugin is still in early stages. Therefore it is not available in
 the main QGIS plugin repository. However, you may still install it comfortably from 
-inside your QGIS installation, by configuring our our custom repository.It is available 
+inside your QGIS installation, by configuring our custom repository.It is available 
 at:
 
 <https://kartoza.github.io/qgis_geonode/repo/plugins.xml>
 
-1. Add this custom repository inside QGIS plugin manager
-2. Refresh the list of available plugins
-2. Search for a plugin named **QGIS GeoNode**
-2. Install it!
+1. Add this custom repository inside QGIS Plugin Manager
+1. Refresh the list of available plugins
+1. Search for a plugin named **QGIS GeoNode**
+1. Install it!
+
+!!! note
+    Be sure to have the _Show also experimental plugins_ checkbox checked, the QGIS Plugin Manager _Settings_ section.
 
 Check the [Development](development.md) section for a more developer oriented 
 installation procedure 

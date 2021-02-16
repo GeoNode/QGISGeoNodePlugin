@@ -2,45 +2,79 @@
 
 This plugin uses [poetry], [typer] and [black].
 
+The general instructions for development are:
+
 -  Fork the code repository
 -  Clone your fork locally
 -  Install poetry
 -  Install the plugin dependencies into a new virtual env with
-
-```
-cd qgis_geonode
-poetry install
-```
-
--  The plugin comes with a `pluginadmin.py` python module which provides a nice CLI
-  with commands useful for development:
-
-```
-poetry run python pluginadmin.py --help
-
-# install plugin into your local QGIS python plugins directory
-poetry run python pluginadmin.py install
-
-
-poetry run python pluginadmin.py install-qgis-into-venv
-```
-
--  When manually trying out the plugin locally you just need to call
-  `poetry run python pluginadmin.py install`. This command will copy all files into 
-   your local QGIS python plugins directory.
    
-   Alternatively, the [plugin reloader] QGIS plugin can be used as a means to install 
-   and reload the plugin. The functionality that allows re-running the poetry install 
-   command is currently in a [proposed] state, so you may install plugin reloader 
-   directly from the github fork mentioned in the above pull request
+   ```
+   cd qgis_geonode
+   poetry install
+   ```
+   
+-  Work on a feature/bug on a new branch
+-  When ready, submit a PR for your code to be reviewed and merged
+
+
+## pluginadmin
+
+This plugin comes with a `pluginadmin.py` python module which provides a CLI with commands useful for development. 
+It is used to perform all operations related to the plugin:
+
+- Install the plugin to your local QGIS user profile
+- Ensure your virtual env has access to the QGIS Python bindings
+- Build a zip of the plugin
+- etc.
+
+It is run inside the virtual environment created by poetry. As such it must be invoked like this:
+
+```
+# get an overview of existing commands
+poetry run python pluginadmin.py --help
+```
+
+## Install plugin into your local QGIS python plugins directory
+
+When developing, in order to try out the plugin locally you need to 
+call `poetry run python pluginadmin.py install` command. This command will copy all files into your 
+local QGIS python plugins directory. Upon making changes to the code you
+will need to call this installation command again and potentially also restart QGIS.
+
+!!! note
+    Restarting QGIS is necessary because this plugin adds an additional data source provider to QGIS and there is 
+    currently no way to reload the available providers without restarting QGIS.
+
+
+```
+poetry run python pluginadmin.py install
+```
 
 
 ## Running tests
 
-Tests are made with [pytest] and [pytest-qt]. They can be run with:
+Tests are made with [pytest] and [pytest-qt]. In order to be able to run the tests, 
+the Python virtual environment needs to have the QGIS Python bindings available. 
+This can be achieved by running:
+
+!!! note
+If your QGIS is in a non-standard location, you can set these env variables before running the command:
+
+    - `PYQT5_DIR_PATH` - location of PyQt5. Defaults to `/usr/lib/python3/dist-packages/PyQt5`
+    - `SIP_DIR_PATH` - Location of the SIP package. Defaults to `/usr/lib/python3/dist-packages`
+    - `QGIS_PYTHON_DIR_PATH` - Location of the QGIS Python bindings. Defaults to `/usr/lib/python3/dist-packages/qgis`
 
 ```
-# optionally create a QGIS_PREFIX_PATH env variable, if your QGIS is self-compiled
+poetry run python pluginadmin.py install-qgis-into-venv
+```
+
+Installing QGIS Python bindings into the Python virtual environment only needs to be done once.
+
+
+Finally, run tests with:
+
+``
 poetry run pytest
 ```
 
@@ -57,7 +91,12 @@ to:
    automated tests to attest that the problem has been fixed 
    
 3. Run your code through the [black] formatter before submitting your PR. Otherwise 
-   the CI pipeline may fail, and we will request that you fix it before merging
+   the CI pipeline may fail, and we will request that you fix it before merging. This 
+   is how we run black in our CI pipeline:
+   
+   ```
+   poetry run black src/qgis_geonode
+   ```
    
 
 ## Releasing new versions
@@ -90,7 +129,6 @@ git push origin v0.3.2
 [poetry]: https://python-poetry.org/
 [typer]: https://typer.tiangolo.com/
 [black]: https://github.com/psf/black
-[plugin reloader]: https://github.com/borysiasty/plugin_reloader
 [proposed]: https://github.com/borysiasty/plugin_reloader/pull/22
 [pytest]: https://docs.pytest.org/en/latest/
 [pytest-qt]: https://github.com/pytest-dev/pytest-qt
