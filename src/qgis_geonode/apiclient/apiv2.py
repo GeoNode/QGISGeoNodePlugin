@@ -163,12 +163,27 @@ def get_geonode_resource(
         license_ = license_value["identifier"]
     else:
         license_ = license_value
+    default_style_dict = deserialized_resource.get("default_style", "")
+    default_style = models.BriefGeonodeStyle(
+        pk=default_style_dict.get("pk", ""),
+        name=default_style_dict.get("name", ""),
+        sld_url=default_style_dict.get("sld_url", "")
+    )
+    styles = []
+    for item in deserialized_resource.get("styles", []):
+        styles.append(models.BriefGeonodeStyle(
+            pk=item.get("pk"),
+            name=item.get("name"),
+            sld_url=item.get("sld_url"))
+        )
     return models.GeonodeResource(
         language=deserialized_resource.get("language", ""),
         license=license_,
         constraints=deserialized_resource.get("constraints_other", ""),
         owner=deserialized_resource.get("owner", ""),
         metadata_author=deserialized_resource.get("metadata_author", ""),
+        default_style=default_style,
+        styles=styles,
         **common_fields,
     )
 
