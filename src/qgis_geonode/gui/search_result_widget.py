@@ -1,4 +1,5 @@
 import os
+import tempfile
 from functools import partial
 
 from qgis.PyQt import (
@@ -12,8 +13,10 @@ from qgis.PyQt.uic import loadUiType
 from qgis.core import (
     QgsAbstractMetadataBase,
     QgsDateTimeRange,
+    QgsFileDownloader,
     Qgis,
     QgsLayerMetadata,
+    QgsMapLayerType,
     QgsNetworkContentFetcherTask,
     QgsProject,
     QgsRasterLayer,
@@ -55,6 +58,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.wms_btn.clicked.connect(self.load_map_resource)
         self.wcs_btn.clicked.connect(self.load_raster_layer)
         self.wfs_btn.clicked.connect(self.load_vector_layer)
+
+        self.temp_sld_style_path = None
 
         self.reset_ogc_buttons_state()
         self.load_thumbnail()
@@ -104,9 +109,11 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def show_layer(self, layer, geonode_resource):
         self.populate_metadata(layer, geonode_resource)
-
-        QgsProject.instance().addMapLayer(layer)
-        self.reset_ogc_buttons_state()
+        if layer.type() == QgsMapLayerType.VectorLayer:
+            self.load_sld(layer, geonode_resource)
+        else:
+            QgsProject.instance().addMapLayer(layer)
+            self.reset_ogc_buttons_state()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -178,6 +185,37 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
         layer.setMetadata(metadata)
 
+    def load_sld(self, layer, geonode_resource):
+        if geonode_resource.default_style is not None and \
+                geonode_resource.default_style.sld_url is not None:
+            temp_style_file = tempfile.NamedTemporaryFile()
+            temp_style_file_path = temp_style_file.name + '.sld'
+            self.temp_sld_style = temp_style_file_path
+
+            loop = QtCore.QEventLoop()
+
+            downloader = QgsFileDownloader(
+                QtCore.QUrl(geonode_resource.default_style.sld_url),
+                temp_style_file_path
+            )
+            load_sld_style = partial(self.load_sld_style, layer, geonode_resource)
+            style_download_error = partial(self.style_download_error, layer)
+
+            downloader.downloadCompleted.connect(load_sld_style)
+            downloader.downloadError.connect(style_download_error)
+
+            downloader.startDownload()
+            loop.exec_()
+
+    def load_sld_style(self, layer, geonode_resource):
+        if geonode_resource.default_style is not None and \
+                self.temp_sld_style is not None:
+            layer.loadSldStyle(
+                self.temp_sld_style
+            )
+            QgsProject.instance().addMapLayer(layer)
+            self.reset_ogc_buttons_state()
+
     def reset_ogc_buttons_state(self):
         self.wms_btn.setEnabled(True)
         self.wcs_btn.setEnabled(
@@ -205,3 +243,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.thumbnail_la.setPixmap(thumbnail)
         else:
             log(f"Error retrieving thumbnail for {self.geonode_resource.title}")
+
+    def style_download_error(self, layer, error):
+        self.message_bar.clearWidgets()
+        self.message_bar.pushMessage(
+            tr("Problem in downloading style for the layer, {}").format(
+                error
+            ),
+            level=Qgis.Warning,
+        )
+        QgsProject.instance().addMapLayer(layer)
+        self.reset_ogc_buttons_state()
