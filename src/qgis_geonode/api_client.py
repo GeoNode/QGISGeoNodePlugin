@@ -29,6 +29,26 @@ class GeonodeResourceType(enum.Enum):
     MAP = "map"
 
 
+class BriefGeonodeStyle:
+    pk: int
+    name: str
+    sld_url: str
+
+    def __init__(self, pk: int, name: str, sld_url: str):
+        self.pk = pk
+        self.name = name
+        self.sld_url = sld_url
+
+    @classmethod
+    def from_api_response(cls, payload: typing.Dict, geonode_base_url: str):
+        return cls(
+            pk=payload["pk"],
+            name=payload["name"],
+            sld_url=payload["sld_url"],
+        )
+
+
+
 class BriefGeonodeResource:
     pk: int
     uuid: uuid.UUID
@@ -121,6 +141,8 @@ class GeonodeResource(BriefGeonodeResource):
     constraints: str
     owner: typing.Dict[str, str]
     metadata_author: typing.Dict[str, str]
+    default_style: BriefGeonodeStyle
+    styles: typing.List[BriefGeonodeStyle]
 
     def __init__(
         self,
@@ -129,6 +151,8 @@ class GeonodeResource(BriefGeonodeResource):
         constraints: str,
         owner: typing.Dict[str, str],
         metadata_author: typing.Dict[str, str],
+        default_style: BriefGeonodeStyle,
+        styles: typing.List[BriefGeonodeStyle],
         *args,
         **kwargs,
     ):
@@ -138,6 +162,8 @@ class GeonodeResource(BriefGeonodeResource):
         self.constraints = constraints
         self.owner = owner
         self.metadata_author = metadata_author
+        self.default_style = default_style
+        self.styles = styles
 
     @classmethod
     def from_api_response(
@@ -155,6 +181,16 @@ class GeonodeResource(BriefGeonodeResource):
             license = license_value["identifier"]
         else:
             license = license_value
+
+        default_style = BriefGeonodeStyle.from_api_response(
+            payload.get("default_style", ""),
+            geonode_base_url)
+        styles = []
+        for item in payload.get("styles", []):
+            styles.append(BriefGeonodeStyle.from_api_response(
+                item,
+                geonode_base_url))
+
         return cls(
             pk=int(payload["pk"]),
             uuid=uuid.UUID(payload["uuid"]),
@@ -177,25 +213,8 @@ class GeonodeResource(BriefGeonodeResource):
             constraints=payload.get("constraints_other", ""),
             owner=payload.get("owner", ""),
             metadata_author=payload.get("metadata_author", ""),
-        )
-
-
-class BriefGeonodeStyle:
-    pk: int
-    name: str
-    sld_url: str
-
-    def __init__(self, pk: int, name: str, sld_url: str):
-        self.pk = pk
-        self.name = name
-        self.sld_url = sld_url
-
-    @classmethod
-    def from_api_response(cls, payload: typing.Dict, geonode_base_url: str):
-        return cls(
-            pk=payload["pk"],
-            name=payload["name"],
-            sld_url=payload["sld_url"],
+            default_style=default_style,
+            styles=styles,
         )
 
 
