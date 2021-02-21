@@ -20,7 +20,10 @@ class LayerPropertiesConfigWidgetFactory(QgsMapLayerConfigWidgetFactory):
         return LayerPropertiesConfigWidget(layer, canvas, parent)
 
     def supportsLayer(self, layer):
-        return layer.type() in (QgsMapLayerType.VectorLayer, QgsMapLayerType.RasterLayer)
+        return layer.type() in (
+            QgsMapLayerType.VectorLayer,
+            QgsMapLayerType.RasterLayer,
+        )
 
     def supportLayerPropertiesDialog(self):
         return True
