@@ -29,12 +29,10 @@ class GeoNodePaginationInfo:
 
 
 class BriefGeonodeStyle:
-    pk: int
     name: str
     sld_url: str
 
-    def __init__(self, pk: int, name: str, sld_url: str):
-        self.pk = pk
+    def __init__(self, name: str, sld_url: str):
         self.name = name
         self.sld_url = sld_url
 

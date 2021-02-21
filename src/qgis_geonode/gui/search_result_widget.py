@@ -1,5 +1,4 @@
 import os
-import tempfile
 from functools import partial
 
 from qgis.PyQt import (
@@ -7,6 +6,7 @@ from qgis.PyQt import (
     QtGui,
     QtNetwork,
     QtWidgets,
+    QtXml
 )
 from qgis.PyQt.uic import loadUiType
 
@@ -109,11 +109,12 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def show_layer(self, layer, geonode_resource):
         self.populate_metadata(layer, geonode_resource)
+
+        QgsProject.instance().addMapLayer(layer)
+        self.reset_ogc_buttons_state()
+
         if layer.type() == QgsMapLayerType.VectorLayer:
             self.load_sld(layer, geonode_resource)
-        else:
-            QgsProject.instance().addMapLayer(layer)
-            self.reset_ogc_buttons_state()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -188,33 +189,52 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_sld(self, layer, geonode_resource):
         if geonode_resource.default_style is not None and \
                 geonode_resource.default_style.sld_url is not None:
-            temp_style_file = tempfile.NamedTemporaryFile()
-            temp_style_file_path = temp_style_file.name + '.sld'
-            self.temp_sld_style = temp_style_file_path
 
-            loop = QtCore.QEventLoop()
-
-            downloader = QgsFileDownloader(
-                QtCore.QUrl(geonode_resource.default_style.sld_url),
-                temp_style_file_path
+            request = QtNetwork.QNetworkRequest(
+                QtCore.QUrl(geonode_resource.default_style.sld_url)
             )
-            load_sld_style = partial(self.load_sld_style, layer, geonode_resource)
-            style_download_error = partial(self.style_download_error, layer)
+            task = QgsNetworkContentFetcherTask(request)
+            response_handler = partial(self.load_sld_style, task, layer)
+            task.fetched.connect(response_handler)
+            task.run()
 
-            downloader.downloadCompleted.connect(load_sld_style)
-            downloader.downloadError.connect(style_download_error)
-
-            downloader.startDownload()
-            loop.exec_()
-
-    def load_sld_style(self, layer, geonode_resource):
-        if geonode_resource.default_style is not None and \
-                self.temp_sld_style is not None:
-            layer.loadSldStyle(
-                self.temp_sld_style
-            )
+    def load_sld_style(self, task, layer):
+        reply: QtNetwork.QNetworkReply = task.reply()
+        error = reply.error()
+        if error == QtNetwork.QNetworkReply.NoError:
+            contents: QtNetwork.QByteArray = reply.readAll()
+            sld_node = self.create_sld_node(contents)
+            if sld_node is None:
+                return
+            error_message = ''
+            if not layer.readSld(sld_node, error_message):
+                self.message_bar.clearWidgets()
+                self.message_bar.pushMessage(
+                    tr("Problem in applying GeoNode style for the layer, {}".
+                       format(error_message)),
+                    level=Qgis.Warning,
+                )
             QgsProject.instance().addMapLayer(layer)
             self.reset_ogc_buttons_state()
+        else:
+            self.style_download_error(error)
+
+    def create_sld_node(self, contents):
+        doc = QtXml.QDomDocument()
+        if doc.setContent(contents):
+            root = doc.firstChildElement("StyledLayerDescriptor")
+            if not root.isNull():
+                named_layer = root.firstChildElement("NamedLayer")
+                if not named_layer.isNull():
+                    return named_layer
+        else:
+            self.message_bar.clearWidgets()
+            self.message_bar.pushMessage(
+                tr("Problem in parsing style for the layer"),
+                level=Qgis.Warning,
+            )
+
+        return None
 
     def reset_ogc_buttons_state(self):
         self.wms_btn.setEnabled(True)

@@ -163,19 +163,16 @@ def get_geonode_resource(
         license_ = license_value["identifier"]
     else:
         license_ = license_value
-    default_style_dict = deserialized_resource.get("default_style", "")
-    default_style = models.BriefGeonodeStyle(
-        pk=default_style_dict.get("pk", ""),
-        name=default_style_dict.get("name", ""),
-        sld_url=default_style_dict.get("sld_url", "")
+    default_style = get_brief_geonode_style(
+        deserialized_resource,
+        geonode_base_url
     )
     styles = []
     for item in deserialized_resource.get("styles", []):
-        styles.append(models.BriefGeonodeStyle(
-            pk=item.get("pk"),
-            name=item.get("name"),
-            sld_url=item.get("sld_url"))
-        )
+        styles.append(get_brief_geonode_style(
+            item,
+            geonode_base_url
+        ))
     return models.GeonodeResource(
         language=deserialized_resource.get("language", ""),
         license=license_,
@@ -229,10 +226,10 @@ def _get_common_model_fields(
 
 
 def get_brief_geonode_style(deserialized_style: typing.Dict, geonode_base_url: str):
+    sld_url = _get_sld_style_url(geonode_base_url, deserialized_style)
     return models.BriefGeonodeStyle(
-        pk=deserialized_style["pk"],
         name=deserialized_style["name"],
-        sld_url=deserialized_style["sld_url"],
+        sld_url=sld_url,
     )
 
 
@@ -321,4 +318,12 @@ def _get_wfs_uri(auth_config: str, base_url: str, payload: typing.Dict):
     return (
         f"{base_url}/geoserver/ows?service=WFS&version=1.1.0&"
         f"request=GetFeature&typename={layer_name}&authkey={auth_config}"
+    )
+
+
+def _get_sld_style_url(base_url: str, payload: typing.Dict):
+
+    return (
+        f"{base_url}/geoserver/rest/workspaces/"
+        f"{payload['workspace']}/styles/{payload['name']}.sld"
     )
