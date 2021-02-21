@@ -163,16 +163,10 @@ def get_geonode_resource(
         license_ = license_value["identifier"]
     else:
         license_ = license_value
-    default_style = get_brief_geonode_style(
-        deserialized_resource,
-        geonode_base_url
-    )
+    default_style = get_brief_geonode_style(deserialized_resource, geonode_base_url)
     styles = []
     for item in deserialized_resource.get("styles", []):
-        styles.append(get_brief_geonode_style(
-            item,
-            geonode_base_url
-        ))
+        styles.append(get_brief_geonode_style(item, geonode_base_url))
     return models.GeonodeResource(
         language=deserialized_resource.get("language", ""),
         license=license_,

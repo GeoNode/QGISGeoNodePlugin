@@ -1,13 +1,7 @@
 import os
 from functools import partial
 
-from qgis.PyQt import (
-    QtCore,
-    QtGui,
-    QtNetwork,
-    QtWidgets,
-    QtXml
-)
+from qgis.PyQt import QtCore, QtGui, QtNetwork, QtWidgets, QtXml
 from qgis.PyQt.uic import loadUiType
 
 from qgis.core import (
@@ -187,8 +181,10 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         layer.setMetadata(metadata)
 
     def load_sld(self, layer, geonode_resource):
-        if geonode_resource.default_style is not None and \
-                geonode_resource.default_style.sld_url is not None:
+        if (
+            geonode_resource.default_style is not None
+            and geonode_resource.default_style.sld_url is not None
+        ):
 
             request = QtNetwork.QNetworkRequest(
                 QtCore.QUrl(geonode_resource.default_style.sld_url)
@@ -206,12 +202,15 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             sld_node = self.create_sld_node(contents)
             if sld_node is None:
                 return
-            error_message = ''
+            error_message = ""
             if not layer.readSld(sld_node, error_message):
                 self.message_bar.clearWidgets()
                 self.message_bar.pushMessage(
-                    tr("Problem in applying GeoNode style for the layer, {}".
-                       format(error_message)),
+                    tr(
+                        "Problem in applying GeoNode style for the layer, {}".format(
+                            error_message
+                        )
+                    ),
                     level=Qgis.Warning,
                 )
             QgsProject.instance().addMapLayer(layer)
@@ -267,9 +266,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def style_download_error(self, layer, error):
         self.message_bar.clearWidgets()
         self.message_bar.pushMessage(
-            tr("Problem in downloading style for the layer, {}").format(
-                error
-            ),
+            tr("Problem in downloading style for the layer, {}").format(error),
             level=Qgis.Warning,
         )
         QgsProject.instance().addMapLayer(layer)
