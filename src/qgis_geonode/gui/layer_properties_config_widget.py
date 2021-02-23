@@ -1,6 +1,6 @@
 import os
 
-from qgis.core import QgsProject
+from qgis.core import QgsMapLayerType, QgsProject
 from qgis.gui import QgsMapLayerConfigWidget, QgsMapLayerConfigWidgetFactory
 
 from qgis.PyQt.uic import loadUiType
@@ -20,7 +20,10 @@ class LayerPropertiesConfigWidgetFactory(QgsMapLayerConfigWidgetFactory):
         return LayerPropertiesConfigWidget(layer, canvas, parent)
 
     def supportsLayer(self, layer):
-        return True
+        return layer.type() in (
+            QgsMapLayerType.VectorLayer,
+            QgsMapLayerType.RasterLayer,
+        )
 
     def supportLayerPropertiesDialog(self):
         return True

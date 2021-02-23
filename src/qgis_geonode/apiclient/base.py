@@ -16,6 +16,7 @@ from qgis.PyQt.QtNetwork import (
     QNetworkReply,
     QNetworkRequest,
 )
+from qgis.PyQt import QtXml
 
 from . import models
 
@@ -26,6 +27,7 @@ class BaseGeonodeClient(QObject):
 
     layer_list_received = pyqtSignal(list, models.GeoNodePaginationInfo)
     layer_detail_received = pyqtSignal(models.GeonodeResource)
+    style_detail_received = pyqtSignal(QtXml.QDomElement)
     layer_styles_received = pyqtSignal(list)
     map_list_received = pyqtSignal(list, models.GeoNodePaginationInfo)
     error_received = pyqtSignal(int)
@@ -75,11 +77,30 @@ class BaseGeonodeClient(QObject):
     def deserialize_response_contents(self, contents: QByteArray) -> typing.Any:
         raise NotImplementedError
 
+    def deserialize_sld_style(self, raw_sld: QByteArray) -> QtXml.QDomDocument:
+        sld_doc = QtXml.QDomDocument()
+        # in the line below, `True` means use XML namespaces and it is crucial for
+        # QGIS to be able to load the SLD
+        sld_loaded = sld_doc.setContent(raw_sld, True)
+        if not sld_loaded:
+            raise RuntimeError("Could not load downloaded SLD document")
+        return sld_doc
+
     def handle_layer_list(self, payload: typing.Any):
         raise NotImplementedError
 
     def handle_layer_detail(self, payload: typing.Any):
         raise NotImplementedError
+
+    def handle_layer_style_detail(self, payload: QtXml.QDomDocument):
+        sld_root = payload.documentElement()
+        error_message = "Could not parse downloaded SLD document"
+        if sld_root.isNull():
+            raise RuntimeError(error_message)
+        sld_named_layer = sld_root.firstChildElement("NamedLayer")
+        if sld_named_layer.isNull():
+            raise RuntimeError(error_message)
+        self.style_detail_received.emit(sld_named_layer)
 
     def handle_layer_style_list(self, payload: typing.Any):
         raise NotImplementedError
@@ -122,6 +143,21 @@ class BaseGeonodeClient(QObject):
         request = QNetworkRequest(self.get_layer_styles_url_endpoint(layer_id))
         self.run_task(request, self.handle_layer_style_list)
 
+    def get_layer_style(
+        self, layer: models.GeonodeResource, style_name: typing.Optional[str] = None
+    ):
+        if style_name is None:
+            style_url = layer.default_style.sld_url
+        else:
+            style_details = [i for i in layer.styles if i.name == style_name][0]
+            style_url = style_details.sld_url
+        request = QNetworkRequest(QUrl(style_url))
+        self.run_task(
+            request,
+            self.handle_layer_style_detail,
+            response_deserializer=self.deserialize_sld_style,
+        )
+
     def get_maps(
         self,
         page: typing.Optional[int] = 1,
@@ -140,22 +176,35 @@ class BaseGeonodeClient(QObject):
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)
 
-    def run_task(self, request, handler: typing.Callable):
+    def run_task(
+        self,
+        request,
+        handler: typing.Callable,
+        response_deserializer: typing.Optional[typing.Callable] = None,
+    ):
         """Fetches the response from the GeoNode API"""
         task = QgsNetworkContentFetcherTask(request, authcfg=self.auth_config)
-        response_handler = partial(self.response_fetched, task, handler)
+        response_handler = partial(
+            self.response_fetched,
+            task,
+            handler,
+            response_deserializer or self.deserialize_response_contents,
+        )
         task.fetched.connect(response_handler)
         task.run()
 
     def response_fetched(
-        self, task: QgsNetworkContentFetcherTask, handler: typing.Callable
+        self,
+        task: QgsNetworkContentFetcherTask,
+        handler: typing.Callable,
+        deserializer: typing.Callable,
     ):
         """Process GeoNode API response and dispatch the appropriate handler"""
         reply: QNetworkReply = task.reply()
         error = reply.error()
         if error == QNetworkReply.NoError:
             contents: QByteArray = reply.readAll()
-            payload = self.deserialize_response_contents(contents)
+            payload = deserializer(contents)
             handler(payload)
         else:
             QgsMessageLog.logMessage("received error", "qgis_geonode")

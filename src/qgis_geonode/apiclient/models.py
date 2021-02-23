@@ -28,6 +28,15 @@ class GeoNodePaginationInfo:
         return math.ceil(self.total_records / self.page_size)
 
 
+class BriefGeonodeStyle:
+    name: str
+    sld_url: str
+
+    def __init__(self, name: str, sld_url: str):
+        self.name = name
+        self.sld_url = sld_url
+
+
 class BriefGeonodeResource:
     pk: typing.Optional[int]
     uuid: UUID
@@ -89,6 +98,8 @@ class GeonodeResource(BriefGeonodeResource):
     constraints: str
     owner: typing.Dict[str, str]
     metadata_author: typing.Dict[str, str]
+    default_style: BriefGeonodeStyle
+    styles: typing.List[BriefGeonodeStyle]
 
     def __init__(
         self,
@@ -97,23 +108,16 @@ class GeonodeResource(BriefGeonodeResource):
         constraints: str,
         owner: typing.Dict[str, str],
         metadata_author: typing.Dict[str, str],
+        default_style: BriefGeonodeStyle,
+        styles: typing.List[BriefGeonodeStyle],
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.language = language
         self.license = license
         self.constraints = constraints
-        self.owner = dict(owner)
-        self.metadata_author = dict(metadata_author)
-
-
-class BriefGeonodeStyle:
-    pk: int
-    name: str
-    sld_url: str
-
-    def __init__(self, pk: int, name: str, sld_url: str):
-        self.pk = pk
-        self.name = name
-        self.sld_url = sld_url
+        self.owner = owner
+        self.metadata_author = metadata_author
+        self.default_style = default_style
+        self.styles = styles

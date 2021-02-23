@@ -1,12 +1,7 @@
 import os
 from functools import partial
 
-from qgis.PyQt import (
-    QtCore,
-    QtGui,
-    QtNetwork,
-    QtWidgets,
-)
+from qgis.PyQt import QtCore, QtGui, QtNetwork, QtWidgets, QtXml
 from qgis.PyQt.uic import loadUiType
 
 from qgis.core import (
@@ -14,6 +9,7 @@ from qgis.core import (
     QgsDateTimeRange,
     Qgis,
     QgsLayerMetadata,
+    QgsMapLayerType,
     QgsNetworkContentFetcherTask,
     QgsProject,
     QgsRasterLayer,
@@ -23,7 +19,11 @@ from qgis.core import (
 from qgis.gui import QgsMessageBar
 
 from ..apiclient import get_geonode_client
-from ..apiclient.models import BriefGeonodeResource, GeonodeResourceType
+from ..apiclient.models import (
+    BriefGeonodeResource,
+    GeonodeResource,
+    GeonodeResourceType,
+)
 from ..resources import *
 from ..utils import log, tr
 from ..conf import connections_manager
@@ -55,6 +55,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.wms_btn.clicked.connect(self.load_map_resource)
         self.wcs_btn.clicked.connect(self.load_raster_layer)
         self.wfs_btn.clicked.connect(self.load_vector_layer)
+
+        self.temp_sld_style_path = None
 
         self.reset_ogc_buttons_state()
         self.load_thumbnail()
@@ -92,8 +94,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_layer(self, layer):
         if layer.isValid():
-            show_layer_handler = partial(self.show_layer, layer)
-            self.client.layer_detail_received.connect(show_layer_handler)
+            self.client.layer_detail_received.connect(
+                partial(self.prepare_layer, layer)
+            )
             self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
         else:
             log("Problem loading the layer into QGIS")
@@ -102,9 +105,17 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 level=Qgis.Critical,
             )
 
-    def show_layer(self, layer, geonode_resource):
+    def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
         self.populate_metadata(layer, geonode_resource)
+        if layer.type() == QgsMapLayerType.VectorLayer:
+            self.client.style_detail_received.connect(
+                partial(self.load_sld_layer, layer)
+            )
+            self.client.get_layer_style(geonode_resource)
+        else:  # TODO: add support for loading SLDs for raster layers too
+            self.add_layer_to_project(layer)
 
+    def add_layer_to_project(self, layer: "QgsMapLayer"):
         QgsProject.instance().addMapLayer(layer)
         self.reset_ogc_buttons_state()
 
@@ -178,6 +189,22 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
         layer.setMetadata(metadata)
 
+    def load_sld_layer(self, layer, sld_named_layer: QtXml.QDomElement):
+        """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
+        error_message = ""
+        loaded_sld = layer.readSld(sld_named_layer, error_message)
+        if not loaded_sld:
+            self.message_bar.clearWidgets()
+            self.message_bar.pushMessage(
+                tr(
+                    "Problem in applying GeoNode style for the layer, {}".format(
+                        error_message
+                    )
+                ),
+                level=Qgis.Warning,
+            )
+        self.add_layer_to_project(layer)
+
     def reset_ogc_buttons_state(self):
         self.wms_btn.setEnabled(True)
         self.wcs_btn.setEnabled(
@@ -205,3 +232,12 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.thumbnail_la.setPixmap(thumbnail)
         else:
             log(f"Error retrieving thumbnail for {self.geonode_resource.title}")
+
+    def style_download_error(self, layer, error):
+        self.message_bar.clearWidgets()
+        self.message_bar.pushMessage(
+            tr("Problem in downloading style for the layer, {}").format(error),
+            level=Qgis.Warning,
+        )
+        QgsProject.instance().addMapLayer(layer)
+        self.reset_ogc_buttons_state()
