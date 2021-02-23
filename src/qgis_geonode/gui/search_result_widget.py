@@ -7,7 +7,6 @@ from qgis.PyQt.uic import loadUiType
 from qgis.core import (
     QgsAbstractMetadataBase,
     QgsDateTimeRange,
-    QgsFileDownloader,
     Qgis,
     QgsLayerMetadata,
     QgsMapLayerType,
@@ -20,7 +19,11 @@ from qgis.core import (
 from qgis.gui import QgsMessageBar
 
 from ..apiclient import get_geonode_client
-from ..apiclient.models import BriefGeonodeResource, GeonodeResourceType
+from ..apiclient.models import (
+    BriefGeonodeResource,
+    GeonodeResource,
+    GeonodeResourceType,
+)
 from ..resources import *
 from ..utils import log, tr
 from ..conf import connections_manager
@@ -91,8 +94,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_layer(self, layer):
         if layer.isValid():
-            show_layer_handler = partial(self.show_layer, layer)
-            self.client.layer_detail_received.connect(show_layer_handler)
+            self.client.layer_detail_received.connect(
+                partial(self.prepare_layer, layer)
+            )
             self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
         else:
             log("Problem loading the layer into QGIS")
@@ -101,14 +105,19 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 level=Qgis.Critical,
             )
 
-    def show_layer(self, layer, geonode_resource):
+    def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
         self.populate_metadata(layer, geonode_resource)
+        if layer.type() == QgsMapLayerType.VectorLayer:
+            self.client.style_detail_received.connect(
+                partial(self.load_sld_layer, layer)
+            )
+            self.client.get_layer_style(geonode_resource)
+        else:  # TODO: add support for loading SLDs for raster layers too
+            self.add_layer_to_project(layer)
 
+    def add_layer_to_project(self, layer: "QgsMapLayer"):
         QgsProject.instance().addMapLayer(layer)
         self.reset_ogc_buttons_state()
-
-        if layer.type() == QgsMapLayerType.VectorLayer:
-            self.load_sld(layer, geonode_resource)
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -180,60 +189,21 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
         layer.setMetadata(metadata)
 
-    def load_sld(self, layer, geonode_resource):
-        if (
-            geonode_resource.default_style is not None
-            and geonode_resource.default_style.sld_url is not None
-        ):
-
-            request = QtNetwork.QNetworkRequest(
-                QtCore.QUrl(geonode_resource.default_style.sld_url)
-            )
-            task = QgsNetworkContentFetcherTask(request)
-            response_handler = partial(self.load_sld_style, task, layer)
-            task.fetched.connect(response_handler)
-            task.run()
-
-    def load_sld_style(self, task, layer):
-        reply: QtNetwork.QNetworkReply = task.reply()
-        error = reply.error()
-        if error == QtNetwork.QNetworkReply.NoError:
-            contents: QtNetwork.QByteArray = reply.readAll()
-            sld_node = self.create_sld_node(contents)
-            if sld_node is None:
-                return
-            error_message = ""
-            if not layer.readSld(sld_node, error_message):
-                self.message_bar.clearWidgets()
-                self.message_bar.pushMessage(
-                    tr(
-                        "Problem in applying GeoNode style for the layer, {}".format(
-                            error_message
-                        )
-                    ),
-                    level=Qgis.Warning,
-                )
-            QgsProject.instance().addMapLayer(layer)
-            self.reset_ogc_buttons_state()
-        else:
-            self.style_download_error(error)
-
-    def create_sld_node(self, contents):
-        doc = QtXml.QDomDocument()
-        if doc.setContent(contents):
-            root = doc.firstChildElement("StyledLayerDescriptor")
-            if not root.isNull():
-                named_layer = root.firstChildElement("NamedLayer")
-                if not named_layer.isNull():
-                    return named_layer
-        else:
+    def load_sld_layer(self, layer, sld_named_layer: QtXml.QDomElement):
+        """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
+        error_message = ""
+        loaded_sld = layer.readSld(sld_named_layer, error_message)
+        if not loaded_sld:
             self.message_bar.clearWidgets()
             self.message_bar.pushMessage(
-                tr("Problem in parsing style for the layer"),
+                tr(
+                    "Problem in applying GeoNode style for the layer, {}".format(
+                        error_message
+                    )
+                ),
                 level=Qgis.Warning,
             )
-
-        return None
+        self.add_layer_to_project(layer)
 
     def reset_ogc_buttons_state(self):
         self.wms_btn.setEnabled(True)
