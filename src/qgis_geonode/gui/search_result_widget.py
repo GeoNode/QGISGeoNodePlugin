@@ -104,11 +104,11 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def show_layer(self, layer, geonode_resource):
         self.populate_metadata(layer, geonode_resource)
 
-        QgsProject.instance().addMapLayer(layer)
-        self.reset_ogc_buttons_state()
-
         if layer.type() == QgsMapLayerType.VectorLayer:
             self.load_sld(layer, geonode_resource)
+        else:
+            QgsProject.instance().addMapLayer(layer)
+            self.reset_ogc_buttons_state()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -220,8 +220,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def create_sld_node(self, contents):
         doc = QtXml.QDomDocument()
-        if doc.setContent(contents):
-            root = doc.firstChildElement("StyledLayerDescriptor")
+        if doc.setContent(contents, True):
+            root = doc.documentElement()
             if not root.isNull():
                 named_layer = root.firstChildElement("NamedLayer")
                 if not named_layer.isNull():
@@ -232,7 +232,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 tr("Problem in parsing style for the layer"),
                 level=Qgis.Warning,
             )
-
         return None
 
     def reset_ogc_buttons_state(self):
