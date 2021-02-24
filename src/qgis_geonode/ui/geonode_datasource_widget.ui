@@ -382,14 +382,35 @@
     </layout>
    </item>
    <item>
-    <widget class="QPushButton" name="search_btn">
-     <property name="toolTip">
-      <string>Load connections from file</string>
-     </property>
-     <property name="text">
-      <string>Search Geonode</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="horizontalLayout_4">
+     <item>
+      <widget class="QPushButton" name="search_btn">
+       <property name="toolTip">
+        <string>Load connections from file</string>
+       </property>
+       <property name="text">
+        <string>Search Geonode</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_9">
+       <property name="text">
+        <string>Sort results by</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="sort_field_cmb"/>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="reverse_order_chk">
+       <property name="text">
+        <string>Reverse Order</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_12">
@@ -482,6 +503,9 @@
   <zorder>buttonBox</zorder>
   <zorder>title_le</zorder>
   <zorder>label</zorder>
+  <zorder>sort_field_cmb</zorder>
+  <zorder>reverse_order_chk</zorder>
+  <zorder>label_9</zorder>
  </widget>
  <customwidgets>
   <customwidget>

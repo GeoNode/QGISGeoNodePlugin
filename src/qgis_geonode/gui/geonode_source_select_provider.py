@@ -97,6 +97,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.start_dte.clear()
         self.end_dte.clear()
         self.load_categories()
+        self.load_sorting_fields()
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -236,6 +237,8 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 keyword=self.keyword_cmb.currentText() or None,
                 topic_category=self.category_cmb.currentText().lower() or None,
                 layer_types=resource_types,
+                ordering_field=self.sort_field_cmb.currentText().lower() or None,
+                reverse_ordering=self.reverse_order_chk.isChecked(),
             )
 
     def show_search_error(self, error):
@@ -323,6 +326,16 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 tr(IsoTopicCategory.ECONOMY.value),
                 tr(IsoTopicCategory.SOCIETY.value),
                 tr(IsoTopicCategory.IMAGERY_BASE_MAPS_EARTH_COVER.value),
+            ]
+        )
+
+    def load_sorting_fields(self):
+        self.sort_field_cmb.addItems(
+            [
+                "",
+                tr("Name"),
+                tr("Title"),
+                tr("Abstract"),
             ]
         )
 
