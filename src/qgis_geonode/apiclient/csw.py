@@ -96,6 +96,8 @@ class GeonodeCswClient(BaseGeonodeClient):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
+        ordering_field: typing.Optional[str] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.catalogue_url}")
         query = QtCore.QUrlQuery()
@@ -108,6 +110,13 @@ class GeonodeCswClient(BaseGeonodeClient):
         query.addQueryItem("typenames", self.TYPE_NAME)
         query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
         query.addQueryItem("elementsetname", "full")
+
+        if ordering_field is not None:
+            if not reverse_ordering:
+                ordering_value = "{}:A".format(ordering_field)
+            else:
+                ordering_value = "{}:D".format(ordering_field)
+            query.addQueryItem("sortby", ordering_value)
         # if any((title, abstract, keyword, topic_category, layer_types)):
         #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
         #     constraint_values = []
