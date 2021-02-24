@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>768</width>
-    <height>221</height>
+    <height>280</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -111,7 +111,7 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <layout class="QHBoxLayout" name="action_buttons_layout">
         <item>
          <spacer name="horizontalSpacer_2">
           <property name="orientation">
@@ -124,46 +124,6 @@
            </size>
           </property>
          </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="wms_btn">
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to load resource as a WMS layer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>WMS</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="wfs_btn">
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to load as a WFS layer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>WFS</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="wcs_btn">
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to load resource as a WMS layer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>WCS</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="download_btn">
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Direct download&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>File Download</string>
-          </property>
-         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="browser_btn">

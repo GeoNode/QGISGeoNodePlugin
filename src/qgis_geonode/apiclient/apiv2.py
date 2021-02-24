@@ -14,7 +14,10 @@ from qgis.PyQt.QtCore import (
 )
 
 from . import models
-from .models import GeonodeResourceType
+from .models import (
+    GeonodeResourceType,
+    GeonodeService,
+)
 from .base import BaseGeonodeClient
 
 
@@ -185,13 +188,21 @@ def _get_common_model_fields(
     resource_type = _get_resource_type(deserialized_resource)
     if resource_type == GeonodeResourceType.VECTOR_LAYER:
         service_urls = {
-            "wms": _get_wms_uri(auth_config, geonode_base_url, deserialized_resource),
-            "wfs": _get_wfs_uri(auth_config, geonode_base_url, deserialized_resource),
+            GeonodeService.OGC_WMS: _get_wms_uri(
+                auth_config, geonode_base_url, deserialized_resource
+            ),
+            GeonodeService.OGC_WFS: _get_wfs_uri(
+                auth_config, geonode_base_url, deserialized_resource
+            ),
         }
     elif resource_type == GeonodeResourceType.RASTER_LAYER:
         service_urls = {
-            "wms": _get_wms_uri(auth_config, geonode_base_url, deserialized_resource),
-            "wcs": _get_wcs_uri(auth_config, geonode_base_url, deserialized_resource),
+            GeonodeService.OGC_WMS: _get_wms_uri(
+                auth_config, geonode_base_url, deserialized_resource
+            ),
+            GeonodeService.OGC_WCS: _get_wcs_uri(
+                auth_config, geonode_base_url, deserialized_resource
+            ),
         }
     elif resource_type == GeonodeResourceType.MAP:
         service_urls = None  # FIXME: devise a way to retrieve WMS URL for maps

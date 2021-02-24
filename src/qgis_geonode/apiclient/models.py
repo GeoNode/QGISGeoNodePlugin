@@ -11,6 +11,13 @@ from qgis.core import (
 )
 
 
+class GeonodeService(enum.Enum):
+    OGC_WMS = "wms"
+    OGC_WFS = "wfs"
+    OGC_WCS = "wcs"
+    FILE_DOWNLOAD = "file_download"
+
+
 class GeonodeResourceType(enum.Enum):
     VECTOR_LAYER = "vector"
     RASTER_LAYER = "raster"
@@ -53,7 +60,7 @@ class BriefGeonodeResource:
     gui_url: str
     keywords: typing.List[str]
     category: typing.Optional[str]
-    service_urls: typing.Dict[str, str]
+    service_urls: typing.Dict[GeonodeService, str]
 
     def __init__(
         self,
@@ -72,7 +79,7 @@ class BriefGeonodeResource:
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
-        service_urls: typing.Dict[str, str] = None,
+        service_urls: typing.Dict[GeonodeService, str] = None,
     ):
         self.pk = pk
         self.uuid = uuid
