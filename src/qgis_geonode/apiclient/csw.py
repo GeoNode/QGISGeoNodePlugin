@@ -204,96 +204,6 @@ class GeonodeCswClient(BaseGeonodeClient):
             title, abstract, keyword, topic_category, layer_types, page, page_size
         )
 
-    # def _login(
-    #         self,
-    #         post_login_handler: typing.Optional[typing.Callable] = None,
-    #         post_login_handler_kwargs: typing.Optional[typing.Dict] = None
-    # ):
-    #     """perform asynchronous login
-    #
-    #     This means making two HTTP requests:
-    #     - first a GET request to obtain the CSRF token
-    #     - then a POST request to actually log in
-    #
-    #     """
-    #     login_request = QtNetwork.QNetworkRequest(
-    #         QtCore.QUrl(f"{self.base_url}/account/login/"))
-    #     self._async_get_csrf_token(
-    #         login_request, self._finalize_login,
-    #         reply_handler_kwargs={
-    #             "post_login_handler": post_login_handler,
-    #             "post_login_handler_kwargs": post_login_handler_kwargs,
-    #         }
-    #     )
-
-    # def _async_get_csrf_token(
-    #         self,
-    #         request: QtNetwork.QNetworkRequest,
-    #         reply_handler: typing.Callable,
-    #         reply_handler_kwargs: typing.Optional[typing.Dict] = None
-    # ):
-    #
-    #     network_manager = QgsNetworkAccessManager.instance()
-    #     # NOTE: we can't use a blocking request here because it would run on another
-    #     # thread and thus would use a different network_manager. This network manager
-    #     # would store the cookies sent in the reply and we would not be able to access
-    #     # them - therefore we use a normal async GET request
-    #     reply = network_manager.get(request, auth_cfg=None)
-    #     handler_kwargs = (
-    #         reply_handler_kwargs if reply_handler_kwargs is not None else {})
-    #     reply.finished.connect(partial(reply_handler, reply, **handler_kwargs))
-
-    # def _finalize_login(
-    #         self,
-    #         reply: QtNetwork.QNetworkReply,
-    #         post_login_handler: typing.Optional[typing.Callable] = None,
-    #         post_login_handler_kwargs: typing.Optional[typing.Dict] = None,
-    # ):
-    #     if reply.error() == QtNetwork.QNetworkReply.NoError:
-    #         network_manager = QgsNetworkAccessManager.instance()
-    #         cookie_jar = network_manager.cookieJar()
-    #         url = reply.request().url()
-    #         csrftoken_cookies = [
-    #             c for c in cookie_jar.cookiesForUrl(url) if c.name() == "csrftoken"]
-    #         if len(csrftoken_cookies) > 0:
-    #             csrftoken_cookie = csrftoken_cookies[0]
-    #             token = csrftoken_cookie.value()
-    #             request = QtNetwork.QNetworkRequest(url)
-    #             request.setHeader(
-    #                 QtNetwork.QNetworkRequest.ContentTypeHeader,
-    #                 "application/x-www-form-urlencoded"
-    #             )
-    #             request.setRawHeader("Referer", url.toEncoded())
-    #             data = QtCore.QUrlQuery()
-    #             data.addQueryItem("csrfmiddlewaretoken", token)
-    #             basic_auth_cfg = None  # FIXME: set this
-    #             login_reply = network_manager.post(
-    #                 request,
-    #                 data.toString(QtCore.QUrl.FullyEncoded),
-    #                 auth_cfg=basic_auth_cfg
-    #             )
-    #             if post_login_handler is not None:
-    #                 handler = partial(post_login_handler, **post_login_handler_kwargs)
-    #                 login_reply.finished.connect(handler)
-    #     else:
-    #         status_code = reply.attribute(
-    #             QtNetwork.QNetworkRequest.HttpStatusCodeAttribute)
-    #         log(f"Could not finalize login: {status_code}")
-
-    # def _get_layers_after_login(
-    #         self,
-    #         reply: QtNetwork.QNetworkReply,
-    #         title: typing.Optional[str] = None,
-    #         abstract: typing.Optional[str] = None,
-    #         keyword: typing.Optional[str] = None,
-    #         topic_category: typing.Optional[str] = None,
-    #         layer_types: typing.Optional[
-    #             typing.List[models.GeonodeResourceType]] = None,
-    #         page: typing.Optional[int] = 1,
-    #         page_size: typing.Optional[int] = 10,
-    # ):
-    #     pass
-
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
         decoded_contents: str = contents.data().decode()
         log(f"decoded_contents: {decoded_contents}")
@@ -356,6 +266,8 @@ def get_geonode_resource(
         constraints="",  # FIXME: get constraints from record
         owner="",  # FIXME: extract owner
         metadata_author="",  # FIXME: extract metadata author
+        default_style=None,
+        styles=[],
         **common_fields,
     )
 

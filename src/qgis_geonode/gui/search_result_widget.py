@@ -106,34 +106,25 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         }[service]
 
     def load_map_resource(self):
+        uri = self.geonode_resource.service_urls[GeonodeService.OGC_WMS]
+        log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
-
-        layer = QgsRasterLayer(
-            self.geonode_resource.service_urls[GeonodeService.OGC_WMS],
-            self.geonode_resource.title,
-            "wms",
-        )
-
+        layer = QgsRasterLayer(uri, self.geonode_resource.title, "wms")
         self.load_layer(layer)
 
     def load_raster_layer(self):
+        uri = self.geonode_resource.service_urls[GeonodeService.OGC_WCS]
+        log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
-        layer = QgsRasterLayer(
-            self.geonode_resource.service_urls[GeonodeService.OGC_WCS],
-            self.geonode_resource.title,
-            "wcs",
-        )
+        layer = QgsRasterLayer(uri, self.geonode_resource.title, "wcs")
 
         self.load_layer(layer)
 
     def load_vector_layer(self):
+        uri = self.geonode_resource.service_urls[GeonodeService.OGC_WFS]
+        log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
-        layer = QgsVectorLayer(
-            self.geonode_resource.service_urls[GeonodeService.OGC_WFS],
-            self.geonode_resource.title,
-            "WFS",
-        )
-
+        layer = QgsVectorLayer(uri, self.geonode_resource.title, "WFS")
         self.load_layer(layer)
 
     def load_layer(self, layer):
