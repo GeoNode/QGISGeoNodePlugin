@@ -52,11 +52,19 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.message_bar = message_bar
         connection_settings = connections_manager.get_current_connection()
         self.client = get_geonode_client(connection_settings)
-        self.wms_btn.clicked.connect(self.load_map_resource)
-        self.wcs_btn.clicked.connect(self.load_raster_layer)
-        self.wfs_btn.clicked.connect(self.load_vector_layer)
 
-        self.temp_sld_style_path = None
+        self.wms_btn = QtWidgets.QPushButton("WMS")
+        self.wms_btn.clicked.connect(self.load_map_resource)
+        self.action_buttons_layout.insertWidget(1, self.wms_btn)
+
+        if geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
+            self.wfs_btn = QtWidgets.QPushButton("WFS")
+            self.wfs_btn.clicked.connect(self.load_vector_layer)
+            self.action_buttons_layout.insertWidget(2, self.wfs_btn)
+        elif geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
+            self.wcs_btn = QtWidgets.QPushButton("WCS")
+            self.wcs_btn.clicked.connect(self.load_raster_layer)
+            self.action_buttons_layout.insertWidget(2, self.wcs_btn)
 
         self.reset_ogc_buttons_state()
         self.load_thumbnail()
@@ -207,12 +215,10 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def reset_ogc_buttons_state(self):
         self.wms_btn.setEnabled(True)
-        self.wcs_btn.setEnabled(
-            self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER
-        )
-        self.wfs_btn.setEnabled(
-            self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER
-        )
+        if self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
+            self.wcs_btn.setEnabled(True)
+        if self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
+            self.wfs_btn.setEnabled(True)
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
