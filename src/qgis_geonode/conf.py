@@ -52,8 +52,8 @@ class ApiVersionSpecificSettings:
 class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
     username: typing.Optional[str] = None
     password: typing.Optional[str] = None
-    _username_widget_name: str = "username_le"
-    _password_widget_name: str = "password_le"
+    _username_widget_name: str = "csw_api_username_le"
+    _password_widget_name: str = "csw_api_password_le"
 
     @classmethod
     def from_qgs_settings(cls, settings: QgsSettings):
@@ -72,7 +72,7 @@ class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
         )
 
     @classmethod
-    def get_widgets(cls) -> QtWidgets.QLayout:
+    def get_widgets(cls, group_box_name: str, title: str) -> QtWidgets.QGroupBox:
         username_le = QtWidgets.QLineEdit()
         username_le.setObjectName(cls._username_widget_name)
         password_le = QtWidgets.QLineEdit()
@@ -80,7 +80,10 @@ class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
         layout = QtWidgets.QFormLayout()
         layout.addRow(QtWidgets.QLabel("Username"), username_le)
         layout.addRow(QtWidgets.QLabel("Password"), password_le)
-        return layout
+        box = QtWidgets.QGroupBox(title=title)
+        box.setObjectName(group_box_name)
+        box.setLayout(layout)
+        return box
 
     def fill_widgets(self, ancestor: QtWidgets.QWidget):
         if self.username is not None:

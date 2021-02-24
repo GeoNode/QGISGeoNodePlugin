@@ -84,13 +84,17 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     def toggle_api_version_specific_widgets(self):
         api_version = GeonodeApiVersion[self.api_version_cmb.currentText()]
         handler = get_api_version_settings_handler(api_version)
-        previous_layout = self.version_specific_w.layout()
-        if previous_layout is not None:
-            _clear_layout(previous_layout)
-            previous_layout.deleteLater()
+        box_name = "api_specific_gb"
+        previous_box = self.findChild(QtWidgets.QGroupBox, name=box_name)
+        log(f"previous_box: {previous_box}")
+        if previous_box is not None:
+            previous_box.deleteLater()
         if handler is not None:
-            layout = handler.get_widgets()
-            self.version_specific_w.setLayout(layout)
+            group_box = handler.get_widgets(
+                box_name, title=f"{api_version.name} version specific settings"
+            )
+            layout: QtWidgets.QBoxLayout = self.layout()
+            layout.insertWidget(4, group_box)
 
     def load_connection_settings(self, connection_settings: ConnectionSettings):
         self.name_le.setText(connection_settings.name)
@@ -99,15 +103,13 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.api_version_cmb.setCurrentText(connection_settings.api_version.name)
         self.page_size_sb.setValue(connection_settings.page_size)
         if connection_settings.api_version_settings is not None:
-            connection_settings.api_version_settings.fill_widgets(
-                self.version_specific_w
-            )
+            connection_settings.api_version_settings.fill_widgets(self)
 
     def get_connection_settings(self) -> ConnectionSettings:
         api_version = GeonodeApiVersion[self.api_version_cmb.currentText().upper()]
         handler = get_api_version_settings_handler(api_version)
         if handler is not None:
-            version_settings = handler.from_widgets(self.version_specific_w)
+            version_settings = handler.from_widgets(self)
         else:
             version_settings = None
         return ConnectionSettings(
