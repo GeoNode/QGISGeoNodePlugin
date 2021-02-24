@@ -1,6 +1,7 @@
 import dataclasses
 import datetime as dt
 import enum
+import json
 import http.cookiejar
 import math
 import typing
@@ -234,16 +235,78 @@ class GeonodeCswClient(BaseGeonodeClient):
         self.layer_list_received.emit(layers, pagination_info)
 
     def handle_layer_detail(self, payload: ET.Element):
-        layer = get_geonode_resource(
-            payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
-            self.base_url,
-            self.auth_config,
+        """Parse the input payload into a GeonodeResource instance
+
+        This method performs additional blocking HTTP requests.
+
+        A required property of ``GeonodeResource`` instances is their respective
+        default style. Since the GeoNode CSW endpoint does not provide information on a
+        layer's style, we need to make additional HTTP requests in order to get this
+        from the API v1 endpoints.
+
+        With this in mind, this method proceeds to:
+
+        1. Make a GET request to API v1 to get the layer detail page
+        2. Parse the layer detail, retrieve the style uri and build a full URL for it
+        3. Make a GET request to API v1 to get the style detail page
+        4. Parse the style detail, retrieve the style URL and name
+
+        """
+
+        record = payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
+        layer_title = record.find(
+            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+            f"{{{Csw202Namespace.GMD.value}}}citation/"
+            f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+            f"{{{Csw202Namespace.GMD.value}}}title/"
+            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+        ).text
+        try:
+            layer_detail = self.blocking_get_layer_detail(layer_title)
+            brief_style = self.blocking_get_style_detail(layer_detail["default_style"])
+        except IOError:
+            raise
+        else:
+            layer = get_geonode_resource(
+                payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
+                self.base_url,
+                self.auth_config,
+                default_style=brief_style
+            )
+            self.layer_detail_received.emit(layer)
+
+    def blocking_get_layer_detail(self, layer_title: str) -> typing.Dict:
+        layer_detail_url = "?".join((
+            f"{self.base_url}/api/layers/",
+            urllib.parse.urlencode({"name": layer_title}))
         )
-        self.layer_detail_received.emit(layer)
+        layer_detail_response = self.request_opener.open(layer_detail_url)
+        if layer_detail_response.status != 200:
+            raise IOError(f"Could not retrieve layer {layer_title!r} detail")
+        payload = json.load(layer_detail_response)
+        try:
+            layer_detail = payload["objects"][0]
+        except KeyError:
+            raise IOError(
+                f"Received unexpected API response for layer {layer_title!r} detail")
+        else:
+            return layer_detail
+
+    def blocking_get_style_detail(self, style_uri: str) -> models.BriefGeonodeStyle:
+        style_detail_response = self.request_opener.open(f"{self.base_url}{style_uri}")
+        if style_detail_response.status != 200:
+            raise IOError(f"Could not retrieve style {style_uri!r} detail")
+        style_detail = json.load(style_detail_response)
+        sld_url = urllib.parse.urlparse(style_detail["sld_url"]).path
+        return models.BriefGeonodeStyle(
+            name=style_detail["name"],
+            sld_url=sld_url
+        )
 
 
 def get_brief_geonode_resource(
-    record: ET.Element, geonode_base_url: str, auth_config: str
+        record: ET.Element, geonode_base_url: str, auth_config: str
 ) -> models.BriefGeonodeResource:
     return models.BriefGeonodeResource(
         **_get_common_model_fields(record, geonode_base_url, auth_config)
@@ -251,7 +314,10 @@ def get_brief_geonode_resource(
 
 
 def get_geonode_resource(
-    record: ET.Element, geonode_base_url: str, auth_config: str
+        record: ET.Element,
+        geonode_base_url: str,
+        auth_config: str,
+        default_style: models.BriefGeonodeStyle
 ) -> models.GeonodeResource:
     common_fields = _get_common_model_fields(record, geonode_base_url, auth_config)
 
@@ -266,7 +332,7 @@ def get_geonode_resource(
         constraints="",  # FIXME: get constraints from record
         owner="",  # FIXME: extract owner
         metadata_author="",  # FIXME: extract metadata author
-        default_style=None,
+        default_style=default_style,
         styles=[],
         **common_fields,
     )
