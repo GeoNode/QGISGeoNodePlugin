@@ -19,6 +19,7 @@ from qgis.PyQt.QtCore import (
 
 from . import models
 from .base import BaseGeonodeClient
+from .models import GeonodeService
 from ..utils import log
 
 
@@ -189,17 +190,17 @@ def _get_common_model_fields(
     resource_type = _get_resource_type(record)
     if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
         service_urls = {
-            "wms": _get_wms_uri(record, layer_name, crs, auth_config),
-            "wfs": _get_wfs_uri(record, layer_name, auth_config),
+            GeonodeService.OGC_WMS: _get_wms_uri(record, layer_name, crs, auth_config),
+            GeonodeService.OGC_WFS: _get_wfs_uri(record, layer_name, auth_config),
         }
     elif resource_type == models.GeonodeResourceType.RASTER_LAYER:
         service_urls = {
-            "wms": _get_wms_uri(record, layer_name, crs, auth_config),
-            "wcs": _get_wcs_uri(record, layer_name, auth_config),
+            GeonodeService.OGC_WMS: _get_wms_uri(record, layer_name, crs, auth_config),
+            GeonodeService.OGC_WCS: _get_wcs_uri(record, layer_name, auth_config),
         }
     elif resource_type == models.GeonodeResourceType.MAP:
         service_urls = {
-            "wms": _get_wms_uri(record, layer_name, crs, auth_config),
+            GeonodeService.OGC_WMS: _get_wms_uri(record, layer_name, crs, auth_config),
         }
     else:
         service_urls = None

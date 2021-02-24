@@ -1,4 +1,5 @@
 import os
+import typing
 from functools import partial
 
 from qgis.PyQt import QtCore, QtGui, QtNetwork, QtWidgets, QtXml
@@ -22,7 +23,7 @@ from ..apiclient import get_geonode_client
 from ..apiclient.models import (
     BriefGeonodeResource,
     GeonodeResource,
-    GeonodeResourceType,
+    GeonodeService,
 )
 from ..resources import *
 from ..utils import log, tr
@@ -53,27 +54,48 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         connection_settings = connections_manager.get_current_connection()
         self.client = get_geonode_client(connection_settings)
 
-        self.wms_btn = QtWidgets.QPushButton("WMS")
-        self.wms_btn.clicked.connect(self.load_map_resource)
-        self.action_buttons_layout.insertWidget(1, self.wms_btn)
+        # self.wms_btn = QtWidgets.QPushButton("WMS")
+        # self.wms_btn.clicked.connect(self.load_map_resource)
+        # self.action_buttons_layout.insertWidget(1, self.wms_btn)
+        #
+        # if geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
+        #     self.wfs_btn = QtWidgets.QPushButton("WFS")
+        #     self.wfs_btn.clicked.connect(self.load_vector_layer)
+        #     self.action_buttons_layout.insertWidget(2, self.wfs_btn)
+        # elif geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
+        #     self.wcs_btn = QtWidgets.QPushButton("WCS")
+        #     self.wcs_btn.clicked.connect(self.load_raster_layer)
+        #     self.action_buttons_layout.insertWidget(2, self.wcs_btn)
 
-        if geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
-            self.wfs_btn = QtWidgets.QPushButton("WFS")
-            self.wfs_btn.clicked.connect(self.load_vector_layer)
-            self.action_buttons_layout.insertWidget(2, self.wfs_btn)
-        elif geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
-            self.wcs_btn = QtWidgets.QPushButton("WCS")
-            self.wcs_btn.clicked.connect(self.load_raster_layer)
-            self.action_buttons_layout.insertWidget(2, self.wcs_btn)
+        for service_type in GeonodeService:
+            url = geonode_resource.service_urls.get(service_type)
+            if url is not None:
+                description, order, handler = self._get_service_button_details(
+                    service_type
+                )
+                button = QtWidgets.QPushButton(description)
+                button.setObjectName(f"{service_type.name.lower()}_btn")
+                button.clicked.connect(handler)
+                self.action_buttons_layout.insertWidget(order, button)
 
         self.reset_ogc_buttons_state()
         self.load_thumbnail()
 
+    def _get_service_button_details(
+        self, service: GeonodeService
+    ) -> typing.Tuple[str, int, typing.Callable]:
+        return {
+            GeonodeService.OGC_WMS: ("WMS", 1, self.load_map_resource),
+            GeonodeService.OGC_WFS: ("WFS", 2, self.load_vector_layer),
+            GeonodeService.OGC_WCS: ("WCS", 2, self.load_raster_layer),
+            GeonodeService.FILE_DOWNLOAD: ("File download", 3, None),
+        }[service]
+
     def load_map_resource(self):
-        self.wms_btn.setEnabled(False)
+        self.toggle_service_url_buttons(False)
 
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls["wms"],
+            self.geonode_resource.service_urls[GeonodeService.OGC_WMS],
             self.geonode_resource.title,
             "wms",
         )
@@ -81,9 +103,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.load_layer(layer)
 
     def load_raster_layer(self):
-        self.wcs_btn.setEnabled(False)
+        self.toggle_service_url_buttons(False)
         layer = QgsRasterLayer(
-            self.geonode_resource.service_urls["wcs"],
+            self.geonode_resource.service_urls[GeonodeService.OGC_WCS],
             self.geonode_resource.title,
             "wcs",
         )
@@ -91,9 +113,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.load_layer(layer)
 
     def load_vector_layer(self):
-        self.wfs_btn.setEnabled(False)
+        self.toggle_service_url_buttons(False)
         layer = QgsVectorLayer(
-            self.geonode_resource.service_urls["wfs"],
+            self.geonode_resource.service_urls[GeonodeService.OGC_WFS],
             self.geonode_resource.title,
             "WFS",
         )
@@ -214,11 +236,18 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.add_layer_to_project(layer)
 
     def reset_ogc_buttons_state(self):
-        self.wms_btn.setEnabled(True)
-        if self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
-            self.wcs_btn.setEnabled(True)
-        if self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
-            self.wfs_btn.setEnabled(True)
+        self.toggle_service_url_buttons(True)
+        # self.wms_btn.setEnabled(True)
+        # if self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
+        #     self.wcs_btn.setEnabled(True)
+        # if self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
+        #     self.wfs_btn.setEnabled(True)
+
+    def toggle_service_url_buttons(self, enabled: bool):
+        for index in range(self.action_buttons_layout.count()):
+            widget = self.action_buttons_layout.itemAt(index).widget()
+            if widget is not None:
+                widget.setEnabled(enabled)
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""

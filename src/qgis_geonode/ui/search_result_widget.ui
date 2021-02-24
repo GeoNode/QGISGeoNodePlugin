@@ -126,16 +126,6 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="download_btn">
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Direct download&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>File Download</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QPushButton" name="browser_btn">
           <property name="toolTip">
            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Open resource in Browser&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
