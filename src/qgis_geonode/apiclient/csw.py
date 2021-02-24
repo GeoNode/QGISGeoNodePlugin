@@ -52,18 +52,19 @@ class GeonodeCswClient(BaseGeonodeClient):
     password: typing.Optional[str]
 
     def __init__(
-            self,
-            *args,
-            username: typing.Optional[str] = None,
-            password: typing.Optional[str] = None,
-            **kwargs
+        self,
+        *args,
+        username: typing.Optional[str] = None,
+        password: typing.Optional[str] = None,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.username = username or "ricardo"
         self.password = password or "0seTY7nr4CAu"
         self.python_cookie_jar = http.cookiejar.CookieJar()
         self.request_opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(self.python_cookie_jar))
+            urllib.request.HTTPCookieProcessor(self.python_cookie_jar)
+        )
 
     @property
     def catalogue_url(self):
@@ -188,8 +189,9 @@ class GeonodeCswClient(BaseGeonodeClient):
             if logged_in:
                 session_cookie = QtNetwork.QNetworkCookie(
                     name="sessionid".encode("utf-8"),
-                    value=self.python_cookie_jar._cookies[
-                        self.host]["/"]["sessionid"].value.encode("utf-8")
+                    value=self.python_cookie_jar._cookies[self.host]["/"][
+                        "sessionid"
+                    ].value.encode("utf-8"),
                 )
                 session_cookie.setDomain(self.host)
                 session_cookie.setPath("/")
@@ -199,7 +201,8 @@ class GeonodeCswClient(BaseGeonodeClient):
             else:
                 raise RuntimeError("Unable to login")
         super().get_layers(
-            title, abstract, keyword, topic_category, layer_types, page, page_size)
+            title, abstract, keyword, topic_category, layer_types, page, page_size
+        )
 
     # def _login(
     #         self,

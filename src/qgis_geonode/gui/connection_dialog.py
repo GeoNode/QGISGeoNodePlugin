@@ -54,10 +54,12 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         ]
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(
-            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.layout().insertWidget(0, self.bar)
         self.api_version_cmb.currentTextChanged.connect(
-            self.toggle_api_version_specific_widgets)
+            self.toggle_api_version_specific_widgets
+        )
         if connection_settings is not None:
             self.connection_id = connection_settings.id
             self.load_connection_settings(connection_settings)
@@ -75,7 +77,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
         self.name_le.setValidator(
-            QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le))
+            QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le)
+        )
         self.update_ok_buttons()
 
     def toggle_api_version_specific_widgets(self):
@@ -97,7 +100,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.page_size_sb.setValue(connection_settings.page_size)
         if connection_settings.api_version_settings is not None:
             connection_settings.api_version_settings.fill_widgets(
-                self.version_specific_w)
+                self.version_specific_w
+            )
 
     def get_connection_settings(self) -> ConnectionSettings:
         api_version = GeonodeApiVersion[self.api_version_cmb.currentText().upper()]

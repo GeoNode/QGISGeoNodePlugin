@@ -65,13 +65,10 @@ class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
 
     @classmethod
     def from_widgets(cls, ancestor: QtWidgets.QWidget):
-        username_le = ancestor.findChild(
-            QtWidgets.QLineEdit, cls._username_widget_name)
-        password_le = ancestor.findChild(
-            QtWidgets.QLineEdit, cls._password_widget_name)
+        username_le = ancestor.findChild(QtWidgets.QLineEdit, cls._username_widget_name)
+        password_le = ancestor.findChild(QtWidgets.QLineEdit, cls._password_widget_name)
         return cls(
-            username=username_le.text() or None,
-            password=password_le.text() or None
+            username=username_le.text() or None, password=password_le.text() or None
         )
 
     @classmethod
@@ -88,22 +85,22 @@ class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
     def fill_widgets(self, ancestor: QtWidgets.QWidget):
         if self.username is not None:
             username_le = ancestor.findChild(
-                QtWidgets.QLineEdit, self._username_widget_name)
+                QtWidgets.QLineEdit, self._username_widget_name
+            )
             username_le.setText(self.username)
         if self.password is not None:
             password_le = ancestor.findChild(
-                QtWidgets.QLineEdit, self._password_widget_name)
+                QtWidgets.QLineEdit, self._password_widget_name
+            )
             password_le.setText(self.password)
 
     def to_qgs_settings(self) -> typing.Dict:
-        return {
-            "username": self.username,
-            "password": self.password
-        }
+        return {"username": self.username, "password": self.password}
 
 
 def get_api_version_settings_handler(
-        api_version: GeonodeApiVersion) -> typing.Optional[typing.Type]:
+    api_version: GeonodeApiVersion,
+) -> typing.Optional[typing.Type]:
     return {
         GeonodeApiVersion.OGC_CSW: GeonodeCswSpecificConnectionSettings,
     }.get(api_version)
@@ -119,7 +116,8 @@ class ConnectionSettings:
     api_version: GeonodeApiVersion
     page_size: int
     api_version_settings: typing.Optional[
-        typing.Union[GeonodeCswSpecificConnectionSettings]] = None
+        typing.Union[GeonodeCswSpecificConnectionSettings]
+    ] = None
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -128,7 +126,7 @@ class ConnectionSettings:
             reported_auth_cfg = settings.value("auth_config").strip()
         except AttributeError:
             reported_auth_cfg = None
-        api_version = settings.value("api_version")
+        api_version = GeonodeApiVersion[settings.value("api_version")]
         handler = get_api_version_settings_handler(api_version)
         if handler is not None:
             api_version_settings = handler.from_qgs_settings(settings)
@@ -207,11 +205,11 @@ class ConnectionManager(QtCore.QObject):
             settings.setValue("base_url", connection_settings.base_url)
             settings.setValue("page_size", connection_settings.page_size)
             settings.setValue("auth_config", connection_settings.auth_config)
-            settings.setValue("api_version", connection_settings.api_version)
+            settings.setValue("api_version", connection_settings.api_version.name)
             if connection_settings.api_version_settings is not None:
                 settings.setValue(
                     ApiVersionSpecificSettings.PREFIX,
-                    connection_settings.api_version_settings.to_qgs_settings()
+                    connection_settings.api_version_settings.to_qgs_settings(),
                 )
 
     def delete_connection(self, connection_id: uuid.UUID):
