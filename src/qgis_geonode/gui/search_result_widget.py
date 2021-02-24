@@ -53,20 +53,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.message_bar = message_bar
         connection_settings = connections_manager.get_current_connection()
         self.client = get_geonode_client(connection_settings)
-
-        # self.wms_btn = QtWidgets.QPushButton("WMS")
-        # self.wms_btn.clicked.connect(self.load_map_resource)
-        # self.action_buttons_layout.insertWidget(1, self.wms_btn)
-        #
-        # if geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
-        #     self.wfs_btn = QtWidgets.QPushButton("WFS")
-        #     self.wfs_btn.clicked.connect(self.load_vector_layer)
-        #     self.action_buttons_layout.insertWidget(2, self.wfs_btn)
-        # elif geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
-        #     self.wcs_btn = QtWidgets.QPushButton("WCS")
-        #     self.wcs_btn.clicked.connect(self.load_raster_layer)
-        #     self.action_buttons_layout.insertWidget(2, self.wcs_btn)
-
         for service_type in GeonodeService:
             url = geonode_resource.service_urls.get(service_type)
             if url is not None:
@@ -78,7 +64,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 button.clicked.connect(handler)
                 self.action_buttons_layout.insertWidget(order, button)
 
-        self.reset_ogc_buttons_state()
+        self.toggle_service_url_buttons(True)
         self.load_thumbnail()
 
     def _get_service_button_details(
@@ -147,7 +133,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def add_layer_to_project(self, layer: "QgsMapLayer"):
         QgsProject.instance().addMapLayer(layer)
-        self.reset_ogc_buttons_state()
+        self.toggle_service_url_buttons(True)
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -235,14 +221,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             )
         self.add_layer_to_project(layer)
 
-    def reset_ogc_buttons_state(self):
-        self.toggle_service_url_buttons(True)
-        # self.wms_btn.setEnabled(True)
-        # if self.geonode_resource.resource_type == GeonodeResourceType.RASTER_LAYER:
-        #     self.wcs_btn.setEnabled(True)
-        # if self.geonode_resource.resource_type == GeonodeResourceType.VECTOR_LAYER:
-        #     self.wfs_btn.setEnabled(True)
-
     def toggle_service_url_buttons(self, enabled: bool):
         for index in range(self.action_buttons_layout.count()):
             widget = self.action_buttons_layout.itemAt(index).widget()
@@ -275,4 +253,4 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             level=Qgis.Warning,
         )
         QgsProject.instance().addMapLayer(layer)
-        self.reset_ogc_buttons_state()
+        self.toggle_service_url_buttons(True)
