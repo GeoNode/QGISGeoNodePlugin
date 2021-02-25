@@ -67,6 +67,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.toggle_service_url_buttons(True)
         self.load_thumbnail()
 
+        self.browser_btn.clicked.connect(self.open_resource_page)
+
     def _get_service_button_details(
         self, service: GeonodeService
     ) -> typing.Tuple[str, int, typing.Callable]:
@@ -254,3 +256,19 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         )
         QgsProject.instance().addMapLayer(layer)
         self.toggle_service_url_buttons(True)
+
+    def open_resource_page(self):
+        if self.geonode_resource.gui_url is not None:
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.geonode_resource.gui_url))
+        else:
+            log(
+                "Couldn't open resource in browser page, the resource"
+                "doesn't contain GeoNode layer page URL"
+            )
+            self.message_bar.pushMessage(
+                tr(
+                    "Couldn't open resource in browser page, the resource"
+                    "doesn't contain GeoNode layer page URL"
+                ),
+                level=Qgis.Critical,
+            )
