@@ -4,6 +4,7 @@ from functools import partial
 
 from qgis.PyQt import QtCore, QtGui, QtNetwork, QtWidgets, QtXml
 from qgis.PyQt.uic import loadUiType
+from PyQt5.QtGui import QIcon
 
 from qgis.core import (
     QgsAbstractMetadataBase,
@@ -59,8 +60,11 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 description, order, handler = self._get_service_button_details(
                     service_type
                 )
-                button = QtWidgets.QPushButton(description)
+                icon = QIcon(f":/plugins/qgis_geonode/icon_{description.lower()}.svg")
+                button = QtWidgets.QPushButton()
                 button.setObjectName(f"{service_type.name.lower()}_btn")
+                button.setIcon(icon)
+                button.setToolTip(tr("Load layer via {}").format(description))
                 button.clicked.connect(handler)
                 self.action_buttons_layout.insertWidget(order, button)
 
