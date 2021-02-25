@@ -9,6 +9,7 @@ from qgis.PyQt import (
     QtWidgets,
 )
 from qgis.core import QgsSettings
+from qgis.gui import QgsPasswordLineEdit
 
 from .apiclient import GeonodeApiVersion
 
@@ -75,7 +76,7 @@ class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
     def get_widgets(cls, group_box_name: str, title: str) -> QtWidgets.QGroupBox:
         username_le = QtWidgets.QLineEdit()
         username_le.setObjectName(cls._username_widget_name)
-        password_le = QtWidgets.QLineEdit()
+        password_le = QgsPasswordLineEdit()
         password_le.setObjectName(cls._password_widget_name)
         layout = QtWidgets.QFormLayout()
         layout.addRow(QtWidgets.QLabel("Username"), username_le)
