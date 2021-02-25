@@ -58,7 +58,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QPushButton" name="btnSave_4">
+      <widget class="QPushButton" name="open_page_btn">
        <property name="toolTip">
         <string>Save connections to file</string>
        </property>

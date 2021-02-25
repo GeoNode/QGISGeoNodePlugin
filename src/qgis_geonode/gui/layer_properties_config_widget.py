@@ -1,14 +1,21 @@
 import os
 
-from qgis.core import QgsMapLayerType, QgsProject
-from qgis.gui import QgsMapLayerConfigWidget, QgsMapLayerConfigWidgetFactory
+from qgis.core import QgsMapLayerType, QgsProject, Qgis
+
+from qgis.gui import (
+    QgsMapLayerConfigWidget,
+    QgsMapLayerConfigWidgetFactory,
+    QgsMessageBar,
+)
 
 from qgis.PyQt.uic import loadUiType
+from qgis.PyQt.QtCore import QUrl
+from qgis.PyQt.QtWidgets import QSizePolicy
 
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QDesktopServices
 
 from ..resources import *
-from ..utils import tr
+from ..utils import tr, log
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/qgis_geonode_layer_dialog.ui")
@@ -40,6 +47,30 @@ class LayerPropertiesConfigWidget(QgsMapLayerConfigWidget, WidgetUi):
         super(LayerPropertiesConfigWidget, self).__init__(layer, canvas, parent)
         self.setupUi(self)
         self.project = QgsProject.instance()
+        self.layer = layer
+        self.message_bar = QgsMessageBar()
+        self.message_bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.layout().insertWidget(0, self.message_bar)
+
+        self.open_page_btn.clicked.connect(self.open_layer_page)
+
+    def open_layer_page(self):
+        for link in self.layer.metadata().links():
+            if link.name == "Detail":
+                QDesktopServices.openUrl(QUrl(link.url))
+                return
+
+        log(
+            "Couldn't open layer page, the layer metadata "
+            "doesn't contain the GeoNode layer page URL"
+        )
+        self.message_bar.pushMessage(
+            tr(
+                "Couldn't open layer page, the layer metadata "
+                "doesn't contain the GeoNode layer page URL "
+            ),
+            level=Qgis.Critical,
+        )
 
     def apply(self):
         pass
