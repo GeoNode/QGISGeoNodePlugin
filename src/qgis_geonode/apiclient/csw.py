@@ -277,9 +277,11 @@ class GeonodeCswClient(BaseGeonodeClient):
             self.layer_detail_received.emit(layer)
 
     def blocking_get_layer_detail(self, layer_title: str) -> typing.Dict:
-        layer_detail_url = "?".join((
-            f"{self.base_url}/api/layers/",
-            urllib.parse.urlencode({"name": layer_title}))
+        layer_detail_url = "?".join(
+            (
+                f"{self.base_url}/api/layers/",
+                urllib.parse.urlencode({"title": layer_title}),
+            )
         )
         layer_detail_response = self.request_opener.open(layer_detail_url)
         if layer_detail_response.status != 200:
@@ -289,7 +291,8 @@ class GeonodeCswClient(BaseGeonodeClient):
             layer_detail = payload["objects"][0]
         except KeyError:
             raise IOError(
-                f"Received unexpected API response for layer {layer_title!r} detail")
+                f"Received unexpected API response for layer {layer_title!r} detail"
+            )
         else:
             return layer_detail
 
@@ -298,15 +301,16 @@ class GeonodeCswClient(BaseGeonodeClient):
         if style_detail_response.status != 200:
             raise IOError(f"Could not retrieve style {style_uri!r} detail")
         style_detail = json.load(style_detail_response)
-        sld_url = urllib.parse.urlparse(style_detail["sld_url"]).path
         return models.BriefGeonodeStyle(
             name=style_detail["name"],
-            sld_url=sld_url
+            sld_url=(
+                f"{self.base_url}{urllib.parse.urlparse(style_detail['sld_url']).path}"
+            ),
         )
 
 
 def get_brief_geonode_resource(
-        record: ET.Element, geonode_base_url: str, auth_config: str
+    record: ET.Element, geonode_base_url: str, auth_config: str
 ) -> models.BriefGeonodeResource:
     return models.BriefGeonodeResource(
         **_get_common_model_fields(record, geonode_base_url, auth_config)
@@ -314,10 +318,10 @@ def get_brief_geonode_resource(
 
 
 def get_geonode_resource(
-        record: ET.Element,
-        geonode_base_url: str,
-        auth_config: str,
-        default_style: models.BriefGeonodeStyle
+    record: ET.Element,
+    geonode_base_url: str,
+    auth_config: str,
+    default_style: models.BriefGeonodeStyle,
 ) -> models.GeonodeResource:
     common_fields = _get_common_model_fields(record, geonode_base_url, auth_config)
 
