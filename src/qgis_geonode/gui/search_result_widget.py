@@ -66,7 +66,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
         self.toggle_service_url_buttons(True)
         self.load_thumbnail()
-
+        self.browser_btn.setIcon(QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg"))
         self.browser_btn.clicked.connect(self.open_resource_page)
 
     def _get_service_button_details(
