@@ -63,10 +63,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         for service_type in GeonodeService:
             url = geonode_resource.service_urls.get(service_type)
             if url is not None:
-                description, order, handler = self._get_service_button_details(
-                    service_type
-                )
-                icon = QIcon(f":/plugins/qgis_geonode/icon_{description.lower()}.svg")
+                (
+                    description,
+                    order,
+                    icon_path,
+                    handler,
+                ) = self._get_service_button_details(service_type)
+                icon = QIcon(icon_path)
                 button = QtWidgets.QPushButton()
                 button.setObjectName(f"{service_type.name.lower()}_btn")
                 button.setIcon(icon)
@@ -81,12 +84,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def _get_service_button_details(
         self, service: GeonodeService
-    ) -> typing.Tuple[str, int, typing.Callable]:
+    ) -> typing.Tuple[str, int, str, typing.Callable]:
+        icon_path = f":/plugins/qgis_geonode/icon_{service.value}.svg"
         return {
-            GeonodeService.OGC_WMS: ("WMS", 1, self.load_map_resource),
-            GeonodeService.OGC_WFS: ("WFS", 2, self.load_vector_layer),
-            GeonodeService.OGC_WCS: ("WCS", 2, self.load_raster_layer),
-            GeonodeService.FILE_DOWNLOAD: ("File download", 3, None),
+            GeonodeService.OGC_WMS: ("WMS", 1, icon_path, self.load_map_resource),
+            GeonodeService.OGC_WFS: ("WFS", 2, icon_path, self.load_vector_layer),
+            GeonodeService.OGC_WCS: ("WCS", 2, icon_path, self.load_raster_layer),
+            GeonodeService.FILE_DOWNLOAD: ("File download", 3, None, None),
         }[service]
 
     def load_map_resource(self):
