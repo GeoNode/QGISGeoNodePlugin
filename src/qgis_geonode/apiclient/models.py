@@ -96,7 +96,7 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
-        self.service_urls = dict(service_urls) if service_urls is not None else None
+        self.service_urls = dict(service_urls) if service_urls is not None else {}
 
 
 class GeonodeResource(BriefGeonodeResource):
