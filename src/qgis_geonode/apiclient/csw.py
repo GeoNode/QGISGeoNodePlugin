@@ -226,7 +226,8 @@ def _get_common_model_fields(
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
             f"{{{Csw202Namespace.GMD.value}}}abstract/"
             f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-        ).text,
+        ).text
+        or "",
         "spatial_extent": _get_spatial_extent(
             record.find(
                 f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"

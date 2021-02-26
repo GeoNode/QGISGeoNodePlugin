@@ -24,6 +24,7 @@ from ..apiclient import get_geonode_client
 from ..apiclient.models import (
     BriefGeonodeResource,
     GeonodeResource,
+    GeonodeResourceType,
     GeonodeService,
 )
 from ..resources import *
@@ -47,8 +48,19 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.name_la.setText(f"<h3>{geonode_resource.title}</h3>")
         if geonode_resource.resource_type is not None:
             self.resource_type_la.setText(geonode_resource.resource_type.value)
+            icon_path = {
+                GeonodeResourceType.RASTER_LAYER: (
+                    ":/images/themes/default/mIconRaster.svg"
+                ),
+                GeonodeResourceType.VECTOR_LAYER: (
+                    ":/images/themes/default/mIconVector.svg"
+                ),
+                GeonodeResourceType.MAP: ":/images/themes/default/mIconRaster.svg",
+            }[geonode_resource.resource_type]
+            self.resource_type_icon_la.setPixmap(QtGui.QPixmap(icon_path))
         else:
-            self.resource_type_la.setText("unknown")
+            self.resource_type_icon_la.setText("")
+            self.resource_type_la.setText(tr("Unknown type"))
         sliced_abstract = (
             f"{geonode_resource.abstract[:700]}..."
             if len(geonode_resource.abstract) > 700

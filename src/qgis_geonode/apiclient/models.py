@@ -79,7 +79,7 @@ class BriefGeonodeResource:
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
-        service_urls: typing.Dict[GeonodeService, str] = None,
+        service_urls: typing.Optional[typing.Dict[GeonodeService, str]] = None,
     ):
         self.pk = pk
         self.uuid = uuid
