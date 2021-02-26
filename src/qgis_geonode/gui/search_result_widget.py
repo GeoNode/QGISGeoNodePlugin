@@ -49,7 +49,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.resource_type_la.setText(geonode_resource.resource_type.value)
         else:
             self.resource_type_la.setText("unknown")
-        self.description_la.setText(geonode_resource.abstract)
+        sliced_abstract = (
+            f"{geonode_resource.abstract[:700]}..."
+            if len(geonode_resource.abstract) > 700
+            else geonode_resource.abstract
+        )
+
+        self.description_la.setText(sliced_abstract)
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
         connection_settings = connections_manager.get_current_connection()
