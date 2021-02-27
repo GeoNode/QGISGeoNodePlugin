@@ -276,11 +276,14 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def populate_scroll_area(self, layers: typing.List[models.BriefGeonodeResource]):
         scroll_container = QWidget()
         layout = QVBoxLayout()
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setSpacing(1)
         for layer in layers:
             search_result_widget = SearchResultWidget(
                 self.message_bar, geonode_resource=layer
             )
             layout.addWidget(search_result_widget)
+            layout.setAlignment(search_result_widget, Qt.AlignTop)
         scroll_container.setLayout(layout)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)

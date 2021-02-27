@@ -79,7 +79,7 @@ class BriefGeonodeResource:
         temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
         keywords: typing.Optional[typing.List[str]] = None,
         category: typing.Optional[str] = None,
-        service_urls: typing.Dict[GeonodeService, str] = None,
+        service_urls: typing.Optional[typing.Dict[GeonodeService, str]] = None,
     ):
         self.pk = pk
         self.uuid = uuid
@@ -96,7 +96,7 @@ class BriefGeonodeResource:
         self.temporal_extent = temporal_extent
         self.keywords = list(keywords) if keywords is not None else []
         self.category = category
-        self.service_urls = dict(service_urls) if service_urls is not None else None
+        self.service_urls = dict(service_urls) if service_urls is not None else {}
 
 
 class GeonodeResource(BriefGeonodeResource):

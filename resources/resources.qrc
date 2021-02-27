@@ -2,4 +2,14 @@
     <qresource prefix="/plugins/qgis_geonode" >
         <file>mIconGeonode.svg</file>
     </qresource>
+    <qresource prefix="/plugins/qgis_geonode" >
+        <file>icon_wcs.svg</file>
+    </qresource>
+    <qresource prefix="/plugins/qgis_geonode" >
+        <file>icon_wfs.svg</file>
+    </qresource>
+    <qresource prefix="/plugins/qgis_geonode" >
+        <file>icon_wms.svg</file>
+    </qresource>
+
 </RCC>

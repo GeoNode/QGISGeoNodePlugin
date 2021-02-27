@@ -4,6 +4,7 @@ from functools import partial
 
 from qgis.PyQt import QtCore, QtGui, QtNetwork, QtWidgets, QtXml
 from qgis.PyQt.uic import loadUiType
+from PyQt5.QtGui import QIcon
 
 from qgis.core import (
     QgsAbstractMetadataBase,
@@ -23,6 +24,7 @@ from ..apiclient import get_geonode_client
 from ..apiclient.models import (
     BriefGeonodeResource,
     GeonodeResource,
+    GeonodeResourceType,
     GeonodeService,
 )
 from ..resources import *
@@ -46,9 +48,26 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.name_la.setText(f"<h3>{geonode_resource.title}</h3>")
         if geonode_resource.resource_type is not None:
             self.resource_type_la.setText(geonode_resource.resource_type.value)
+            icon_path = {
+                GeonodeResourceType.RASTER_LAYER: (
+                    ":/images/themes/default/mIconRaster.svg"
+                ),
+                GeonodeResourceType.VECTOR_LAYER: (
+                    ":/images/themes/default/mIconVector.svg"
+                ),
+                GeonodeResourceType.MAP: ":/images/themes/default/mIconRaster.svg",
+            }[geonode_resource.resource_type]
+            self.resource_type_icon_la.setPixmap(QtGui.QPixmap(icon_path))
         else:
-            self.resource_type_la.setText("unknown")
-        self.description_la.setText(geonode_resource.abstract)
+            self.resource_type_icon_la.setText("")
+            self.resource_type_la.setText(tr("Unknown type"))
+        sliced_abstract = (
+            f"{geonode_resource.abstract[:700]}..."
+            if len(geonode_resource.abstract) > 700
+            else geonode_resource.abstract
+        )
+
+        self.description_la.setText(sliced_abstract)
         self.geonode_resource = geonode_resource
         self.message_bar = message_bar
         connection_settings = connections_manager.get_current_connection()
@@ -56,11 +75,17 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         for service_type in GeonodeService:
             url = geonode_resource.service_urls.get(service_type)
             if url is not None:
-                description, order, handler = self._get_service_button_details(
-                    service_type
-                )
-                button = QtWidgets.QPushButton(description)
+                (
+                    description,
+                    order,
+                    icon_path,
+                    handler,
+                ) = self._get_service_button_details(service_type)
+                icon = QIcon(icon_path)
+                button = QtWidgets.QPushButton()
                 button.setObjectName(f"{service_type.name.lower()}_btn")
+                button.setIcon(icon)
+                button.setToolTip(tr("Load layer via {}").format(description))
                 button.clicked.connect(handler)
                 self.action_buttons_layout.insertWidget(order, button)
 
@@ -71,12 +96,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def _get_service_button_details(
         self, service: GeonodeService
-    ) -> typing.Tuple[str, int, typing.Callable]:
+    ) -> typing.Tuple[str, int, str, typing.Callable]:
+        icon_path = f":/plugins/qgis_geonode/icon_{service.value}.svg"
         return {
-            GeonodeService.OGC_WMS: ("WMS", 1, self.load_map_resource),
-            GeonodeService.OGC_WFS: ("WFS", 2, self.load_vector_layer),
-            GeonodeService.OGC_WCS: ("WCS", 2, self.load_raster_layer),
-            GeonodeService.FILE_DOWNLOAD: ("File download", 3, None),
+            GeonodeService.OGC_WMS: ("WMS", 1, icon_path, self.load_map_resource),
+            GeonodeService.OGC_WFS: ("WFS", 2, icon_path, self.load_vector_layer),
+            GeonodeService.OGC_WCS: ("WCS", 2, icon_path, self.load_raster_layer),
+            GeonodeService.FILE_DOWNLOAD: ("File download", 3, None, None),
         }[service]
 
     def load_map_resource(self):

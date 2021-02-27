@@ -433,8 +433,20 @@
    </item>
    <item>
     <widget class="QScrollArea" name="scroll_area">
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Plain</enum>
+     </property>
      <property name="widgetResizable">
       <bool>true</bool>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
      </property>
      <widget class="QWidget" name="scrollAreaWidgetContents">
       <property name="geometry">
@@ -442,7 +454,7 @@
         <x>0</x>
         <y>0</y>
         <width>770</width>
-        <height>90</height>
+        <height>70</height>
        </rect>
       </property>
      </widget>
