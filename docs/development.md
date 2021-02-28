@@ -108,7 +108,7 @@ contract.
 
 In order to have a new version of the plugin release:
 
-- Be sure to have updated the `CHANGELOG`
+- Be sure to have updated the `CHANGELOG.md`
   
 - Be sure to have updated the version on the `pyproject.toml` file. You can either 
   manually modify the `tool.poetry.version` key or you can run the 

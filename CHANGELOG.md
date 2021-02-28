@@ -6,11 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Fix invalid update date for versions released via custom plugin repo
-- Add support for earlier GeoNode versions
-- Add support for search filters
-- Display GeoNode resource thumbnail on search results section
+
+## [0.2.0] - 2021-02-28
+
+### Added
+- Add initial support for earlier GeoNode versions
+- Initial support for search filters
+- Add support for applying a vector layer's default SLD style when loading
+
+### Changed
 - Improve look of search results
+
+### Fixed
+- Fix invalid update date for versions released via custom plugin repo
 
 
 ## [0.1.1] - 2021-02-02
@@ -64,7 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.1.1...main
+[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.2.0...main
+[0.2.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.2.0...main
 [0.1.1]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.1.1...main
 [0.1.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.1.0...main
 [0.0.9]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.9...main
