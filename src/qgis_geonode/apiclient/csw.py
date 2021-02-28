@@ -272,7 +272,7 @@ class GeonodeCswClient(BaseGeonodeClient):
                 payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
                 self.base_url,
                 self.auth_config,
-                default_style=brief_style
+                default_style=brief_style,
             )
             self.layer_detail_received.emit(layer)
 
@@ -286,9 +286,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             )
         )
         request = urllib.request.Request(
-            layer_detail_url,
-            headers={"Referer": self.base_url},
-            method="GET"
+            layer_detail_url, headers={"Referer": self.base_url}, method="GET"
         )
         layer_detail_response = self.request_opener.open(request)
         if layer_detail_response.status != 200:
@@ -310,7 +308,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         request = urllib.request.Request(
             f"{self.base_url}{style_uri}",
             headers={"Referer": self.base_url},
-            method="GET"
+            method="GET",
         )
         style_detail_response = self.request_opener.open(request)
         if style_detail_response.status != 200:
@@ -652,7 +650,7 @@ def _get_wms_uri(
         "layers": layer_name,
         "crs": f"EPSG:{crs.postgisSrid()}",
         "styles": "",
-        "version": "auto"
+        "version": "auto",
     }
     if auth_config is not None:
         params["authcfg"] = auth_config
@@ -666,7 +664,7 @@ def _get_wcs_uri(
 ) -> str:
     params = {
         "identifier": layer_name,
-        "url": _find_protocol_linkage(record, "ogc:wcs")
+        "url": _find_protocol_linkage(record, "ogc:wcs"),
     }
     if auth_config is not None:
         params["authcfg"] = auth_config

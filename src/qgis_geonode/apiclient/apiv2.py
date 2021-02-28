@@ -308,17 +308,17 @@ def _get_published_date(payload: typing.Dict) -> typing.Optional[dt.datetime]:
 
 
 def _get_wms_uri(
-        base_url: str,
-        payload: typing.Dict,
-        auth_config: typing.Optional[str] = None,
+    base_url: str,
+    payload: typing.Dict,
+    auth_config: typing.Optional[str] = None,
 ) -> str:
     params = {
         "url": f"{base_url}/geoserver/ows",
         "format": "image/png",
         "layers": f"{payload['workspace']}:{payload['name']}",
-        "crs": payload['srid'],
+        "crs": payload["srid"],
         "styles": "",
-        "version": "auto"
+        "version": "auto",
     }
     if auth_config is not None:
         params["authcfg"] = auth_config
@@ -326,13 +326,13 @@ def _get_wms_uri(
 
 
 def _get_wcs_uri(
-        base_url: str,
-        payload: typing.Dict,
-        auth_config: typing.Optional[str] = None,
+    base_url: str,
+    payload: typing.Dict,
+    auth_config: typing.Optional[str] = None,
 ) -> str:
     params = {
         "identifier": f"{payload['workspace']}:{payload['name']}",
-        "url": f"{base_url}/geoserver/ows"
+        "url": f"{base_url}/geoserver/ows",
     }
     if auth_config is not None:
         params["authcfg"] = auth_config
@@ -340,9 +340,7 @@ def _get_wcs_uri(
 
 
 def _get_wfs_uri(
-        base_url: str,
-        payload: typing.Dict,
-        auth_config: typing.Optional[str] = None
+    base_url: str, payload: typing.Dict, auth_config: typing.Optional[str] = None
 ) -> str:
     params = {
         "url": f"{base_url}/geoserver/ows",
