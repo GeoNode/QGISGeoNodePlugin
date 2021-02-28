@@ -1,26 +1,31 @@
+import dataclasses
 import datetime as dt
 import enum
+import json
+import http.cookiejar
 import math
-import re
 import typing
+import urllib.request
+import urllib.parse
 import uuid
 from xml.etree import ElementTree as ET
 
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsNetworkAccessManager,
     QgsRectangle,
+    QgsSettings,
 )
-from qgis.PyQt.QtCore import (
-    QByteArray,
-    QUrl,
-    QUrlQuery,
+from qgis.PyQt import (
+    QtCore,
+    QtNetwork,
 )
 
+from ..utils import log
 from . import models
 from .base import BaseGeonodeClient
 from .models import GeonodeService
-from ..utils import log
 
 
 class Csw202Namespace(enum.Enum):
@@ -41,9 +46,46 @@ class GeonodeCswClient(BaseGeonodeClient):
     # TODO: move this to the connection settings
     PAGE_SIZE: int = 10
 
+    python_cookie_jar: http.cookiejar.CookieJar
+    request_opener: urllib.request.OpenerDirector
+    host: str
+    username: typing.Optional[str]
+    password: typing.Optional[str]
+
+    def __init__(
+        self,
+        *args,
+        username: typing.Optional[str] = None,
+        password: typing.Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.username = username or "ricardo"
+        self.password = password or "0seTY7nr4CAu"
+        self.python_cookie_jar = http.cookiejar.CookieJar()
+        self.request_opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.python_cookie_jar)
+        )
+
     @property
     def catalogue_url(self):
         return f"{self.base_url}/catalogue/csw"
+
+    @property
+    def host(self):
+        return urllib.parse.urlparse(self.base_url).netloc
+
+    @property
+    def login_url(self):
+        return f"{self.base_url}/account/login/"
+
+    @property
+    def csrf_token(self) -> str:
+        try:
+            result = self.python_cookie_jar._cookies[self.host]["/"]["csrftoken"].value
+        except KeyError:
+            result = None
+        return result
 
     def get_layers_url_endpoint(
         self,
@@ -54,9 +96,9 @@ class GeonodeCswClient(BaseGeonodeClient):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
-    ) -> QUrl:
-        url = QUrl(f"{self.catalogue_url}")
-        query = QUrlQuery()
+    ) -> QtCore.QUrl:
+        url = QtCore.QUrl(f"{self.catalogue_url}")
+        query = QtCore.QUrlQuery()
         query.addQueryItem("service", "CSW")
         query.addQueryItem("version", "2.0.2")
         query.addQueryItem("request", "GetRecords")
@@ -81,9 +123,9 @@ class GeonodeCswClient(BaseGeonodeClient):
     ):
         self.get_layer_detail(brief_resource.uuid)
 
-    def get_layer_detail_url_endpoint(self, id_: uuid.UUID) -> QUrl:
-        url = QUrl(f"{self.catalogue_url}")
-        query = QUrlQuery()
+    def get_layer_detail_url_endpoint(self, id_: uuid.UUID) -> QtCore.QUrl:
+        url = QtCore.QUrl(f"{self.catalogue_url}")
+        query = QtCore.QUrlQuery()
         query.addQueryItem("service", "CSW")
         query.addQueryItem("version", "2.0.2")
         query.addQueryItem("request", "GetRecordById")
@@ -93,7 +135,77 @@ class GeonodeCswClient(BaseGeonodeClient):
         url.setQuery(query.query())
         return url
 
-    def deserialize_response_contents(self, contents: QByteArray) -> ET.Element:
+    def blocking_login(self) -> bool:
+        csrf_token = self._get_csrf_token(self.login_url)
+        if csrf_token is not None:
+            form_data = {
+                "login": self.username,
+                "password": self.password,
+                "csrfmiddlewaretoken": csrf_token,
+            }
+            login_request = urllib.request.Request(
+                self.login_url,
+                data=urllib.parse.urlencode(form_data).encode("ascii"),
+                headers={"Referer": self.login_url},
+                method="POST",
+            )
+            login_response = self.request_opener.open(login_request)
+            result = login_response.status == 200
+        else:
+            result = False
+        return result
+
+    def _get_csrf_token(self, url: str):
+        token_response = self.request_opener.open(url)
+        if token_response.status == 200:
+            result = self.python_cookie_jar._cookies[self.host]["/"]["csrftoken"].value
+        else:
+            result = None
+        return result
+
+    def get_layers(
+        self,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
+        page: typing.Optional[int] = 1,
+        page_size: typing.Optional[int] = 10,
+    ):
+        """Get layers from the CSW endpoint
+
+        Unfortunately the GeoNode CSW endpoint does not use OAuth2 authentication,
+        instead it relies on the same session-based authentication used by the main
+        GeoNode GUI. Therefore we need to login, then retrieve a list of layers,
+        and finally logout. To complicate things a bit more, the login process requires
+        an additional GET request to retrieve the csrf token. Oh, and we need to
+        provide the username and password for being able to login, which means we
+        cannot use QGIS auth infrastructure.
+
+        """
+
+        if self.username is not None:
+            logged_in = self.blocking_login()
+            if logged_in:
+                session_cookie = QtNetwork.QNetworkCookie(
+                    name="sessionid".encode("utf-8"),
+                    value=self.python_cookie_jar._cookies[self.host]["/"][
+                        "sessionid"
+                    ].value.encode("utf-8"),
+                )
+                session_cookie.setDomain(self.host)
+                session_cookie.setPath("/")
+                network_manager = QgsNetworkAccessManager.instance()
+                qt_cookie_jar: QtNetwork.QNetworkCookieJar = network_manager.cookieJar()
+                qt_cookie_jar.insertCookie(session_cookie)
+            else:
+                raise RuntimeError("Unable to login")
+        super().get_layers(
+            title, abstract, keyword, topic_category, layer_types, page, page_size
+        )
+
+    def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
         decoded_contents: str = contents.data().decode()
         log(f"decoded_contents: {decoded_contents}")
         return ET.fromstring(decoded_contents)
@@ -123,12 +235,91 @@ class GeonodeCswClient(BaseGeonodeClient):
         self.layer_list_received.emit(layers, pagination_info)
 
     def handle_layer_detail(self, payload: ET.Element):
-        layer = get_geonode_resource(
-            payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
-            self.base_url,
-            self.auth_config,
+        """Parse the input payload into a GeonodeResource instance
+
+        This method performs additional blocking HTTP requests.
+
+        A required property of ``GeonodeResource`` instances is their respective
+        default style. Since the GeoNode CSW endpoint does not provide information on a
+        layer's style, we need to make additional HTTP requests in order to get this
+        from the API v1 endpoints.
+
+        With this in mind, this method proceeds to:
+
+        1. Make a GET request to API v1 to get the layer detail page
+        2. Parse the layer detail, retrieve the style uri and build a full URL for it
+        3. Make a GET request to API v1 to get the style detail page
+        4. Parse the style detail, retrieve the style URL and name
+
+        """
+
+        record = payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
+        layer_title = record.find(
+            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+            f"{{{Csw202Namespace.GMD.value}}}citation/"
+            f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+            f"{{{Csw202Namespace.GMD.value}}}title/"
+            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+        ).text
+        try:
+            layer_detail = self.blocking_get_layer_detail(layer_title)
+            brief_style = self.blocking_get_style_detail(layer_detail["default_style"])
+        except IOError:
+            raise
+        else:
+            layer = get_geonode_resource(
+                payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
+                self.base_url,
+                self.auth_config,
+                default_style=brief_style,
+            )
+            self.layer_detail_received.emit(layer)
+
+    def blocking_get_layer_detail(self, layer_title: str) -> typing.Dict:
+        if self.username is not None:
+            self.blocking_login()
+        layer_detail_url = "?".join(
+            (
+                f"{self.base_url}/api/layers/",
+                urllib.parse.urlencode({"title": layer_title}),
+            )
         )
-        self.layer_detail_received.emit(layer)
+        request = urllib.request.Request(
+            layer_detail_url, headers={"Referer": self.base_url}, method="GET"
+        )
+        layer_detail_response = self.request_opener.open(request)
+        if layer_detail_response.status != 200:
+            raise IOError(f"Could not retrieve layer {layer_title!r} detail")
+        payload = json.load(layer_detail_response)
+        try:
+            layer_detail = payload["objects"][0]
+        except (KeyError, IndexError):
+            raise IOError(
+                f"Received unexpected API response for layer {layer_title!r} details: "
+                f"url: {layer_detail_url} "
+                f"payload: {payload} "
+                f"cookies: {self.python_cookie_jar._cookies[self.host]['/']}"
+            )
+        else:
+            return layer_detail
+
+    def blocking_get_style_detail(self, style_uri: str) -> models.BriefGeonodeStyle:
+        request = urllib.request.Request(
+            f"{self.base_url}{style_uri}",
+            headers={"Referer": self.base_url},
+            method="GET",
+        )
+        style_detail_response = self.request_opener.open(request)
+        if style_detail_response.status != 200:
+            raise IOError(f"Could not retrieve style {style_uri!r} detail")
+        style_detail = json.load(style_detail_response)
+        return models.BriefGeonodeStyle(
+            name=style_detail["name"],
+            sld_url=(
+                f"{self.base_url}{urllib.parse.urlparse(style_detail['sld_url']).path}"
+            ),
+        )
 
 
 def get_brief_geonode_resource(
@@ -140,7 +331,10 @@ def get_brief_geonode_resource(
 
 
 def get_geonode_resource(
-    record: ET.Element, geonode_base_url: str, auth_config: str
+    record: ET.Element,
+    geonode_base_url: str,
+    auth_config: str,
+    default_style: models.BriefGeonodeStyle,
 ) -> models.GeonodeResource:
     common_fields = _get_common_model_fields(record, geonode_base_url, auth_config)
 
@@ -155,6 +349,8 @@ def get_geonode_resource(
         constraints="",  # FIXME: get constraints from record
         owner="",  # FIXME: extract owner
         metadata_author="",  # FIXME: extract metadata author
+        default_style=default_style,
+        styles=[],
         **common_fields,
     )
 
@@ -448,14 +644,17 @@ def _get_wms_uri(
     auth_config: typing.Optional[str] = None,
     wms_format: typing.Optional[str] = "image/png",
 ) -> str:
-    wms_base_url = _find_protocol_linkage(record, "ogc:wms")
-    wms_uri = (
-        f"crs=EPSG:{crs.postgisSrid()}&format={wms_format}&layers={layer_name}&"
-        f"styles&url={wms_base_url}"
-    )
+    params = {
+        "url": _find_protocol_linkage(record, "ogc:wms"),
+        "format": wms_format,
+        "layers": layer_name,
+        "crs": f"EPSG:{crs.postgisSrid()}",
+        "styles": "",
+        "version": "auto",
+    }
     if auth_config is not None:
-        wms_uri += f"&authkey={auth_config}"
-    return wms_uri
+        params["authcfg"] = auth_config
+    return "&".join(f"{k}={v.replace('=', '%3D')}" for k, v in params.items())
 
 
 def _get_wcs_uri(
@@ -463,11 +662,13 @@ def _get_wcs_uri(
     layer_name: str,
     auth_config: typing.Optional[str] = None,
 ) -> str:
-    wcs_base_url = _find_protocol_linkage(record, "ogc:wcs")
-    wcs_uri = f"identifier={layer_name}&url={wcs_base_url}"
+    params = {
+        "identifier": layer_name,
+        "url": _find_protocol_linkage(record, "ogc:wcs"),
+    }
     if auth_config is not None:
-        wcs_uri += f"&authkey={auth_config}"
-    return wcs_uri
+        params["authcfg"] = auth_config
+    return "&".join(f"{k}={v.replace('=', '%3D')}" for k, v in params.items())
 
 
 def _get_wfs_uri(
@@ -475,11 +676,11 @@ def _get_wfs_uri(
     layer_name: str,
     auth_config: typing.Optional[str] = None,
 ) -> str:
-    wfs_base_url = _find_protocol_linkage(record, "ogc:wfs")
-    wfs_uri = (
-        f"{wfs_base_url}?service=WFS&version=1.1.0&"
-        f"request=GetFeature&typename={layer_name}"
-    )
+    params = {
+        "url": _find_protocol_linkage(record, "ogc:wfs"),
+        "typename": layer_name,
+        "version": "auto",
+    }
     if auth_config is not None:
-        wfs_uri += f"&authkey={auth_config}"
-    return wfs_uri
+        params["authcfg"] = auth_config
+    return " ".join(f"{k}='{v}'" for k, v in params.items())

@@ -6,9 +6,11 @@ from functools import partial
 
 from qgis.core import Qgis
 from qgis.gui import QgsMessageBar
-from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox, QSizePolicy
-from qgis.PyQt.QtGui import QRegExpValidator
-from qgis.PyQt.QtCore import QRegExp
+from qgis.PyQt import (
+    QtWidgets,
+    QtCore,
+    QtGui,
+)
 from qgis.PyQt.uic import loadUiType
 
 from ..apiclient import (
@@ -19,14 +21,16 @@ from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
     connections_manager,
+    get_api_version_settings_handler,
 )
+from ..utils import log
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
 )
 
 
-class ConnectionDialog(QDialog, DialogUi):
+class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     connection_id: uuid.UUID
     geonode_client: BaseGeonodeClient = None
 
@@ -43,19 +47,25 @@ class ConnectionDialog(QDialog, DialogUi):
         self.api_version_cmb.insertItems(
             0, [member.name for member in api_version_names]
         )
+        self.toggle_api_version_specific_widgets()
         self._widgets_to_toggle_during_connection_test = [
             self.test_connection_btn,
             self.buttonBox,
         ]
         self.bar = QgsMessageBar()
-        self.bar.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.bar.setSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         self.layout().insertWidget(0, self.bar)
+        self.api_version_cmb.currentTextChanged.connect(
+            self.toggle_api_version_specific_widgets
+        )
         if connection_settings is not None:
             self.connection_id = connection_settings.id
             self.load_connection_settings(connection_settings)
         else:
             self.connection_id = uuid.uuid4()
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
         ok_signals = [
             self.name_le.textChanged,
             self.url_le.textChanged,
@@ -66,8 +76,25 @@ class ConnectionDialog(QDialog, DialogUi):
         self.detect_version_btn.clicked.connect(self.initiate_api_version_detection)
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
-        self.name_le.setValidator(QRegExpValidator(QRegExp("[^\\/]+"), self.name_le))
+        self.name_le.setValidator(
+            QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le)
+        )
         self.update_ok_buttons()
+
+    def toggle_api_version_specific_widgets(self):
+        api_version = GeonodeApiVersion[self.api_version_cmb.currentText()]
+        handler = get_api_version_settings_handler(api_version)
+        box_name = "api_specific_gb"
+        previous_box = self.findChild(QtWidgets.QGroupBox, name=box_name)
+        log(f"previous_box: {previous_box}")
+        if previous_box is not None:
+            previous_box.deleteLater()
+        if handler is not None:
+            group_box = handler.get_widgets(
+                box_name, title=f"{api_version.name} version specific settings"
+            )
+            layout: QtWidgets.QBoxLayout = self.layout()
+            layout.insertWidget(4, group_box)
 
     def load_connection_settings(self, connection_settings: ConnectionSettings):
         self.name_le.setText(connection_settings.name)
@@ -75,15 +102,24 @@ class ConnectionDialog(QDialog, DialogUi):
         self.authcfg_acs.setConfigId(connection_settings.auth_config)
         self.api_version_cmb.setCurrentText(connection_settings.api_version.name)
         self.page_size_sb.setValue(connection_settings.page_size)
+        if connection_settings.api_version_settings is not None:
+            connection_settings.api_version_settings.fill_widgets(self)
 
     def get_connection_settings(self) -> ConnectionSettings:
+        api_version = GeonodeApiVersion[self.api_version_cmb.currentText().upper()]
+        handler = get_api_version_settings_handler(api_version)
+        if handler is not None:
+            version_settings = handler.from_widgets(self)
+        else:
+            version_settings = None
         return ConnectionSettings(
             id=self.connection_id,
             name=self.name_le.text().strip(),
             base_url=self.url_le.text().strip(),
             auth_config=self.authcfg_acs.configId(),
-            api_version=GeonodeApiVersion[self.api_version_cmb.currentText().upper()],
+            api_version=api_version,
             page_size=self.page_size_sb.value(),
+            api_version_settings=version_settings,
         )
 
     def test_connection(self):
@@ -111,10 +147,8 @@ class ConnectionDialog(QDialog, DialogUi):
         self.detect_api_version(self._autodetection_type_order[0])
 
     def detect_api_version(self, version: GeonodeApiVersion):
-
         connection_settings = self.get_connection_settings()
         connection_settings.api_version = version
-
         client = get_geonode_client(connection_settings)
         success_handler = partial(self.handle_autodetection_success, version)
         error_handler = partial(self.handle_autodetection_error, version)
@@ -147,5 +181,13 @@ class ConnectionDialog(QDialog, DialogUi):
 
     def update_ok_buttons(self):
         enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled_state)
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(enabled_state)
         self.test_connection_btn.setEnabled(enabled_state)
+
+
+def _clear_layout(layout: QtWidgets.QLayout):
+    while layout.count() > 0:
+        child = layout.takeAt(0)
+        widget = child.widget()
+        if widget is not None:
+            widget.deleteLater()

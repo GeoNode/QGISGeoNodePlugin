@@ -52,9 +52,9 @@ def test_get_brief_geonode_resource():
     assert result.category == "planningcadastre"
     assert (
         result.service_urls[models.GeonodeService.OGC_WFS]
-        == f"https://master.demo.geonode.org/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typename=geonode:tejo0&authkey={auth_config}"
+        == f"url='https://master.demo.geonode.org/geoserver/ows' typename='geonode:tejo0' version='auto' authcfg='{auth_config}'"
     )
     assert (
         result.service_urls[models.GeonodeService.OGC_WMS]
-        == f"crs=EPSG:4326&format=image/png&layers=geonode:tejo0&styles&url=https://master.demo.geonode.org/geoserver/ows&authkey={auth_config}"
+        == f"url=https://master.demo.geonode.org/geoserver/ows&format=image/png&layers=geonode:tejo0&crs=EPSG:4326&styles=&version=auto&authcfg={auth_config}"
     )
