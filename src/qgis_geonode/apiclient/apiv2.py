@@ -13,6 +13,7 @@ from qgis.PyQt.QtCore import (
     QUrlQuery,
 )
 
+from ..utils import log
 from . import models
 from .models import (
     GeonodeResourceType,
@@ -189,19 +190,19 @@ def _get_common_model_fields(
     if resource_type == GeonodeResourceType.VECTOR_LAYER:
         service_urls = {
             GeonodeService.OGC_WMS: _get_wms_uri(
-                auth_config, geonode_base_url, deserialized_resource
+                geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
             GeonodeService.OGC_WFS: _get_wfs_uri(
-                auth_config, geonode_base_url, deserialized_resource
+                geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
         }
     elif resource_type == GeonodeResourceType.RASTER_LAYER:
         service_urls = {
             GeonodeService.OGC_WMS: _get_wms_uri(
-                auth_config, geonode_base_url, deserialized_resource
+                geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
             GeonodeService.OGC_WCS: _get_wcs_uri(
-                auth_config, geonode_base_url, deserialized_resource
+                geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
         }
     elif resource_type == GeonodeResourceType.MAP:
@@ -306,25 +307,48 @@ def _get_published_date(payload: typing.Dict) -> typing.Optional[dt.datetime]:
     return result
 
 
-def _get_wms_uri(auth_config: str, base_url: str, payload: typing.Dict):
-    layer_name = f"{payload['workspace']}:{payload['name']}"
-    return (
-        f"crs={payload['srid']}&format=image/png&layers={layer_name}&"
-        f"styles&url={base_url}/geoserver/ows&authkey={auth_config}"
-    )
+def _get_wms_uri(
+        base_url: str,
+        payload: typing.Dict,
+        auth_config: typing.Optional[str] = None,
+) -> str:
+    params = {
+        "url": f"{base_url}/geoserver/ows",
+        "format": "image/png",
+        "layers": f"{payload['workspace']}:{payload['name']}",
+        "crs": payload['srid'],
+        "styles": "",
+        "version": "auto"
+    }
+    if auth_config is not None:
+        params["authcfg"] = auth_config
+    return "&".join(f"{k}={v.replace('=', '%3D')}" for k, v in params.items())
 
 
-def _get_wcs_uri(auth_config: str, base_url: str, payload: typing.Dict):
-    layer_name = f"{payload['workspace']}:{payload['name']}"
-    return (
-        f"identifier={layer_name}&url={base_url}/geoserver/ows&"
-        f"authkey={auth_config}"
-    )
+def _get_wcs_uri(
+        base_url: str,
+        payload: typing.Dict,
+        auth_config: typing.Optional[str] = None,
+) -> str:
+    params = {
+        "identifier": f"{payload['workspace']}:{payload['name']}",
+        "url": f"{base_url}/geoserver/ows"
+    }
+    if auth_config is not None:
+        params["authcfg"] = auth_config
+    return "&".join(f"{k}={v.replace('=', '%3D')}" for k, v in params.items())
 
 
-def _get_wfs_uri(auth_config: str, base_url: str, payload: typing.Dict):
-    layer_name = f"{payload['workspace']}:{payload['name']}"
-    return (
-        f"{base_url}/geoserver/ows?service=WFS&version=1.1.0&"
-        f"request=GetFeature&typename={layer_name}&authkey={auth_config}"
-    )
+def _get_wfs_uri(
+        base_url: str,
+        payload: typing.Dict,
+        auth_config: typing.Optional[str] = None
+) -> str:
+    params = {
+        "url": f"{base_url}/geoserver/ows",
+        "typename": f"{payload['workspace']}:{payload['name']}",
+        "version": "auto",
+    }
+    if auth_config is not None:
+        params["authcfg"] = auth_config
+    return " ".join(f"{k}='{v}'" for k, v in params.items())

@@ -277,27 +277,42 @@ class GeonodeCswClient(BaseGeonodeClient):
             self.layer_detail_received.emit(layer)
 
     def blocking_get_layer_detail(self, layer_title: str) -> typing.Dict:
+        if self.username is not None:
+            self.blocking_login()
         layer_detail_url = "?".join(
             (
                 f"{self.base_url}/api/layers/",
                 urllib.parse.urlencode({"title": layer_title}),
             )
         )
-        layer_detail_response = self.request_opener.open(layer_detail_url)
+        request = urllib.request.Request(
+            layer_detail_url,
+            headers={"Referer": self.base_url},
+            method="GET"
+        )
+        layer_detail_response = self.request_opener.open(request)
         if layer_detail_response.status != 200:
             raise IOError(f"Could not retrieve layer {layer_title!r} detail")
         payload = json.load(layer_detail_response)
         try:
             layer_detail = payload["objects"][0]
-        except KeyError:
+        except (KeyError, IndexError):
             raise IOError(
-                f"Received unexpected API response for layer {layer_title!r} detail"
+                f"Received unexpected API response for layer {layer_title!r} details: "
+                f"url: {layer_detail_url} "
+                f"payload: {payload} "
+                f"cookies: {self.python_cookie_jar._cookies[self.host]['/']}"
             )
         else:
             return layer_detail
 
     def blocking_get_style_detail(self, style_uri: str) -> models.BriefGeonodeStyle:
-        style_detail_response = self.request_opener.open(f"{self.base_url}{style_uri}")
+        request = urllib.request.Request(
+            f"{self.base_url}{style_uri}",
+            headers={"Referer": self.base_url},
+            method="GET"
+        )
+        style_detail_response = self.request_opener.open(request)
         if style_detail_response.status != 200:
             raise IOError(f"Could not retrieve style {style_uri!r} detail")
         style_detail = json.load(style_detail_response)
@@ -631,14 +646,17 @@ def _get_wms_uri(
     auth_config: typing.Optional[str] = None,
     wms_format: typing.Optional[str] = "image/png",
 ) -> str:
-    wms_base_url = _find_protocol_linkage(record, "ogc:wms")
-    wms_uri = (
-        f"crs=EPSG:{crs.postgisSrid()}&format={wms_format}&layers={layer_name}&"
-        f"styles&url={wms_base_url}"
-    )
+    params = {
+        "url": _find_protocol_linkage(record, "ogc:wms"),
+        "format": wms_format,
+        "layers": layer_name,
+        "crs": f"EPSG:{crs.postgisSrid()}",
+        "styles": "",
+        "version": "auto"
+    }
     if auth_config is not None:
-        wms_uri += f"&authkey={auth_config}"
-    return wms_uri
+        params["authcfg"] = auth_config
+    return "&".join(f"{k}={v.replace('=', '%3D')}" for k, v in params.items())
 
 
 def _get_wcs_uri(
@@ -646,11 +664,13 @@ def _get_wcs_uri(
     layer_name: str,
     auth_config: typing.Optional[str] = None,
 ) -> str:
-    wcs_base_url = _find_protocol_linkage(record, "ogc:wcs")
-    wcs_uri = f"identifier={layer_name}&url={wcs_base_url}"
+    params = {
+        "identifier": layer_name,
+        "url": _find_protocol_linkage(record, "ogc:wcs")
+    }
     if auth_config is not None:
-        wcs_uri += f"&authkey={auth_config}"
-    return wcs_uri
+        params["authcfg"] = auth_config
+    return "&".join(f"{k}={v.replace('=', '%3D')}" for k, v in params.items())
 
 
 def _get_wfs_uri(
@@ -658,11 +678,11 @@ def _get_wfs_uri(
     layer_name: str,
     auth_config: typing.Optional[str] = None,
 ) -> str:
-    wfs_base_url = _find_protocol_linkage(record, "ogc:wfs")
-    wfs_uri = (
-        f"{wfs_base_url}?service=WFS&version=1.1.0&"
-        f"request=GetFeature&typename={layer_name}"
-    )
+    params = {
+        "url": _find_protocol_linkage(record, "ogc:wfs"),
+        "typename": layer_name,
+        "version": "auto",
+    }
     if auth_config is not None:
-        wfs_uri += f"&authkey={auth_config}"
-    return wfs_uri
+        params["authcfg"] = auth_config
+    return " ".join(f"{k}='{v}'" for k, v in params.items())
