@@ -1,4 +1,5 @@
 import os
+import re
 import typing
 import uuid
 from functools import partial
@@ -175,6 +176,13 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     def accept(self):
         connection_settings = self.get_connection_settings()
+        existing_names = [c.name for c in connections_manager.list_connections()]
+        name_pattern = re.compile(
+            f"^{connection_settings.name}$|^{connection_settings.name}(\(\d+\))$"
+        )
+        duplicates = [n for n in existing_names if name_pattern.search(n)]
+        if len(duplicates) > 0:
+            connection_settings.name = f"{connection_settings.name}({len(duplicates)})"
         connections_manager.save_connection_settings(connection_settings)
         connections_manager.set_current_connection(connection_settings.id)
         super().accept()
