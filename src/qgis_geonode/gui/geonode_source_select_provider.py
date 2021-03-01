@@ -1,8 +1,6 @@
 import logging
-import math
 import os
 import typing
-import uuid
 
 from qgis.core import (
     QgsProject,
@@ -24,7 +22,6 @@ from qgis.PyQt.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,
     QWidget,
-    QLabel,
 )
 
 from ..apiclient import get_geonode_client
@@ -71,26 +68,17 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.setupUi(self)
         self.project = QgsProject.instance()
         self.resource_types_btngrp.buttonClicked.connect(self.toggle_search_buttons)
-        self.connections_cmb.currentIndexChanged.connect(
-            self.toggle_connection_management_buttons
-        )
-        self.connections_cmb.currentIndexChanged.connect(self.update_current_connection)
         self.btnNew.clicked.connect(self.add_connection)
         self.btnEdit.clicked.connect(self.edit_connection)
         self.btnDelete.clicked.connect(self.delete_connection)
-        self.toggle_connection_management_buttons()
-        connections_manager.current_connection_changed.connect(
-            self.update_connections_combobox
+        self.connections_cmb.currentIndexChanged.connect(
+            self.toggle_connection_management_buttons
         )
+        self.connections_cmb.currentIndexChanged.connect(self.toggle_search_controls)
         self.update_connections_combobox()
-        current_connection = connections_manager.get_current_connection()
-        if current_connection is None:
-            existing_connections = connections_manager.list_connections()
-            if len(existing_connections) > 0:
-                current_connection = existing_connections[0]
-                connections_manager.set_current_connection(current_connection.id)
-        else:
-            self.update_connections_combobox(str(current_connection.id))
+        self.toggle_connection_management_buttons()
+        self.connections_cmb.activated.connect(self.update_current_connection)
+
         self.current_page = 1
         self.search_btn.clicked.connect(self.search_geonode)
         self.next_btn.clicked.connect(self.request_next_page)
@@ -110,45 +98,53 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def add_connection(self):
         connection_dialog = ConnectionDialog()
         connection_dialog.exec_()
+        self.update_connections_combobox()
 
     def edit_connection(self):
         selected_name = self.connections_cmb.currentText()
         connection_settings = connections_manager.find_connection_by_name(selected_name)
         connection_dialog = ConnectionDialog(connection_settings=connection_settings)
         connection_dialog.exec_()
+        self.update_connections_combobox()
 
     def delete_connection(self):
         name = self.connections_cmb.currentText()
         current_connection = connections_manager.find_connection_by_name(name)
         if self._confirm_deletion(name):
             existing_connections = connections_manager.list_connections()
-            current_index = self.connections_cmb.currentIndex()
-            if current_index > 0:
-                next_current_connection = existing_connections[current_index - 1]
-            elif current_index == 0 and len(existing_connections) > 1:
-                next_current_connection = existing_connections[current_index + 1]
-            else:
+            if len(existing_connections) == 1:
                 next_current_connection = None
+            else:
+                for i in range(len(existing_connections)):
+                    current_ = existing_connections[i]
+                    if current_.id == current_connection.id:
+                        try:
+                            next_current_connection = existing_connections[i - 1]
+                        except IndexError:
+                            try:
+                                next_current_connection = existing_connections[i + 1]
+                            except IndexError:
+                                next_current_connection = None
+                        break
+                else:
+                    next_current_connection = None
+
             connections_manager.delete_connection(current_connection.id)
             if next_current_connection is not None:
                 connections_manager.set_current_connection(next_current_connection.id)
+            self.update_connections_combobox()
 
-    def update_connections_combobox(
-        self, current_identifier: typing.Optional[str] = ""
-    ):
-
+    def update_connections_combobox(self):
         existing_connections = connections_manager.list_connections()
-
-        if self.connections_cmb.count() != len(existing_connections):
-            self.connections_cmb.clear()
+        self.connections_cmb.clear()
+        if len(existing_connections) > 0:
             self.connections_cmb.addItems(conn.name for conn in existing_connections)
-        if current_identifier != "":
-            current_connection = connections_manager.get_connection_settings(
-                uuid.UUID(current_identifier)
-            )
-            if current_connection.name != self.connections_cmb.currentText():
+            current_connection = connections_manager.get_current_connection()
+            if current_connection is not None:
                 current_index = self.connections_cmb.findText(current_connection.name)
                 self.connections_cmb.setCurrentIndex(current_index)
+            else:
+                self.connections_cmb.setCurrentIndex(0)
 
     def toggle_search_buttons(self):
         search_buttons = (
@@ -166,19 +162,22 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             button.setEnabled(enabled)
 
     def toggle_connection_management_buttons(self):
-        enabled = len(connections_manager.list_connections()) > 0
+        current_name = self.connections_cmb.currentText()
+        enabled = current_name != ""
         self.btnEdit.setEnabled(enabled)
         self.btnDelete.setEnabled(enabled)
+
+    def toggle_search_controls(self):
+        current_name = self.connections_cmb.currentText()
+        enabled = current_name != ""
         self.search_btn.setEnabled(enabled)
         self.clear_search()
         self.current_page = 1
 
-    def update_current_connection(self):
-        if self.connections_cmb.currentText() != "":
-            current_connection = connections_manager.find_connection_by_name(
-                self.connections_cmb.currentText()
-            )
-            connections_manager.set_current_connection(current_connection.id)
+    def update_current_connection(self, current_index: int):
+        current_text = self.connections_cmb.itemText(current_index)
+        current_connection = connections_manager.find_connection_by_name(current_text)
+        connections_manager.set_current_connection(current_connection.id)
 
     def _confirm_deletion(self, connection_name: str):
         message = tr('Remove the following connection "{}"?').format(connection_name)
