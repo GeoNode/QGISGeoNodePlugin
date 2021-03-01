@@ -217,10 +217,10 @@ class ConnectionManager(QtCore.QObject):
                 )
 
     def delete_connection(self, connection_id: uuid.UUID):
-        with qgis_settings(f"{self.BASE_GROUP_NAME}/connections") as settings:
-            settings.remove(str(connection_id))
         if self.is_current_connection(connection_id):
             self.clear_current_connection()
+        with qgis_settings(f"{self.BASE_GROUP_NAME}/connections") as settings:
+            settings.remove(str(connection_id))
 
     def get_current_connection(self) -> typing.Optional[ConnectionSettings]:
         with qgis_settings(self.BASE_GROUP_NAME) as settings:
