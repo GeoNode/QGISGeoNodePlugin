@@ -31,9 +31,12 @@ class GithubRelease:
 
 
 @app.callback()
-def main(context: typer.Context, verbose: bool = False):
+def main(context: typer.Context, verbose: bool = False, qgis_profile: str = "default"):
     """Perform various development-oriented tasks for this plugin"""
-    context.obj = {"verbose": verbose}
+    context.obj = {
+        "verbose": verbose,
+        "qgis_profile": qgis_profile,
+    }
 
 
 @app.command()
@@ -352,12 +355,10 @@ def _log(msg, *args, context: typing.Optional[typer.Context] = None, **kwargs):
 
 
 def _get_qgis_root_dir(context: typing.Optional[typer.Context] = None) -> Path:
-    conf = _parse_pyproject()
-    try:
-        profile = conf["tool"]["qgis-plugin"]["dev"]["profile"]
-    except KeyError:
-        profile = "default"
-    return Path.home() / f".local/share/QGIS/QGIS3/profiles/{profile}"
+    return (
+            Path.home() /
+            f".local/share/QGIS/QGIS3/profiles/{context.obj['qgis_profile']}"
+    )
 
 
 def _get_existing_releases(
