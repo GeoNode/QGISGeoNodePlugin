@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>790</width>
-    <height>670</height>
+    <width>728</width>
+    <height>740</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -335,7 +335,20 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_11">
+    <layout class="QHBoxLayout" name="horizontalLayout_7">
+     <item>
+      <spacer name="horizontalSpacer_4">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
      <item>
       <widget class="QLabel" name="label_7">
        <property name="enabled">
@@ -347,44 +360,54 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBox_6">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnSave_3">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="toolTip">
-        <string>Save connections to file</string>
-       </property>
-       <property name="text">
-        <string>Save</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btnLoad_3">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="toolTip">
-        <string>Load connections from file</string>
-       </property>
-       <property name="text">
-        <string>Load</string>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="horizontalLayout_6">
+       <item>
+        <widget class="QComboBox" name="comboBox_6">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnSave_3">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="toolTip">
+          <string>Save connections to file</string>
+         </property>
+         <property name="text">
+          <string>Save</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnLoad_3">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="toolTip">
+          <string>Load connections from file</string>
+         </property>
+         <property name="text">
+          <string>Load</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
+    <layout class="QHBoxLayout" name="horizontalLayout_8">
      <item>
       <widget class="QPushButton" name="search_btn">
+       <property name="minimumSize">
+        <size>
+         <width>143</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="toolTip">
         <string>Load connections from file</string>
        </property>
@@ -394,21 +417,48 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label_9">
-       <property name="text">
-        <string>Sort results by</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QComboBox" name="sort_field_cmb"/>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="reverse_order_chk">
-       <property name="text">
-        <string>Reverse Order</string>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="horizontalLayout_5">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <widget class="QLabel" name="label_9">
+           <property name="styleSheet">
+            <string notr="true">padding-left:25%;</string>
+           </property>
+           <property name="text">
+            <string>Sort results by</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="sort_field_cmb">
+           <property name="minimumSize">
+            <size>
+             <width>143</width>
+             <height>0</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="reverse_order_chk">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="layoutDirection">
+          <enum>Qt::LeftToRight</enum>
+         </property>
+         <property name="text">
+          <string>Reverse order</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -499,7 +549,6 @@
   <zorder>scroll_area</zorder>
   <zorder>groupBox</zorder>
   <zorder>search_group_box</zorder>
-  <zorder>search_btn</zorder>
   <zorder>buttonBox</zorder>
   <zorder>title_le</zorder>
   <zorder>label</zorder>

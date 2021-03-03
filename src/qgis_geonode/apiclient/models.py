@@ -24,6 +24,10 @@ class GeonodeResourceType(enum.Enum):
     MAP = "map"
 
 
+class OrderingType(enum.Enum):
+    TITLE = "title"
+
+
 @dataclasses.dataclass
 class GeoNodePaginationInfo:
     total_records: int

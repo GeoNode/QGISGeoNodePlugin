@@ -55,7 +55,7 @@ class BaseGeonodeClient(QObject):
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
         layer_type: typing.Optional[models.GeonodeResourceType] = None,
-        ordering_field: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
     ) -> QUrl:
         raise NotImplementedError
@@ -73,7 +73,7 @@ class BaseGeonodeClient(QObject):
         title: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
-        ordering_field: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
     ) -> QUrl:
         raise NotImplementedError
@@ -121,7 +121,7 @@ class BaseGeonodeClient(QObject):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
-        ordering_field: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
     ):
         url = self.get_layers_url_endpoint(
@@ -173,7 +173,7 @@ class BaseGeonodeClient(QObject):
         title: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
-        ordering_field: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
     ):
         url = self.get_maps_url_endpoint(

@@ -217,6 +217,10 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         search_vector = self.vector_chb.isChecked()
         search_raster = self.raster_chb.isChecked()
         search_map = self.map_chb.isChecked()
+
+        if self.sort_field_cmb.currentText() is not None:
+            sorting_field = models.OrderingType[self.sort_field_cmb.currentText().upper()]
+
         if any((search_vector, search_raster, search_map)):
             if search_vector:
                 resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
@@ -237,7 +241,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 keyword=self.keyword_cmb.currentText() or None,
                 topic_category=self.category_cmb.currentText().lower() or None,
                 layer_types=resource_types,
-                ordering_field=self.sort_field_cmb.currentText().lower() or None,
+                ordering_field=sorting_field or models.OrderingType.TITLE,
                 reverse_ordering=self.reverse_order_chk.isChecked(),
             )
 
@@ -332,10 +336,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def load_sorting_fields(self):
         self.sort_field_cmb.addItems(
             [
-                "",
-                tr("Name"),
-                tr("Title"),
-                tr("Abstract"),
+                tr('Title'),
             ]
         )
 
