@@ -13,6 +13,7 @@ nav:
   - Development: 'development.md'
   - About: 'about.md'
   - QGIS Repo: 'repo/plugins.xml'
+  - Changelog: 'changelog-base.md'
 
 theme:
   name: material
@@ -26,6 +27,8 @@ theme:
 markdown_extensions:
   - toc:
       permalink: true
+  - pymdownx.snippets:
+      base_path: .
   - admonition
 
 plugins:
