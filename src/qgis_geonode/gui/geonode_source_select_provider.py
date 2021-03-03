@@ -1,6 +1,7 @@
 import logging
 import os
 import typing
+from functools import partial
 
 from qgis.core import (
     QgsProject,
@@ -80,7 +81,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.connections_cmb.activated.connect(self.update_current_connection)
 
         self.current_page = 1
-        self.search_btn.clicked.connect(self.search_geonode)
+        self.search_btn.clicked.connect(
+            partial(self.search_geonode, reset_pagination=True)
+        )
         self.next_btn.clicked.connect(self.request_next_page)
         self.previous_btn.clicked.connect(self.request_previous_page)
         self.next_btn.setEnabled(False)
@@ -195,7 +198,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.current_page = max(self.current_page - 1, 1)
         self.search_geonode()
 
-    def search_geonode(self):
+    def search_geonode(self, reset_pagination: bool = False):
         self.clear_search()
         self.search_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
@@ -223,6 +226,8 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             # FIXME: Implement these as search filters
             start = self.start_dte.dateTime()
             end = self.end_dte.dateTime()
+            if reset_pagination:
+                self.current_page = 1
             client.get_layers(
                 page=self.current_page,
                 page_size=connection_settings.page_size,
