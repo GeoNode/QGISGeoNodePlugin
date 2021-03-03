@@ -82,7 +82,8 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
 
         self.current_page = 1
         self.search_btn.clicked.connect(
-            partial(self.search_geonode, reset_pagination=True))
+            partial(self.search_geonode, reset_pagination=True)
+        )
         self.next_btn.clicked.connect(self.request_next_page)
         self.previous_btn.clicked.connect(self.request_previous_page)
         self.next_btn.setEnabled(False)
