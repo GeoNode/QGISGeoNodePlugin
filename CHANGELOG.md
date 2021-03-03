@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Reset pagination when pressing Search button
+- Remove unused Add/Close buttons on datasource manager dialogue
+- Move Title search filter out of the collapsible group, so that it is easier to access
+- Add Changelog to the online documentation
+- Further improve the look of search results
 
 
 ## [0.2.0] - 2021-02-28

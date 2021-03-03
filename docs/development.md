@@ -74,7 +74,7 @@ Installing QGIS Python bindings into the Python virtual environment only needs t
 
 Finally, run tests with:
 
-``
+```
 poetry run pytest
 ```
 
