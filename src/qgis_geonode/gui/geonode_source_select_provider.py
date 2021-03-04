@@ -13,9 +13,12 @@ from qgis.gui import (
     QgsSourceSelectProvider,
 )
 
-from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtNetwork import QNetworkReply
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt import (
+    QtCore,
+    QtGui,
+    QtNetwork,
+    QtWidgets,
+)
 from qgis.PyQt.uic import loadUiType
 
 from qgis.PyQt.QtWidgets import (
@@ -51,7 +54,7 @@ class GeonodeSourceSelectProvider(QgsSourceSelectProvider):
         return "geonodeprovider"
 
     def icon(self):
-        return QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
+        return QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
 
     def text(self):
         return tr("GeoNode Plugin Provider")
@@ -64,6 +67,11 @@ class GeonodeSourceSelectProvider(QgsSourceSelectProvider):
 
 
 class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
+    sort_field_cmb: QtWidgets.QComboBox
+    search_btn: QtWidgets.QPushButton
+    next_btn: QtWidgets.QPushButton
+    previous_btn: QtWidgets.QPushButton
+
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
@@ -81,6 +89,13 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.connections_cmb.activated.connect(self.update_current_connection)
 
         self.current_page = 1
+        self.search_btn.setIcon(QtGui.QIcon(":/images/themes/default/search.svg"))
+        self.next_btn.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionAtlasNext.svg")
+        )
+        self.previous_btn.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionAtlasPrev.svg")
+        )
         self.search_btn.clicked.connect(
             partial(self.search_geonode, reset_pagination=True)
         )
@@ -97,6 +112,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.start_dte.clear()
         self.end_dte.clear()
         self.load_categories()
+        self.load_sorting_fields(selected_by_default=models.OrderingType.NAME)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -198,6 +214,13 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.current_page = max(self.current_page - 1, 1)
         self.search_geonode()
 
+    def _get_api_client(self):
+        connection_name = self.connections_cmb.currentText()
+        connection_settings = connections_manager.find_connection_by_name(
+            connection_name
+        )
+        return get_geonode_client(connection_settings)
+
     def search_geonode(self, reset_pagination: bool = False):
         self.clear_search()
         self.search_btn.setEnabled(False)
@@ -208,7 +231,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         connection_settings = connections_manager.find_connection_by_name(
             connection_name
         )
-        client = get_geonode_client(connection_settings)
+        client = self._get_api_client()
         client.layer_list_received.connect(self.handle_layer_list)
         client.layer_list_received.connect(self.handle_pagination)
         client.error_received.connect(self.show_search_error)
@@ -236,12 +259,16 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
                 keyword=self.keyword_cmb.currentText() or None,
                 topic_category=self.category_cmb.currentText().lower() or None,
                 layer_types=resource_types,
+                ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
+                reverse_ordering=self.reverse_order_chk.isChecked(),
             )
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
         self.search_btn.setEnabled(True)
-        network_error_enum = enum_mapping(QNetworkReply, QNetworkReply.NetworkError)
+        network_error_enum = enum_mapping(
+            QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError
+        )
         self.message_bar.pushMessage(
             tr("Problem in searching, network error {} - {}").format(
                 error, network_error_enum[error]
@@ -282,15 +309,18 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         layout = QVBoxLayout()
         layout.setContentsMargins(1, 1, 1, 1)
         layout.setSpacing(1)
+        client = self._get_api_client()
         for layer in layers:
             search_result_widget = SearchResultWidget(
-                self.message_bar, geonode_resource=layer
+                self.message_bar,
+                geonode_resource=layer,
+                api_client=client,
             )
             layout.addWidget(search_result_widget)
-            layout.setAlignment(search_result_widget, Qt.AlignTop)
+            layout.setAlignment(search_result_widget, QtCore.Qt.AlignTop)
         scroll_container.setLayout(layout)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(scroll_container)
 
@@ -326,11 +356,20 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
             ]
         )
 
+    def load_sorting_fields(self, selected_by_default: models.OrderingType):
+        labels = {
+            models.OrderingType.NAME: tr("Name"),
+        }
+        for ordering_type, item_text in labels.items():
+            self.sort_field_cmb.addItem(item_text, ordering_type)
+        self.sort_field_cmb.setCurrentIndex(
+            self.sort_field_cmb.findData(selected_by_default, role=QtCore.Qt.UserRole)
+        )
+
     def search_keywords(self):
         connection_name = self.connections_cmb.currentText()
         if connection_name:
-            connection = connections_manager.find_connection_by_name(connection_name)
-            client = get_geonode_client(connection)
+            client = self._get_api_client()
             client.keyword_list_received.connect(self.update_keywords)
             client.error_received.connect(self.show_search_error)
 

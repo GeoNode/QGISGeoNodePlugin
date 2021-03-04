@@ -46,6 +46,18 @@ class BaseGeonodeClient(QObject):
             auth_config=connection_settings.auth_config,
         )
 
+    def get_ordering_filter_name(
+        self,
+        ordering_type: models.OrderingType,
+        reverse_sort: typing.Optional[bool] = False,
+    ) -> str:
+        raise NotImplementedError
+
+    def get_search_result_identifier(
+        self, resource: models.BriefGeonodeResource
+    ) -> str:
+        raise NotImplementedError
+
     def get_layers_url_endpoint(
         self,
         page: typing.Optional[int] = 1,
@@ -55,6 +67,8 @@ class BaseGeonodeClient(QObject):
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
         layer_type: typing.Optional[models.GeonodeResourceType] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ) -> QUrl:
         raise NotImplementedError
 
@@ -71,6 +85,8 @@ class BaseGeonodeClient(QObject):
         title: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ) -> QUrl:
         raise NotImplementedError
 
@@ -117,6 +133,8 @@ class BaseGeonodeClient(QObject):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ):
         url = self.get_layers_url_endpoint(
             title=title,
@@ -126,6 +144,8 @@ class BaseGeonodeClient(QObject):
             layer_types=layer_types,
             page=page,
             page_size=page_size,
+            ordering_field=ordering_field,
+            reverse_ordering=reverse_ordering,
         )
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
@@ -165,6 +185,8 @@ class BaseGeonodeClient(QObject):
         title: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ):
         url = self.get_maps_url_endpoint(
             page=page,
@@ -172,6 +194,8 @@ class BaseGeonodeClient(QObject):
             title=title,
             keyword=keyword,
             topic_category=topic_category,
+            ordering_field=ordering_field,
+            reverse_ordering=reverse_ordering,
         )
         request = QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)

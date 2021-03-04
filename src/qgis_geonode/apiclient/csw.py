@@ -26,6 +26,7 @@ from ..utils import log
 from . import models
 from .base import BaseGeonodeClient
 from .models import GeonodeService
+from ..utils import log
 
 
 class Csw202Namespace(enum.Enum):
@@ -87,6 +88,34 @@ class GeonodeCswClient(BaseGeonodeClient):
             result = None
         return result
 
+    def get_ordering_filter_name(
+        self,
+        ordering_type: models.OrderingType,
+        reverse_sort: typing.Optional[bool] = False,
+    ) -> str:
+        """Return name of the term that is sent to the CSW API when performing searches.
+
+        The CSW specification (and also ISO AP) only define `Title` as a core queryable
+        therefore, for the `name` case we search for title instead.
+
+        """
+
+        name = {
+            models.OrderingType.NAME: "apiso:Title",
+        }[ordering_type]
+        return f"{name}:{'D' if reverse_sort else 'A'}"
+
+    def get_search_result_identifier(
+        self, resource: models.BriefGeonodeResource
+    ) -> str:
+        """Field that should be shown on the QGIS GUI as the layer identifier
+
+        In order to be consistent with the search filter, we use the `title` property.
+
+        """
+
+        return resource.title
+
     def get_layers_url_endpoint(
         self,
         title: typing.Optional[str] = None,
@@ -96,6 +125,8 @@ class GeonodeCswClient(BaseGeonodeClient):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.catalogue_url}")
         query = QtCore.QUrlQuery()
@@ -108,6 +139,12 @@ class GeonodeCswClient(BaseGeonodeClient):
         query.addQueryItem("typenames", self.TYPE_NAME)
         query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
         query.addQueryItem("elementsetname", "full")
+
+        if ordering_field is not None:
+            ordering_value = self.get_ordering_filter_name(
+                ordering_field, reverse_ordering
+            )
+            query.addQueryItem("sortby", ordering_value)
         # if any((title, abstract, keyword, topic_category, layer_types)):
         #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
         #     constraint_values = []
@@ -172,6 +209,8 @@ class GeonodeCswClient(BaseGeonodeClient):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ):
         """Get layers from the CSW endpoint
 
@@ -202,7 +241,15 @@ class GeonodeCswClient(BaseGeonodeClient):
             else:
                 raise RuntimeError("Unable to login")
         super().get_layers(
-            title, abstract, keyword, topic_category, layer_types, page, page_size
+            title,
+            abstract,
+            keyword,
+            topic_category,
+            layer_types,
+            page,
+            page_size,
+            ordering_field,
+            reverse_ordering,
         )
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
@@ -213,13 +260,13 @@ class GeonodeCswClient(BaseGeonodeClient):
     def handle_layer_list(self, payload: ET.Element):
         layers = []
         search_results = payload.find(f"{{{Csw202Namespace.CSW.value}}}SearchResults")
-        total = int(search_results.attrib["numberOfRecordsMatched"])
-        next_record = int(search_results.attrib["nextRecord"])
-        if next_record == 0:  # reached the last page
-            current_page = int(math.ceil(total / self.PAGE_SIZE))
-        else:
-            current_page = int((next_record - 1) / self.PAGE_SIZE)
         if search_results is not None:
+            total = int(search_results.attrib["numberOfRecordsMatched"])
+            next_record = int(search_results.attrib["nextRecord"])
+            if next_record == 0:  # reached the last page
+                current_page = max(int(math.ceil(total / self.PAGE_SIZE)), 1)
+            else:
+                current_page = max(int((next_record - 1) / self.PAGE_SIZE), 1)
             items = search_results.findall(
                 f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"
             )
@@ -227,12 +274,17 @@ class GeonodeCswClient(BaseGeonodeClient):
                 layers.append(
                     get_brief_geonode_resource(item, self.base_url, self.auth_config)
                 )
+            pagination_info = models.GeoNodePaginationInfo(
+                total_records=total, current_page=current_page, page_size=self.PAGE_SIZE
+            )
+            self.layer_list_received.emit(layers, pagination_info)
         else:
-            raise RuntimeError("Could not find search results")
-        pagination_info = models.GeoNodePaginationInfo(
-            total_records=total, current_page=current_page, page_size=self.PAGE_SIZE
-        )
-        self.layer_list_received.emit(layers, pagination_info)
+            self.layer_list_received.emit(
+                layers,
+                models.GeoNodePaginationInfo(
+                    total_records=0, current_page=1, page_size=self.PAGE_SIZE
+                ),
+            )
 
     def handle_layer_detail(self, payload: ET.Element):
         """Parse the input payload into a GeonodeResource instance
@@ -375,14 +427,18 @@ def _get_common_model_fields(
             f"{{{Csw202Namespace.GMD.value}}}RS_Identifier"
         )
     )
-    layer_name = record.find(
-        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-        f"{{{Csw202Namespace.GMD.value}}}citation/"
-        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
-        f"{{{Csw202Namespace.GMD.value}}}name/"
-        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-    ).text
+    layer_name = (
+        record.find(
+            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+            f"{{{Csw202Namespace.GMD.value}}}citation/"
+            f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+            f"{{{Csw202Namespace.GMD.value}}}name/"
+            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+        ).text
+        or ""
+    )
+
     resource_type = _get_resource_type(record)
     if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
         service_urls = {

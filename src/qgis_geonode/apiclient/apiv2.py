@@ -29,6 +29,21 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     def api_url(self):
         return f"{self.base_url}{self._api_path}"
 
+    def get_ordering_filter_name(
+        self,
+        ordering_type: models.OrderingType,
+        reverse_sort: typing.Optional[bool] = False,
+    ) -> str:
+        name = {
+            models.OrderingType.NAME: "name",
+        }[ordering_type]
+        return f"{'-' if reverse_sort else ''}{name}"
+
+    def get_search_result_identifier(
+        self, resource: models.BriefGeonodeResource
+    ) -> str:
+        return resource.name
+
     def get_layers_url_endpoint(
         self,
         title: typing.Optional[str] = None,
@@ -38,6 +53,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
         query = QUrlQuery()
@@ -70,6 +87,11 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("filter{storeType}", "coverageStore")
         else:
             raise NotImplementedError
+        if ordering_field is not None:
+            ordering_field_value = self.get_ordering_filter_name(
+                ordering_field, reverse_sort=reverse_ordering
+            )
+            query.addQueryItem("sort[]", ordering_field_value)
         url.setQuery(query.query())
         return url
 
@@ -86,6 +108,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         title: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/maps/")
         query = QUrlQuery()
@@ -97,6 +121,12 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("filter{keywords.name.icontains}", keyword)
         if topic_category:
             query.addQueryItem("filter{category.identifier}", topic_category)
+
+        if ordering_field is not None:
+            ordering_field_value = self.get_ordering_filter_name(
+                ordering_field, reverse_sort=reverse_ordering
+            )
+            query.addQueryItem("sort[]", ordering_field_value)
         url.setQuery(query.query())
         return url
 
