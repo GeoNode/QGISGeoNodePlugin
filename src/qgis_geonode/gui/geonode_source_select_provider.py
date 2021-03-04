@@ -219,7 +219,9 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         search_map = self.map_chb.isChecked()
 
         if self.sort_field_cmb.currentText() is not None:
-            sorting_field = models.OrderingType[self.sort_field_cmb.currentText().upper()]
+            sorting_field = models.OrderingType[
+                self.sort_field_cmb.currentText().upper()
+            ]
 
         if any((search_vector, search_raster, search_map)):
             if search_vector:
@@ -336,7 +338,7 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
     def load_sorting_fields(self):
         self.sort_field_cmb.addItems(
             [
-                tr('Title'),
+                tr("Title"),
             ]
         )
 

@@ -182,6 +182,8 @@ class GeonodeCswClient(BaseGeonodeClient):
         layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
         page: typing.Optional[int] = 1,
         page_size: typing.Optional[int] = 10,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
     ):
         """Get layers from the CSW endpoint
 
@@ -212,7 +214,15 @@ class GeonodeCswClient(BaseGeonodeClient):
             else:
                 raise RuntimeError("Unable to login")
         super().get_layers(
-            title, abstract, keyword, topic_category, layer_types, page, page_size
+            title,
+            abstract,
+            keyword,
+            topic_category,
+            layer_types,
+            page,
+            page_size,
+            ordering_field,
+            reverse_ordering,
         )
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
@@ -242,9 +252,12 @@ class GeonodeCswClient(BaseGeonodeClient):
             )
             self.layer_list_received.emit(layers, pagination_info)
         else:
-            self.layer_list_received.emit(layers, models.GeoNodePaginationInfo(
-                total_records=0, current_page=1, page_size=self.PAGE_SIZE
-            ))
+            self.layer_list_received.emit(
+                layers,
+                models.GeoNodePaginationInfo(
+                    total_records=0, current_page=1, page_size=self.PAGE_SIZE
+                ),
+            )
 
     def handle_layer_detail(self, payload: ET.Element):
         """Parse the input payload into a GeonodeResource instance
@@ -395,7 +408,7 @@ def _get_common_model_fields(
         f"{{{Csw202Namespace.GMD.value}}}name/"
         f"{{{Csw202Namespace.GCO.value}}}CharacterString"
     )
-    layer_name = layer.text if layer is not None else ''
+    layer_name = layer.text if layer is not None else ""
 
     resource_type = _get_resource_type(record)
     if resource_type == models.GeonodeResourceType.VECTOR_LAYER:

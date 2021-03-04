@@ -77,8 +77,11 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             # current GeoNode API V2 doesn't support
             # ordering using  'title' field, so we default to 'name'
 
-            value = ordering_field.value \
-                if ordering_field != models.OrderingType.TITLE else 'name'
+            value = (
+                ordering_field.value
+                if ordering_field != models.OrderingType.TITLE
+                else "name"
+            )
             if reverse_ordering:
                 ordering_field_value = "-{}".format(value)
             else:
