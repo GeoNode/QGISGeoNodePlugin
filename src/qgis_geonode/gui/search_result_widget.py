@@ -117,7 +117,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.toggle_service_url_buttons(False)
         self.show_progress(tr("Fetching layer"))
         layer = QgsRasterLayer(uri, self.geonode_resource.title, "wms")
-        self.clear_progress()
         self.load_layer(layer)
 
     def load_raster_layer(self):
@@ -126,7 +125,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.toggle_service_url_buttons(False)
         self.show_progress(tr("Fetching layer"))
         layer = QgsRasterLayer(uri, self.geonode_resource.title, "wcs")
-        self.clear_progress()
         self.load_layer(layer)
 
     def load_vector_layer(self):
@@ -135,7 +133,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.toggle_service_url_buttons(False)
         self.show_progress(tr("Fetching layer"))
         layer = QgsVectorLayer(uri, self.geonode_resource.title, "WFS")
-        self.clear_progress()
         self.load_layer(layer)
 
     def load_layer(self, layer):
@@ -146,15 +143,16 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
         else:
             log("Problem loading the layer into QGIS")
+            self.message_bar.clearWidgets()
             self.message_bar.pushMessage(
                 tr("Problem loading layer, couldn't " "add an invalid layer"),
                 level=Qgis.Critical,
             )
+            self.toggle_service_url_buttons(True)
 
     def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
-        self.show_progress(tr("Populating layer metadata"))
-        self.populate_metadata(layer, geonode_resource)
         self.clear_progress()
+        self.populate_metadata(layer, geonode_resource)
         if layer.type() == QgsMapLayerType.VectorLayer:
             self.client.style_detail_received.connect(
                 partial(self.load_sld_layer, layer)
@@ -254,6 +252,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 ),
                 level=Qgis.Warning,
             )
+            self.toggle_service_url_buttons(True)
         self.add_layer_to_project(layer)
         self.clear_progress()
 
