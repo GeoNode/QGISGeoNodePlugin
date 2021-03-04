@@ -25,7 +25,7 @@ class GeonodeResourceType(enum.Enum):
 
 
 class OrderingType(enum.Enum):
-    TITLE = "title"
+    NAME = "name"
 
 
 @dataclasses.dataclass

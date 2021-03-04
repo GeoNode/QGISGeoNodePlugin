@@ -46,6 +46,18 @@ class BaseGeonodeClient(QObject):
             auth_config=connection_settings.auth_config,
         )
 
+    def get_ordering_filter_name(
+        self,
+        ordering_type: models.OrderingType,
+        reverse_sort: typing.Optional[bool] = False,
+    ) -> str:
+        raise NotImplementedError
+
+    def get_search_result_identifier(
+        self, resource: models.BriefGeonodeResource
+    ) -> str:
+        raise NotImplementedError
+
     def get_layers_url_endpoint(
         self,
         page: typing.Optional[int] = 1,

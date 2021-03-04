@@ -29,6 +29,21 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     def api_url(self):
         return f"{self.base_url}{self._api_path}"
 
+    def get_ordering_filter_name(
+        self,
+        ordering_type: models.OrderingType,
+        reverse_sort: typing.Optional[bool] = False,
+    ) -> str:
+        name = {
+            models.OrderingType.NAME: "name",
+        }[ordering_type]
+        return f"{'-' if reverse_sort else ''}{name}"
+
+    def get_search_result_identifier(
+        self, resource: models.BriefGeonodeResource
+    ) -> str:
+        return resource.name
+
     def get_layers_url_endpoint(
         self,
         title: typing.Optional[str] = None,
@@ -73,19 +88,9 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         else:
             raise NotImplementedError
         if ordering_field is not None:
-            # TODO remove the below workaround
-            # current GeoNode API V2 doesn't support
-            # ordering using  'title' field, so we default to 'name'
-
-            value = (
-                ordering_field.value
-                if ordering_field != models.OrderingType.TITLE
-                else "name"
+            ordering_field_value = self.get_ordering_filter_name(
+                ordering_field, reverse_sort=reverse_ordering
             )
-            if reverse_ordering:
-                ordering_field_value = "-{}".format(value)
-            else:
-                ordering_field_value = value
             query.addQueryItem("sort[]", ordering_field_value)
         url.setQuery(query.query())
         return url
@@ -118,10 +123,9 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("filter{category.identifier}", topic_category)
 
         if ordering_field is not None:
-            if reverse_ordering:
-                ordering_field_value = "-{}".format(ordering_field.value)
-            else:
-                ordering_field_value = ordering_field.value
+            ordering_field_value = self.get_ordering_filter_name(
+                ordering_field, reverse_sort=reverse_ordering
+            )
             query.addQueryItem("sort[]", ordering_field_value)
         url.setQuery(query.query())
         return url

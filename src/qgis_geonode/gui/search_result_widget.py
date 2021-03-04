@@ -21,6 +21,7 @@ from qgis.core import (
 from qgis.gui import QgsMessageBar
 
 from ..apiclient import get_geonode_client
+from ..apiclient.base import BaseGeonodeClient
 from ..apiclient.models import (
     BriefGeonodeResource,
     GeonodeResource,
@@ -41,11 +42,16 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self,
         message_bar: QgsMessageBar,
         geonode_resource: BriefGeonodeResource,
+        api_client: BaseGeonodeClient,
         parent=None,
     ):
         super().__init__(parent)
         self.setupUi(self)
-        self.name_la.setText(f"<h3>{geonode_resource.title}</h3>")
+        self.name_la.setText(f"<h3>{geonode_resource.name}</h3>")
+
+        name = api_client.get_search_result_identifier(geonode_resource)
+        self.name_la.setText(f"<h3>{name}</h3>")
+
         if geonode_resource.resource_type is not None:
             self.resource_type_la.setText(geonode_resource.resource_type.value)
             icon_path = {

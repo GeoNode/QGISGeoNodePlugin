@@ -88,6 +88,34 @@ class GeonodeCswClient(BaseGeonodeClient):
             result = None
         return result
 
+    def get_ordering_filter_name(
+        self,
+        ordering_type: models.OrderingType,
+        reverse_sort: typing.Optional[bool] = False,
+    ) -> str:
+        """Return name of the term that is sent to the CSW API when performing searches.
+
+        The CSW specification (and also ISO AP) only define `Title` as a core queryable
+        therefore, for the `name` case we search for title instead.
+
+        """
+
+        name = {
+            models.OrderingType.NAME: "apiso:Title",
+        }[ordering_type]
+        return f"{name}:{'D' if reverse_sort else 'A'}"
+
+    def get_search_result_identifier(
+        self, resource: models.BriefGeonodeResource
+    ) -> str:
+        """Field that should be shown on the QGIS GUI as the layer identifier
+
+        In order to be consistent with the search filter, we use the `title` property.
+
+        """
+
+        return resource.title
+
     def get_layers_url_endpoint(
         self,
         title: typing.Optional[str] = None,
@@ -113,10 +141,9 @@ class GeonodeCswClient(BaseGeonodeClient):
         query.addQueryItem("elementsetname", "full")
 
         if ordering_field is not None:
-            if not reverse_ordering:
-                ordering_value = "apiso:{}:A".format(ordering_field.value.title())
-            else:
-                ordering_value = "apiso:{}:D".format(ordering_field.value.title())
+            ordering_value = self.get_ordering_filter_name(
+                ordering_field, reverse_ordering
+            )
             query.addQueryItem("sortby", ordering_value)
         # if any((title, abstract, keyword, topic_category, layer_types)):
         #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
@@ -400,15 +427,17 @@ def _get_common_model_fields(
             f"{{{Csw202Namespace.GMD.value}}}RS_Identifier"
         )
     )
-    layer = record.find(
-        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-        f"{{{Csw202Namespace.GMD.value}}}citation/"
-        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
-        f"{{{Csw202Namespace.GMD.value}}}name/"
-        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    layer_name = (
+        record.find(
+            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+            f"{{{Csw202Namespace.GMD.value}}}citation/"
+            f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+            f"{{{Csw202Namespace.GMD.value}}}name/"
+            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+        ).text
+        or ""
     )
-    layer_name = layer.text if layer is not None else ""
 
     resource_type = _get_resource_type(record)
     if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
@@ -493,8 +522,6 @@ def _get_resource_type(
     record: ET.Element,
 ) -> typing.Optional[models.GeonodeResourceType]:
     content_info = record.find(f"{{{Csw202Namespace.GMD.value}}}contentInfo")
-    if content_info is None:
-        return None
     is_raster = content_info.find(
         f"{{{Csw202Namespace.GMD.value}}}MD_CoverageDescription"
     )
