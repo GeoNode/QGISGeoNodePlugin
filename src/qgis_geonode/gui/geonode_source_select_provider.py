@@ -23,6 +23,7 @@ from qgis.PyQt.uic import loadUiType
 
 from qgis.PyQt.QtWidgets import (
     QMessageBox,
+    QProgressBar,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -226,7 +227,15 @@ class GeonodeDataSourceWidget(QgsAbstractDataSourceWidget, WidgetUi):
         self.search_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
         self.previous_btn.setEnabled(False)
-        self.message_bar.pushMessage(tr("Searching..."), level=Qgis.Info)
+
+        message = self.message_bar.createMessage(tr("Searching..."))
+        progress_bar = QProgressBar()
+        progress_bar.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(0)
+        message.layout().addWidget(progress_bar)
+        self.message_bar.pushWidget(message, Qgis.Info)
+
         connection_name = self.connections_cmb.currentText()
         connection_settings = connections_manager.find_connection_by_name(
             connection_name

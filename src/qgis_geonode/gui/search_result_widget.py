@@ -115,22 +115,27 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         uri = self.geonode_resource.service_urls[GeonodeService.OGC_WMS]
         log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
+        self.show_progress(tr("Fetching layer"))
         layer = QgsRasterLayer(uri, self.geonode_resource.title, "wms")
+        self.clear_progress()
         self.load_layer(layer)
 
     def load_raster_layer(self):
         uri = self.geonode_resource.service_urls[GeonodeService.OGC_WCS]
         log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
+        self.show_progress(tr("Fetching layer"))
         layer = QgsRasterLayer(uri, self.geonode_resource.title, "wcs")
-
+        self.clear_progress()
         self.load_layer(layer)
 
     def load_vector_layer(self):
         uri = self.geonode_resource.service_urls[GeonodeService.OGC_WFS]
         log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
+        self.show_progress(tr("Fetching layer"))
         layer = QgsVectorLayer(uri, self.geonode_resource.title, "WFS")
+        self.clear_progress()
         self.load_layer(layer)
 
     def load_layer(self, layer):
@@ -147,11 +152,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             )
 
     def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
+        self.show_progress(tr("Populating layer metadata"))
         self.populate_metadata(layer, geonode_resource)
+        self.clear_progress()
         if layer.type() == QgsMapLayerType.VectorLayer:
             self.client.style_detail_received.connect(
                 partial(self.load_sld_layer, layer)
             )
+            self.show_progress(tr("Downloading layer style"))
             self.client.get_layer_style(geonode_resource)
         else:  # TODO: add support for loading SLDs for raster layers too
             self.add_layer_to_project(layer)
@@ -233,6 +241,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_sld_layer(self, layer, sld_named_layer: QtXml.QDomElement):
         """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
         error_message = ""
+        self.clear_progress()
+        self.show_progress(tr("Loading style into the layer"))
         loaded_sld = layer.readSld(sld_named_layer, error_message)
         if not loaded_sld:
             self.message_bar.clearWidgets()
@@ -245,6 +255,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 level=Qgis.Warning,
             )
         self.add_layer_to_project(layer)
+        self.clear_progress()
 
     def toggle_service_url_buttons(self, enabled: bool):
         for index in range(self.action_buttons_layout.count()):
@@ -295,3 +306,15 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 ),
                 level=Qgis.Critical,
             )
+
+    def show_progress(self, message):
+        message_widget = self.message_bar.createMessage(message)
+        progress_bar = QtWidgets.QProgressBar()
+        progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(0)
+        message_widget.layout().addWidget(progress_bar)
+        self.message_bar.pushWidget(message_widget, Qgis.Info)
+
+    def clear_progress(self):
+        self.message_bar.clearWidgets()
