@@ -38,7 +38,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def __init__(
         self,
-        message_bar: qgis.gui.QgsMessageBar,
         geonode_resource: BriefGeonodeResource,
         api_client: BaseGeonodeClient,
         parent=None,
@@ -74,7 +73,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
         self.description_la.setText(sliced_abstract)
         self.geonode_resource = geonode_resource
-        self.message_bar = message_bar
         connection_settings = connections_manager.get_current_connection()
         self.client = get_geonode_client(connection_settings)
         for service_type in GeonodeService:
@@ -104,59 +102,63 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     ) -> typing.Tuple[str, int, str, typing.Callable]:
         icon_path = f":/plugins/qgis_geonode/icon_{service.value}.svg"
         return {
-            GeonodeService.OGC_WMS: ("WMS", 1, icon_path, self.load_map_resource),
-            GeonodeService.OGC_WFS: ("WFS", 2, icon_path, self.load_vector_layer),
-            GeonodeService.OGC_WCS: ("WCS", 2, icon_path, self.load_raster_layer),
+            GeonodeService.OGC_WMS: (
+                "WMS",
+                1,
+                icon_path,
+                partial(self.load_layer, service),
+            ),
+            GeonodeService.OGC_WFS: (
+                "WFS",
+                2,
+                icon_path,
+                partial(self.load_layer, service),
+            ),
+            GeonodeService.OGC_WCS: (
+                "WCS",
+                2,
+                icon_path,
+                partial(self.load_layer, service),
+            ),
             GeonodeService.FILE_DOWNLOAD: ("File download", 3, None, None),
         }[service]
 
-    def load_map_resource(self):
-        uri = self.geonode_resource.service_urls[GeonodeService.OGC_WMS]
+    def get_datasource_widget(self):
+        return self.parent().parent().parent().parent()
+
+    def load_layer(self, service_type: GeonodeService):
+        uri = self.geonode_resource.service_urls[service_type]
         log(f"service_uri: {uri}")
         self.toggle_service_url_buttons(False)
-        self.show_progress(tr("Fetching layer"))
-        layer = qgis.core.QgsRasterLayer(uri, self.geonode_resource.title, "wms")
-        self.load_layer(layer)
-
-    def load_raster_layer(self):
-        uri = self.geonode_resource.service_urls[GeonodeService.OGC_WCS]
-        log(f"service_uri: {uri}")
-        self.toggle_service_url_buttons(False)
-        self.show_progress(tr("Fetching layer"))
-        layer = qgis.core.QgsRasterLayer(uri, self.geonode_resource.title, "wcs")
-        self.load_layer(layer)
-
-    def load_vector_layer(self):
-        uri = self.geonode_resource.service_urls[GeonodeService.OGC_WFS]
-        log(f"service_uri: {uri}")
-        self.toggle_service_url_buttons(False)
-        self.show_progress(tr("Fetching layer"))
-        layer = qgis.core.QgsVectorLayer(uri, self.geonode_resource.title, "WFS")
-        self.load_layer(layer)
-
-    def load_layer(self, layer):
+        self.get_datasource_widget().show_progress(tr("Loading layer..."))
+        layer_class, provider = {
+            GeonodeService.OGC_WMS: (qgis.core.QgsRasterLayer, "wms"),
+            GeonodeService.OGC_WCS: (qgis.core.QgsRasterLayer, "wcs"),
+            GeonodeService.OGC_WFS: (
+                qgis.core.QgsVectorLayer,
+                "WFS",
+            ),  # TODO: does this really require all caps?
+        }[service_type]
+        layer = layer_class(uri, self.geonode_resource.title, provider)
         if layer.isValid():
             self.client.layer_detail_received.connect(
                 partial(self.prepare_layer, layer)
             )
             self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
         else:
-            log("Problem loading the layer into QGIS")
-            self.message_bar.clearWidgets()
-            self.message_bar.pushMessage(
-                tr("Problem loading layer, couldn't " "add an invalid layer"),
-                level=qgis.core.Qgis.Critical,
+            message = "Invalid layer, cannot load"
+            log(message)
+            self.get_datasource_widget().show_message(
+                message, level=qgis.core.Qgis.Critical
             )
             self.toggle_service_url_buttons(True)
 
     def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
-        self.clear_progress()
         self.populate_metadata(layer, geonode_resource)
         if layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
             self.client.style_detail_received.connect(
                 partial(self.load_sld_layer, layer)
             )
-            self.show_progress(tr("Downloading layer style"))
             self.client.get_layer_style(geonode_resource)
         else:  # TODO: add support for loading SLDs for raster layers too
             self.add_layer_to_project(layer)
@@ -164,6 +166,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def add_layer_to_project(self, layer: "QgsMapLayer"):
         qgis.core.QgsProject.instance().addMapLayer(layer)
         self.toggle_service_url_buttons(True)
+        self.clear_progress()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -240,22 +243,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_sld_layer(self, layer, sld_named_layer: QtXml.QDomElement):
         """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
         error_message = ""
-        self.clear_progress()
-        self.show_progress(tr("Loading style into the layer"))
         loaded_sld = layer.readSld(sld_named_layer, error_message)
         if not loaded_sld:
-            self.message_bar.clearWidgets()
-            self.message_bar.pushMessage(
-                tr(
-                    "Problem in applying GeoNode style for the layer, {}".format(
-                        error_message
-                    )
-                ),
-                level=qgis.core.Qgis.Warning,
+            self.get_datasource_widget().show_message(
+                tr(f"Problem in applying GeoNode style for the layer: {error_message}")
             )
             self.toggle_service_url_buttons(True)
         self.add_layer_to_project(layer)
-        self.clear_progress()
 
     def toggle_service_url_buttons(self, enabled: bool):
         for index in range(self.action_buttons_layout.count()):
@@ -285,42 +279,19 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         else:
             log(f"Error retrieving thumbnail for {self.geonode_resource.title}")
 
-    def style_download_error(self, layer, error):
-        self.message_bar.clearWidgets()
-        self.message_bar.pushMessage(
-            tr("Problem in downloading style for the layer, {}").format(error),
-            level=qgis.core.Qgis.Warning,
-        )
-        qgis.core.QgsProject.instance().addMapLayer(layer)
-        self.toggle_service_url_buttons(True)
-
     def open_resource_page(self):
         if self.geonode_resource.gui_url is not None:
             QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.geonode_resource.gui_url))
         else:
-            log(
-                "Couldn't open resource in browser page, the resource"
-                "doesn't contain GeoNode layer page URL"
+            message = (
+                "Couldn't open resource in browser page, the resource doesn't contain "
+                "GeoNode layer page URL"
             )
-            self.message_bar.pushMessage(
-                tr(
-                    "Couldn't open resource in browser page, the resource"
-                    "doesn't contain GeoNode layer page URL"
-                ),
-                level=qgis.core.Qgis.Critical,
-            )
-
-    def show_progress(self, message):
-        message_widget = self.message_bar.createMessage(message)
-        progress_bar = QtWidgets.QProgressBar()
-        progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        progress_bar.setMinimum(0)
-        progress_bar.setMaximum(0)
-        message_widget.layout().addWidget(progress_bar)
-        self.message_bar.pushWidget(message_widget, qgis.core.Qgis.Info)
+            log(message)
+            self.get_datasource_widget().show_message(tr(message))
 
     def clear_progress(self):
-        self.message_bar.clearWidgets()
+        self.get_datasource_widget().message_bar.clearWidgets()
 
 
 class ThumbnailLoader(qgis.core.QgsTask):

@@ -56,6 +56,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     search_btn: QtWidgets.QPushButton
     next_btn: QtWidgets.QPushButton
     previous_btn: QtWidgets.QPushButton
+    message_bar: qgis.gui.QgsMessageBar
 
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
@@ -212,13 +213,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         )
         return get_geonode_client(connection_settings)
 
-    def search_geonode(self, reset_pagination: bool = False):
-        self.clear_search()
-        self.search_btn.setEnabled(False)
-        self.next_btn.setEnabled(False)
-        self.previous_btn.setEnabled(False)
-
-        message_bar_item = self.message_bar.createMessage(tr("Searching..."))
+    def show_progress(self, message):
+        message_bar_item = self.message_bar.createMessage(message)
         progress_bar = QtWidgets.QProgressBar()
         progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         progress_bar.setMinimum(0)
@@ -226,6 +222,16 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         message_bar_item.layout().addWidget(progress_bar)
         self.message_bar.pushWidget(message_bar_item, qgis.core.Qgis.Info)
 
+    def show_message(self, message: str, level=qgis.core.Qgis.Warning):
+        self.message_bar.clearWidgets()
+        self.message_bar.pushMessage(message, level=level)
+
+    def search_geonode(self, reset_pagination: bool = False):
+        self.clear_search()
+        self.search_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)
+        self.previous_btn.setEnabled(False)
+        self.show_progress(tr("Searching..."))
         connection_name = self.connections_cmb.currentText()
         connection_settings = connections_manager.find_connection_by_name(
             connection_name
@@ -268,9 +274,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         network_error_enum = enum_mapping(
             QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError
         )
-        self.message_bar.pushMessage(
-            tr("Problem in searching, network error {} - {}").format(
-                error, network_error_enum[error]
+        self.show_message(
+            tr(
+                f"Problem in searching, network "
+                f"error {error} - {network_error_enum[error]}"
             ),
             level=qgis.core.Qgis.Critical,
         )
@@ -309,7 +316,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         client = self._get_api_client()
         for layer in layers:
             search_result_widget = SearchResultWidget(
-                self.message_bar,
                 geonode_resource=layer,
                 api_client=client,
             )
@@ -371,11 +377,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             client = self._get_api_client()
             client.keyword_list_received.connect(self.update_keywords)
             client.error_received.connect(self.show_search_error)
-
-            self.message_bar.pushMessage(
-                tr("Searching for keywords..."), level=qgis.core.Qgis.Info
-            )
-
+            self.show_progress(tr("Searching for keywords..."))
             client.get_keywords()
 
     def update_keywords(self, keywords: typing.Optional[typing.List[str]] = None):
