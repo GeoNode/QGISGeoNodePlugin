@@ -332,6 +332,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.message_bar.clearWidgets()
         self.toggle_search_buttons()
 
+
     def clear_search_results(self):
         self.scroll_area.setWidget(QtWidgets.QWidget())
         self.resultsLabel.clear()
