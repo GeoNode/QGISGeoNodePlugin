@@ -12,8 +12,8 @@ nav:
   - User guide: 'user-guide.md'
   - Development: 'development.md'
   - About: 'about.md'
-  - QGIS Repo: 'repo/plugins.xml'
   - Changelog: 'changelog-base.md'
+  - QGIS Repo: 'repo/plugins.xml'
 
 theme:
   name: material
