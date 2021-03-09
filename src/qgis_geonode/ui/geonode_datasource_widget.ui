@@ -220,6 +220,9 @@
            <property name="enabled">
             <bool>true</bool>
            </property>
+           <property name="toolTip">
+            <string>Types of resources to be filtered, must select at least one of these in order to search</string>
+           </property>
            <property name="text">
             <string>Resource types</string>
            </property>

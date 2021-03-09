@@ -87,8 +87,11 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         )
         self.next_btn.clicked.connect(self.request_next_page)
         self.previous_btn.clicked.connect(self.request_previous_page)
-        self.next_btn.setEnabled(False)
-        self.previous_btn.setEnabled(False)
+        self.next_btn_state = False
+        self.previous_btn_state = False
+        self.search_btn_state = True
+        self.next_btn.setEnabled(self.next_btn_state)
+        self.previous_btn.setEnabled(self.previous_btn_state)
         self.message_bar = qgis.gui.QgsMessageBar()
         self.message_bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
@@ -154,19 +157,22 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 self.connections_cmb.setCurrentIndex(0)
 
     def toggle_search_buttons(self):
-        search_buttons = (
-            self.search_btn,
-            self.previous_btn,
-            self.next_btn,
-        )
+        search_buttons = {
+            self.search_btn: self.search_btn_state,
+            self.previous_btn: self.previous_btn_state,
+            self.next_btn: self.next_btn_state,
+        }
         for check_box in self.resource_types_btngrp.buttons():
             if check_box.isChecked():
                 enabled = True
                 break
         else:
             enabled = False
-        for button in search_buttons:
-            button.setEnabled(enabled)
+        for button, state in search_buttons.items():
+            if enabled:
+                button.setEnabled(state)
+            else:
+                button.setEnabled(enabled)
 
     def toggle_connection_management_buttons(self):
         current_name = self.connections_cmb.currentText()
@@ -228,9 +234,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def search_geonode(self, reset_pagination: bool = False):
         self.clear_search()
-        self.search_btn.setEnabled(False)
-        self.next_btn.setEnabled(False)
-        self.previous_btn.setEnabled(False)
+        self.search_btn_state = False
+        self.previous_btn_state = False
+        self.next_btn_state = False
+        self.search_btn.setEnabled(self.search_btn_state)
+        self.next_btn.setEnabled(self.next_btn_state)
+        self.previous_btn.setEnabled(self.previous_btn_state)
         self.show_progress(tr("Searching..."))
         connection_name = self.connections_cmb.currentText()
         connection_settings = connections_manager.find_connection_by_name(
@@ -270,7 +279,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
-        self.search_btn.setEnabled(True)
+        self.search_btn_state = True
+        self.search_btn.setEnabled(self.search_btn_state)
         network_error_enum = enum_mapping(
             QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError
         )
@@ -296,8 +306,13 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         pagination_info: models.GeoNodePaginationInfo,
     ):
         self.current_page = pagination_info.current_page
-        self.previous_btn.setEnabled(self.current_page > 1)
-        self.next_btn.setEnabled(self.current_page < pagination_info.total_pages)
+
+        self.next_btn_state = self.current_page < pagination_info.total_pages
+        self.previous_btn_state = self.current_page > 1
+
+        self.previous_btn.setEnabled(self.previous_btn_state)
+        self.next_btn.setEnabled(self.next_btn_state)
+
         if pagination_info.total_records > 0:
             self.resultsLabel.setText(
                 tr(
@@ -327,13 +342,16 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(scroll_container)
         self.message_bar.clearWidgets()
-        self.search_btn.setEnabled(True)
+        self.search_btn_state = True
+        self.search_btn.setEnabled(self.search_btn_state)
 
     def clear_search(self):
         self.scroll_area.setWidget(QtWidgets.QWidget())
         self.resultsLabel.clear()
-        self.previous_btn.setEnabled(False)
-        self.next_btn.setEnabled(False)
+        self.next_btn_state = False
+        self.previous_btn_state = False
+        self.previous_btn.setEnabled(self.previous_btn_state)
+        self.next_btn.setEnabled(self.next_btn_state)
 
     def load_categories(self):
         self.category_cmb.addItems(
