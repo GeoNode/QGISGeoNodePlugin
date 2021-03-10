@@ -61,6 +61,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     resource_types_btngrp: QtWidgets.QButtonGroup
     current_page: int = 0
     total_pages: int = 0
+    search_status: bool
 
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
@@ -73,6 +74,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.connections_cmb.currentIndexChanged.connect(
             self.toggle_connection_management_buttons
         )
+
+        self.search_status = False
         self.connections_cmb.currentIndexChanged.connect(self.toggle_search_controls)
         self.update_connections_combobox()
         self.toggle_connection_management_buttons()
@@ -164,7 +167,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             if self.connections_cmb.currentText() != "":
                 for check_box in self.resource_types_btngrp.buttons():
                     if check_box.isChecked():
-                        enable_search = True
+                        enable_search = not self.search_status
                         enable_previous = self.current_page > 1
                         enable_next = self.current_page < self.total_pages
                         break
@@ -231,6 +234,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def search_geonode(self, reset_pagination: bool = False):
         self.clear_search_results()
+        self.search_status = True
         self.toggle_search_buttons(enable=False)
         self.show_progress(tr("Searching..."))
         connection_name = self.connections_cmb.currentText()
@@ -272,6 +276,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def show_search_error(self, error):
         self.message_bar.clearWidgets()
+        self.search_status = False
         self.toggle_search_buttons()
         network_error_enum = enum_mapping(
             QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError
@@ -299,6 +304,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     ):
         self.current_page = pagination_info.current_page
         self.total_pages = pagination_info.total_pages
+        self.search_status = False
         self.toggle_search_buttons()
         if pagination_info.total_records > 0:
             self.resultsLabel.setText(
@@ -330,6 +336,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(scroll_container)
         self.message_bar.clearWidgets()
+        self.search_status = False
         self.toggle_search_buttons()
 
     def clear_search_results(self):
