@@ -176,13 +176,19 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     def accept(self):
         connection_settings = self.get_connection_settings()
-        existing_names = [c.name for c in connections_manager.list_connections()]
         name_pattern = re.compile(
             f"^{connection_settings.name}$|^{connection_settings.name}(\(\d+\))$"
         )
-        duplicates = [n for n in existing_names if name_pattern.search(n)]
-        if len(duplicates) > 0:
-            connection_settings.name = f"{connection_settings.name}({len(duplicates)})"
+        duplicate_names = []
+        for connection_conf in connections_manager.list_connections():
+            if connection_conf.id == connection_settings.id:
+                continue  # we don't want to compare against ourselves
+            if name_pattern.search(connection_conf.name) is not None:
+                duplicate_names.append(connection_conf.name)
+        if len(duplicate_names) > 0:
+            connection_settings.name = (
+                f"{connection_settings.name}({len(duplicate_names)})"
+            )
         connections_manager.save_connection_settings(connection_settings)
         connections_manager.set_current_connection(connection_settings.id)
         super().accept()
