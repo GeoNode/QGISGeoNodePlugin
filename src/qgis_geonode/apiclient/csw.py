@@ -13,6 +13,7 @@ from xml.etree import ElementTree as ET
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsDateTimeRange,
     QgsNetworkAccessManager,
     QgsRectangle,
     QgsSettings,
@@ -127,6 +128,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.catalogue_url}")
         query = QtCore.QUrlQuery()
@@ -145,6 +147,11 @@ class GeonodeCswClient(BaseGeonodeClient):
                 ordering_field, reverse_ordering
             )
             query.addQueryItem("sortby", ordering_value)
+        if temporal_range is not None:
+            temporal_filter = _get_temporal_filter(temporal_range)
+            query.addQueryItem("constraintlanguage", "FILTER")
+            query.addQueryItem("constraint", temporal_filter)
+
         # if any((title, abstract, keyword, topic_category, layer_types)):
         #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
         #     constraint_values = []
@@ -211,6 +218,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ):
         """Get layers from the CSW endpoint
 
@@ -250,6 +258,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             page_size,
             ordering_field,
             reverse_ordering,
+            temporal_range,
         )
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
@@ -740,3 +749,25 @@ def _get_wfs_uri(
     if auth_config is not None:
         params["authcfg"] = auth_config
     return " ".join(f"{k}='{v}'" for k, v in params.items())
+
+
+def _get_temporal_filter(temporal_range: QgsDateTimeRange):
+    start = temporal_range.begin().toString(QtCore.Qt.ISODate)
+    end = temporal_range.end().toString(QtCore.Qt.ISODate)
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<ogc:Filter xmlns:gml="http://www.opengis.net/gml"'
+        'xmlns:ogc="http://www.opengis.net/ogc">'
+        "<ogc:And>"
+        "<ogc:PropertyIsGreaterThanOrEqualTo>"
+        "<ogc:PropertyName>TempExtent_begin</ogc:PropertyName>"
+        "<ogc:Literal>{}</ogc:Literal>"
+        "</ogc:PropertyIsGreaterThanOrEqualTo>"
+        "<ogc:PropertyIsLessThan>"
+        "<ogc:PropertyName>TempExtent_end</ogc:PropertyName>"
+        "<ogc:Literal>{}/ogc:Literal>"
+        "</ogc:PropertyIsLessThanOrEqualTo>"
+        "</ogc:And>"
+        "</ogc:Filter>".format(start, end)
+    )
