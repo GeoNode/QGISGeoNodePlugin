@@ -301,6 +301,9 @@
            <property name="enabled">
             <bool>true</bool>
            </property>
+           <property name="toolTip">
+            <string>Start datetime (inclusive)</string>
+           </property>
            <property name="text">
             <string>Start</string>
            </property>
@@ -323,6 +326,9 @@
           <widget class="QLabel" name="label_6">
            <property name="enabled">
             <bool>true</bool>
+           </property>
+           <property name="toolTip">
+            <string>End datetime (not inclusive)</string>
            </property>
            <property name="text">
             <string>End</string>

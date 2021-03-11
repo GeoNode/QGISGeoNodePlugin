@@ -3,6 +3,7 @@ import uuid
 from functools import partial
 
 from qgis.core import (
+    QgsDateTimeRange,
     QgsMessageLog,
     QgsNetworkContentFetcherTask,
 )
@@ -64,7 +65,8 @@ class BaseGeonodeClient(QtCore.QObject):
         layer_type: typing.Optional[models.GeonodeResourceType] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-    ) -> QtCore.QUrl:
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
+    ) -> QUrl:
         raise NotImplementedError
 
     def get_layer_detail_url_endpoint(
@@ -84,6 +86,7 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -132,6 +135,7 @@ class BaseGeonodeClient(QtCore.QObject):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ):
         url = self.get_layers_url_endpoint(
             title=title,
@@ -143,6 +147,7 @@ class BaseGeonodeClient(QtCore.QObject):
             page_size=page_size,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
+            temporal_range=temporal_range,
         )
         request = QtNetwork.QNetworkRequest(url)
         self.run_task(request, self.handle_layer_list)
@@ -186,6 +191,7 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ):
         url = self.get_maps_url_endpoint(
             page=page,
@@ -195,6 +201,7 @@ class BaseGeonodeClient(QtCore.QObject):
             topic_category=topic_category,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
+            temporal_range=temporal_range,
         )
         request = QtNetwork.QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)

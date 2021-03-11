@@ -5,12 +5,14 @@ import uuid
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsDateTimeRange,
     QgsRectangle,
 )
 from qgis.PyQt.QtCore import (
     QByteArray,
     QUrl,
     QUrlQuery,
+    Qt,
 )
 
 from ..utils import log
@@ -55,6 +57,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/layers/")
         query = QUrlQuery()
@@ -92,6 +95,11 @@ class GeonodeApiV2Client(BaseGeonodeClient):
                 ordering_field, reverse_sort=reverse_ordering
             )
             query.addQueryItem("sort[]", ordering_field_value)
+        if temporal_range is not None:
+            start = temporal_range.begin().toString(Qt.ISODate)
+            end = temporal_range.end().toString(Qt.ISODate)
+            query.addQueryItem("filter{date.gte}", start)
+            query.addQueryItem("filter{date.lt}", end)
         url.setQuery(query.query())
         return url
 
@@ -110,6 +118,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_range: typing.Optional[QgsDateTimeRange] = None,
     ) -> QUrl:
         url = QUrl(f"{self.api_url}/maps/")
         query = QUrlQuery()
@@ -127,6 +136,11 @@ class GeonodeApiV2Client(BaseGeonodeClient):
                 ordering_field, reverse_sort=reverse_ordering
             )
             query.addQueryItem("sort[]", ordering_field_value)
+        if temporal_range is not None:
+            start = temporal_range.begin().toString(Qt.ISODate)
+            end = temporal_range.end().toString(Qt.ISODate)
+            query.addQueryItem("filter{date.gte}", start)
+            query.addQueryItem("filter{date.lt}", end)
         url.setQuery(query.query())
         return url
 

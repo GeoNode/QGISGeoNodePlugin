@@ -306,8 +306,11 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             if search_map:
                 resource_types.append(models.GeonodeResourceType.MAP)
             # FIXME: Implement these as search filters
-            start = self.start_dte.dateTime()
-            end = self.end_dte.dateTime()
+            temporal_range = None
+            if not self.start_dte.isNull() and not self.end_dte.isNull():
+                temporal_range = qgis.core.QgsDateTimeRange(
+                    self.start_dte.dateTime(), self.end_dte.dateTime()
+                )
             if reset_pagination:
                 self.current_page = 1
                 self.total_pages = 1
@@ -320,7 +323,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 topic_category=self.category_cmb.currentText().lower() or None,
                 layer_types=resource_types,
                 ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
-                reverse_ordering=self.reverse_order_chb.isChecked(),
+                reverse_ordering=self.reverse_order_chk.isChecked(),
+                temporal_range=temporal_range,
             )
 
     def toggle_search_controls(self, enabled: bool):
