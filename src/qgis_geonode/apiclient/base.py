@@ -13,6 +13,7 @@ from qgis.PyQt import (
 )
 
 from . import models
+from ..utils import log
 
 
 class BaseGeonodeClient(QtCore.QObject):
@@ -238,13 +239,8 @@ class BaseGeonodeClient(QtCore.QObject):
             http_status_reason = reply.attribute(
                 QtNetwork.QNetworkRequest.HttpReasonPhraseAttribute
             )
-            QgsMessageLog.logMessage(
-                f"requested url: {reply.url().toString()}", "qgis_geonode"
-            )
-            QgsMessageLog.logMessage(
-                f"received error: {qt_error} http_status: {http_status_code}",
-                "qgis_geonode",
-            )
+            log(f"requested url: {reply.url().toString()}")
+            log(f"received error: {qt_error} http_status: {http_status_code}")
             self.error_received.emit(
                 qt_error, http_status_code or 0, http_status_reason or ""
             )

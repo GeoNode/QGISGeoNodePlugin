@@ -34,6 +34,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     message_bar: qgis.gui.QgsMessageBar
     action_buttons_layout: QtWidgets.QHBoxLayout
     browser_btn: QtWidgets.QPushButton
+
+    layer_loader_task: typing.Optional[qgis.core.QgsTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
@@ -48,6 +50,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         super().__init__(parent)
         self.setupUi(self)
         self.thumbnail_loader_task = None
+        self.layer_loader_task = None
         self.name_la.setText(f"<h3>{geonode_resource.name}</h3>")
 
         name = api_client.get_search_result_identifier(geonode_resource)
@@ -99,8 +102,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.load_thumbnail()
         self.browser_btn.setIcon(QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg"))
         self.browser_btn.clicked.connect(self.open_resource_page)
-        qgs_project = qgis.core.QgsProject.instance()
-        qgs_project.layerWasAdded.connect(self.handle_layer_load_end)
 
     def _get_service_button_details(
         self, service: GeonodeService
@@ -132,48 +133,45 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         return self.parent().parent().parent().parent()
 
     def handle_layer_load_start(self):
-        # disable our own buttons and also any buttons on the parent
         parent = self.get_datasource_widget()
         parent.toggle_search_controls(False)
         parent.show_progress(tr("Loading layer..."))
         self.toggle_service_url_buttons(False)
 
     def handle_layer_load_end(self):
-        # enable our own buttons and also any buttons on the parent
         parent = self.get_datasource_widget()
         parent.toggle_search_controls(True)
         parent.toggle_search_buttons()
         self.toggle_service_url_buttons(True)
         self.clear_progress()
 
+    def handle_loading_error(self, message: str):
+        self.get_datasource_widget().show_message(
+            message, level=qgis.core.Qgis.Critical
+        )
+        self.toggle_service_url_buttons(True)
+
     def load_layer(self, service_type: GeonodeService):
-        # self.load_layer_started.emit()
         self.handle_layer_load_start()
-        uri = self.geonode_resource.service_urls[service_type]
-        log(f"service_uri: {uri}")
-        # self.toggle_service_url_buttons(False)
-        # self.get_datasource_widget().show_progress(tr("Loading layer..."))
-        layer_class, provider = {
-            GeonodeService.OGC_WMS: (qgis.core.QgsRasterLayer, "wms"),
-            GeonodeService.OGC_WCS: (qgis.core.QgsRasterLayer, "wcs"),
-            GeonodeService.OGC_WFS: (
-                qgis.core.QgsVectorLayer,
-                "WFS",
-            ),  # TODO: does this really require all caps?
-        }[service_type]
-        layer = layer_class(uri, self.geonode_resource.title, provider)
-        if layer.isValid():
-            self.client.layer_detail_received.connect(
-                partial(self.prepare_layer, layer)
-            )
-            self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
+        self.client.error_received.connect(self.handle_loading_error)
+        self.layer_loader_task = LayerLoaderTask(
+            self.geonode_resource,
+            service_type,
+            api_client=self.client,
+            layer_handler=self.prepare_layer,
+            error_handler=self.handle_loading_error
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.layer_loader_task)
+
+    def handle_loading_error(
+            self, qt_error: str, http_status_code: int, http_status_reason: str):
+        if http_status_code != 0:
+            http_status = f"{http_status_code} - {http_status_reason}"
         else:
-            message = "Invalid layer, cannot load"
-            log(message)
-            self.get_datasource_widget().show_message(
-                message, level=qgis.core.Qgis.Critical
-            )
-            self.toggle_service_url_buttons(True)
+            http_status = ""
+        self.handle_layer_load_end()
+        message = " ".join((qt_error, http_status))
+        self.get_datasource_widget().show_message(message, level=qgis.core.Qgis.Critical)
 
     def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
         self.populate_metadata(layer, geonode_resource)
@@ -186,9 +184,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.add_layer_to_project(layer)
 
     def add_layer_to_project(self, layer: "QgsMapLayer"):
+        self.client.layer_detail_received.disconnect()
+        self.client.error_received.disconnect()
+        try:
+            self.client.style_detail_received.disconnect()
+        except TypeError:
+            pass
         qgis.core.QgsProject.instance().addMapLayer(layer)
-        # self.toggle_service_url_buttons(True)
-        # self.clear_progress()
+        self.handle_layer_load_end()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -341,3 +344,55 @@ class ThumbnailLoader(qgis.core.QgsTask):
             self.label.setPixmap(thumbnail)
         else:
             log(f"Error retrieving thumbnail for {self.resource_title!r}")
+
+
+class LayerLoaderTask(qgis.core.QgsTask):
+    geonode_resource: BriefGeonodeResource
+    service_type: GeonodeService
+    api_client: "BaseGeonodeClient"
+    layer_handler: typing.Callable
+    error_handler: typing.Callable
+    layer: typing.Optional["QgsMapLayer"]
+
+    def __init__(
+            self,
+            geonode_resource: BriefGeonodeResource,
+            service_type: GeonodeService,
+            api_client: "BaseGeonodeClient",
+            layer_handler: typing.Callable,
+            error_handler: typing.Callable,
+    ):
+        super().__init__()
+        self.geonode_resource = geonode_resource
+        self.service_type = service_type
+        self.api_client = api_client
+        self.layer_handler = layer_handler
+        self.error_handler = error_handler
+        self.layer = None
+
+    def run(self):
+        uri = self.geonode_resource.service_urls[self.service_type]
+        log(f"service_uri: {uri}")
+        layer_class, provider = {
+            GeonodeService.OGC_WMS: (qgis.core.QgsRasterLayer, "wms"),
+            GeonodeService.OGC_WCS: (qgis.core.QgsRasterLayer, "wcs"),
+            GeonodeService.OGC_WFS: (
+                qgis.core.QgsVectorLayer,
+                "WFS",
+            ),  # TODO: does this really require all caps?
+        }[self.service_type]
+        layer = layer_class(uri, self.geonode_resource.title, provider)
+        if layer.isValid():
+            self.layer = layer
+        return self.layer is not None
+
+    def finished(self, result: bool):
+        if result:
+            self.api_client.layer_detail_received.connect(
+                partial(self.layer_handler, self.layer)
+            )
+            self.api_client.get_layer_detail_from_brief_resource(self.geonode_resource)
+        else:
+            message = f"Error loading layer {self.layer_uri!r}"
+            log(message)
+            self.error_handler(message)
