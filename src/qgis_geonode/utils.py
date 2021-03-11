@@ -40,19 +40,3 @@ def tr(text):
     if type(text) != str:
         text = str(text)
     return QCoreApplication.translate("QgisGeoNode", text)
-
-
-def enum_mapping(cls, enum):
-    """workaround for accessing unsubscriptable sip enum types
-
-    from https://stackoverflow.com/a/39677321
-
-    """
-
-    mapping = {}
-    for key in dir(cls):
-        value = getattr(cls, key)
-        if isinstance(value, enum):
-            mapping[key] = value
-            mapping[value] = key
-    return mapping

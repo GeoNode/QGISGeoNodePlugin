@@ -26,7 +26,7 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
-         <widget class="QPushButton" name="btnNew">
+         <widget class="QPushButton" name="new_connection_btn">
           <property name="toolTip">
            <string>Create a new service connection</string>
           </property>
@@ -36,7 +36,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnEdit">
+         <widget class="QPushButton" name="edit_connection_btn">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -49,7 +49,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnDelete">
+         <widget class="QPushButton" name="delete_connection_btn">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -78,7 +78,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="btnLoad">
+         <widget class="QPushButton" name="load_connection_btn">
           <property name="toolTip">
            <string>Load connections from file</string>
           </property>
@@ -88,7 +88,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnSave_2">
+         <widget class="QPushButton" name="save_connection_btn">
           <property name="toolTip">
            <string>Save connections to file</string>
           </property>
@@ -492,7 +492,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QCheckBox" name="reverse_order_chk">
+      <widget class="QCheckBox" name="reverse_order_chb">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -525,7 +525,7 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="resultsLabel">
+      <widget class="QLabel" name="pagination_info_la">
        <property name="text">
         <string>Zero Results</string>
        </property>

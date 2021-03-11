@@ -36,6 +36,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     browser_btn: QtWidgets.QPushButton
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
+    load_layer_started = QtCore.pyqtSignal()
+    load_layer_ended = QtCore.pyqtSignal()
+
     def __init__(
         self,
         geonode_resource: BriefGeonodeResource,
@@ -96,6 +99,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.load_thumbnail()
         self.browser_btn.setIcon(QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg"))
         self.browser_btn.clicked.connect(self.open_resource_page)
+        qgs_project = qgis.core.QgsProject.instance()
+        qgs_project.layerWasAdded.connect(self.handle_layer_load_end)
 
     def _get_service_button_details(
         self, service: GeonodeService
@@ -126,11 +131,28 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def get_datasource_widget(self):
         return self.parent().parent().parent().parent()
 
+    def handle_layer_load_start(self):
+        # disable our own buttons and also any buttons on the parent
+        parent = self.get_datasource_widget()
+        parent.toggle_search_controls(False)
+        parent.show_progress(tr("Loading layer..."))
+        self.toggle_service_url_buttons(False)
+
+    def handle_layer_load_end(self):
+        # enable our own buttons and also any buttons on the parent
+        parent = self.get_datasource_widget()
+        parent.toggle_search_controls(True)
+        parent.toggle_search_buttons()
+        self.toggle_service_url_buttons(True)
+        self.clear_progress()
+
     def load_layer(self, service_type: GeonodeService):
+        # self.load_layer_started.emit()
+        self.handle_layer_load_start()
         uri = self.geonode_resource.service_urls[service_type]
         log(f"service_uri: {uri}")
-        self.toggle_service_url_buttons(False)
-        self.get_datasource_widget().show_progress(tr("Loading layer..."))
+        # self.toggle_service_url_buttons(False)
+        # self.get_datasource_widget().show_progress(tr("Loading layer..."))
         layer_class, provider = {
             GeonodeService.OGC_WMS: (qgis.core.QgsRasterLayer, "wms"),
             GeonodeService.OGC_WCS: (qgis.core.QgsRasterLayer, "wcs"),
@@ -165,8 +187,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def add_layer_to_project(self, layer: "QgsMapLayer"):
         qgis.core.QgsProject.instance().addMapLayer(layer)
-        self.toggle_service_url_buttons(True)
-        self.clear_progress()
+        # self.toggle_service_url_buttons(True)
+        # self.clear_progress()
 
     def populate_metadata(self, layer, geonode_resource):
         metadata = layer.metadata()
@@ -242,13 +264,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_sld_layer(self, layer, sld_named_layer: QtXml.QDomElement):
         """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
+        log(f"inside load_sld_layer...")
         error_message = ""
         loaded_sld = layer.readSld(sld_named_layer, error_message)
         if not loaded_sld:
             self.get_datasource_widget().show_message(
                 tr(f"Problem in applying GeoNode style for the layer: {error_message}")
             )
-            self.toggle_service_url_buttons(True)
+            # self.toggle_service_url_buttons(True)
         self.add_layer_to_project(layer)
 
     def toggle_service_url_buttons(self, enabled: bool):
