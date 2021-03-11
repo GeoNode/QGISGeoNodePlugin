@@ -149,7 +149,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             query.addQueryItem("sortby", ordering_value)
         if temporal_range is not None:
             temporal_filter = _get_temporal_filter(temporal_range)
-            query.addQueryItem("constraintlanguage", "FILTER")
+            query.addQueryItem("constraintlanguage", "CQL_TEXT")
             query.addQueryItem("constraint", temporal_filter)
 
         # if any((title, abstract, keyword, topic_category, layer_types)):
@@ -755,19 +755,4 @@ def _get_temporal_filter(temporal_range: QgsDateTimeRange):
     start = temporal_range.begin().toString(QtCore.Qt.ISODate)
     end = temporal_range.end().toString(QtCore.Qt.ISODate)
 
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<ogc:Filter xmlns:gml="http://www.opengis.net/gml"'
-        'xmlns:ogc="http://www.opengis.net/ogc">'
-        "<ogc:And>"
-        "<ogc:PropertyIsGreaterThanOrEqualTo>"
-        "<ogc:PropertyName>TempExtent_begin</ogc:PropertyName>"
-        "<ogc:Literal>{}</ogc:Literal>"
-        "</ogc:PropertyIsGreaterThanOrEqualTo>"
-        "<ogc:PropertyIsLessThan>"
-        "<ogc:PropertyName>TempExtent_end</ogc:PropertyName>"
-        "<ogc:Literal>{}/ogc:Literal>"
-        "</ogc:PropertyIsLessThanOrEqualTo>"
-        "</ogc:And>"
-        "</ogc:Filter>".format(start, end)
-    )
+    return "dc:date >= '{}' and " "dc:date < '{}' ".format(start, end)
