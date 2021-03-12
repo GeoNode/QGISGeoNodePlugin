@@ -26,7 +26,7 @@
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
-         <widget class="QPushButton" name="btnNew">
+         <widget class="QPushButton" name="new_connection_btn">
           <property name="toolTip">
            <string>Create a new service connection</string>
           </property>
@@ -36,7 +36,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnEdit">
+         <widget class="QPushButton" name="edit_connection_btn">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -49,7 +49,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnDelete">
+         <widget class="QPushButton" name="delete_connection_btn">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -78,7 +78,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="btnLoad">
+         <widget class="QPushButton" name="load_connection_btn">
           <property name="toolTip">
            <string>Load connections from file</string>
           </property>
@@ -88,7 +88,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="btnSave_2">
+         <widget class="QPushButton" name="save_connection_btn">
           <property name="toolTip">
            <string>Save connections to file</string>
           </property>
@@ -117,6 +117,9 @@
           </property>
           <property name="text">
            <string>Title</string>
+          </property>
+          <property name="buddy">
+           <cstring>title_le</cstring>
           </property>
          </widget>
         </item>
@@ -161,6 +164,9 @@
            <property name="text">
             <string>Abstract</string>
            </property>
+           <property name="buddy">
+            <cstring>abstract_le</cstring>
+           </property>
           </widget>
          </item>
          <item row="1" column="1">
@@ -177,6 +183,9 @@
            </property>
            <property name="text">
             <string>Keywords</string>
+           </property>
+           <property name="buddy">
+            <cstring>keyword_cmb</cstring>
            </property>
           </widget>
          </item>
@@ -205,6 +214,9 @@
            </property>
            <property name="text">
             <string>Topic Category</string>
+           </property>
+           <property name="buddy">
+            <cstring>category_cmb</cstring>
            </property>
           </widget>
          </item>
@@ -292,6 +304,9 @@
            <property name="text">
             <string>Start</string>
            </property>
+           <property name="buddy">
+            <cstring>start_dte</cstring>
+           </property>
           </widget>
          </item>
          <item row="5" column="1">
@@ -311,6 +326,9 @@
            </property>
            <property name="text">
             <string>End</string>
+           </property>
+           <property name="buddy">
+            <cstring>end_dte</cstring>
            </property>
           </widget>
          </item>
@@ -425,6 +443,9 @@
        <property name="text">
         <string>Search Geonode</string>
        </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
       </widget>
      </item>
      <item>
@@ -473,6 +494,9 @@
        <property name="text">
         <string>Sort by</string>
        </property>
+       <property name="buddy">
+        <cstring>sort_field_cmb</cstring>
+       </property>
       </widget>
      </item>
      <item>
@@ -492,7 +516,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QCheckBox" name="reverse_order_chk">
+      <widget class="QCheckBox" name="reverse_order_chb">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -525,7 +549,7 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="resultsLabel">
+      <widget class="QLabel" name="pagination_info_la">
        <property name="text">
         <string>Zero Results</string>
        </property>
@@ -587,6 +611,33 @@
    <header>qgsdatetimeedit.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>title_le</tabstop>
+  <tabstop>abstract_le</tabstop>
+  <tabstop>keyword_cmb</tabstop>
+  <tabstop>keyword_tool_btn</tabstop>
+  <tabstop>category_cmb</tabstop>
+  <tabstop>vector_chb</tabstop>
+  <tabstop>raster_chb</tabstop>
+  <tabstop>map_chb</tabstop>
+  <tabstop>start_dte</tabstop>
+  <tabstop>end_dte</tabstop>
+  <tabstop>search_btn</tabstop>
+  <tabstop>previous_btn</tabstop>
+  <tabstop>next_btn</tabstop>
+  <tabstop>sort_field_cmb</tabstop>
+  <tabstop>reverse_order_chb</tabstop>
+  <tabstop>scroll_area</tabstop>
+  <tabstop>connections_cmb</tabstop>
+  <tabstop>new_connection_btn</tabstop>
+  <tabstop>edit_connection_btn</tabstop>
+  <tabstop>delete_connection_btn</tabstop>
+  <tabstop>load_connection_btn</tabstop>
+  <tabstop>save_connection_btn</tabstop>
+  <tabstop>comboBox_6</tabstop>
+  <tabstop>btnSave_3</tabstop>
+  <tabstop>btnLoad_3</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
  <buttongroups>

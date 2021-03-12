@@ -26,32 +26,50 @@ WidgetUi, _ = loadUiType(
 
 
 class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
-    name_la: QtWidgets.QLabel
-    description_la: QtWidgets.QLabel
-    resource_type_la: QtWidgets.QLabel
-    resource_type_icon_la: QtWidgets.QLabel
-    thumbnail_la: QtWidgets.QLabel
-    message_bar: qgis.gui.QgsMessageBar
     action_buttons_layout: QtWidgets.QHBoxLayout
     browser_btn: QtWidgets.QPushButton
+    description_la: QtWidgets.QLabel
+    name_la: QtWidgets.QLabel
+    resource_type_icon_la: QtWidgets.QLabel
+    resource_type_la: QtWidgets.QLabel
+    thumbnail_la: QtWidgets.QLabel
+
+    layer_loader_task: typing.Optional[qgis.core.QgsTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
+
+    load_layer_started = QtCore.pyqtSignal()
+    load_layer_ended = QtCore.pyqtSignal()
+
+    api_client: BaseGeonodeClient
+    brief_resource: BriefGeonodeResource
+    full_resource: typing.Optional[GeonodeResource]
+    layer: typing.Optional["QgsMapLayer"]
 
     def __init__(
         self,
-        geonode_resource: BriefGeonodeResource,
+        brief_resource: BriefGeonodeResource,
         api_client: BaseGeonodeClient,
         parent=None,
     ):
         super().__init__(parent)
         self.setupUi(self)
+        self.project = qgis.core.QgsProject.instance()
         self.thumbnail_loader_task = None
-        self.name_la.setText(f"<h3>{geonode_resource.name}</h3>")
+        self.layer_loader_task = None
+        self.layer = None
+        self.brief_resource = brief_resource
+        self.full_resource = None
+        self.api_client = api_client
+        self._initialize_ui()
+        self.toggle_service_url_buttons(True)
+        self.load_thumbnail()
 
-        name = api_client.get_search_result_identifier(geonode_resource)
+    def _initialize_ui(self):
+        name = self.api_client.get_search_result_identifier(self.brief_resource)
         self.name_la.setText(f"<h3>{name}</h3>")
 
-        if geonode_resource.resource_type is not None:
-            self.resource_type_la.setText(geonode_resource.resource_type.value)
+        if self.brief_resource.resource_type is not None:
+            self.resource_type_la.setText(self.brief_resource.resource_type.value)
             icon_path = {
                 GeonodeResourceType.RASTER_LAYER: (
                     ":/images/themes/default/mIconRaster.svg"
@@ -60,196 +78,44 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                     ":/images/themes/default/mIconVector.svg"
                 ),
                 GeonodeResourceType.MAP: ":/images/themes/default/mIconRaster.svg",
-            }[geonode_resource.resource_type]
+            }[self.brief_resource.resource_type]
             self.resource_type_icon_la.setPixmap(QtGui.QPixmap(icon_path))
         else:
             self.resource_type_icon_la.setText("")
             self.resource_type_la.setText(tr("Unknown type"))
         sliced_abstract = (
-            f"{geonode_resource.abstract[:700]}..."
-            if len(geonode_resource.abstract) > 700
-            else geonode_resource.abstract
+            f"{self.brief_resource.abstract[:700]}..."
+            if len(self.brief_resource.abstract) > 700
+            else self.brief_resource.abstract
         )
-
         self.description_la.setText(sliced_abstract)
-        self.geonode_resource = geonode_resource
-        connection_settings = connections_manager.get_current_connection()
-        self.client = get_geonode_client(connection_settings)
+
         for service_type in GeonodeService:
-            url = geonode_resource.service_urls.get(service_type)
-            if url is not None:
-                (
-                    description,
-                    order,
-                    icon_path,
-                    handler,
-                ) = self._get_service_button_details(service_type)
-                icon = QtGui.QIcon(icon_path)
+            url = self.brief_resource.service_urls.get(service_type)
+            if url is not None and service_type != GeonodeService.FILE_DOWNLOAD:
+                icon = QtGui.QIcon(
+                    f":/plugins/qgis_geonode/icon_{service_type.value}.svg"
+                )
                 button = QtWidgets.QPushButton()
                 button.setObjectName(f"{service_type.name.lower()}_btn")
                 button.setIcon(icon)
-                button.setToolTip(tr("Load layer via {}").format(description))
-                button.clicked.connect(handler)
+                button.setToolTip(tr("Load layer via {}").format(service_type.value))
+                button.clicked.connect(partial(self.load_layer, service_type))
+                order = 1 if service_type == GeonodeService.OGC_WMS else 2
                 self.action_buttons_layout.insertWidget(order, button)
-
-        self.toggle_service_url_buttons(True)
-        self.load_thumbnail()
         self.browser_btn.setIcon(QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg"))
         self.browser_btn.clicked.connect(self.open_resource_page)
 
-    def _get_service_button_details(
-        self, service: GeonodeService
-    ) -> typing.Tuple[str, int, str, typing.Callable]:
-        icon_path = f":/plugins/qgis_geonode/icon_{service.value}.svg"
-        return {
-            GeonodeService.OGC_WMS: (
-                "WMS",
-                1,
-                icon_path,
-                partial(self.load_layer, service),
-            ),
-            GeonodeService.OGC_WFS: (
-                "WFS",
-                2,
-                icon_path,
-                partial(self.load_layer, service),
-            ),
-            GeonodeService.OGC_WCS: (
-                "WCS",
-                2,
-                icon_path,
-                partial(self.load_layer, service),
-            ),
-            GeonodeService.FILE_DOWNLOAD: ("File download", 3, None, None),
-        }[service]
-
-    def get_datasource_widget(self):
-        return self.parent().parent().parent().parent()
-
-    def load_layer(self, service_type: GeonodeService):
-        uri = self.geonode_resource.service_urls[service_type]
-        log(f"service_uri: {uri}")
-        self.toggle_service_url_buttons(False)
-        self.get_datasource_widget().show_progress(tr("Loading layer..."))
-        layer_class, provider = {
-            GeonodeService.OGC_WMS: (qgis.core.QgsRasterLayer, "wms"),
-            GeonodeService.OGC_WCS: (qgis.core.QgsRasterLayer, "wcs"),
-            GeonodeService.OGC_WFS: (
-                qgis.core.QgsVectorLayer,
-                "WFS",
-            ),  # TODO: does this really require all caps?
-        }[service_type]
-        layer = layer_class(uri, self.geonode_resource.title, provider)
-        if layer.isValid():
-            self.client.layer_detail_received.connect(
-                partial(self.prepare_layer, layer)
-            )
-            self.client.get_layer_detail_from_brief_resource(self.geonode_resource)
+    def open_resource_page(self):
+        if self.brief_resource.gui_url is not None:
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.brief_resource.gui_url))
         else:
-            message = "Invalid layer, cannot load"
+            message = (
+                "Couldn't open resource in browser page, the resource doesn't contain "
+                "GeoNode layer page URL"
+            )
             log(message)
-            self.get_datasource_widget().show_message(
-                message, level=qgis.core.Qgis.Critical
-            )
-            self.toggle_service_url_buttons(True)
-
-    def prepare_layer(self, layer: "QgsMapLayer", geonode_resource: GeonodeResource):
-        self.populate_metadata(layer, geonode_resource)
-        if layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
-            self.client.style_detail_received.connect(
-                partial(self.load_sld_layer, layer)
-            )
-            self.client.get_layer_style(geonode_resource)
-        else:  # TODO: add support for loading SLDs for raster layers too
-            self.add_layer_to_project(layer)
-
-    def add_layer_to_project(self, layer: "QgsMapLayer"):
-        qgis.core.QgsProject.instance().addMapLayer(layer)
-        self.toggle_service_url_buttons(True)
-        self.clear_progress()
-
-    def populate_metadata(self, layer, geonode_resource):
-        metadata = layer.metadata()
-        metadata.setIdentifier(str(geonode_resource.uuid))
-        metadata.setTitle(geonode_resource.title)
-        metadata.setAbstract(geonode_resource.abstract)
-        metadata.setLanguage(geonode_resource.language)
-        metadata.setKeywords({"layer": geonode_resource.keywords})
-        if geonode_resource.category:
-            metadata.setCategories([geonode_resource.category])
-        if geonode_resource.license:
-            metadata.setLicenses([geonode_resource.license])
-        if geonode_resource.constraints:
-            constraints = [
-                qgis.core.QgsLayerMetadata.Constraint(geonode_resource.constraints)
-            ]
-            metadata.setConstraints(constraints)
-
-        metadata.setCrs(geonode_resource.crs)
-
-        spatial_extent = qgis.core.QgsLayerMetadata.SpatialExtent()
-        spatial_extent.extentCrs = geonode_resource.crs
-        if geonode_resource.spatial_extent:
-            spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
-            if geonode_resource.temporal_extent:
-                metadata.extent().setTemporalExtents(
-                    [
-                        qgis.core.QgsDateTimeRange(
-                            geonode_resource.temporal_extent[0],
-                            geonode_resource.temporal_extent[1],
-                        )
-                    ]
-                )
-
-        metadata.extent().setSpatialExtents([spatial_extent])
-
-        if geonode_resource.owner:
-            owner_contact = qgis.core.QgsAbstractMetadataBase.Contact(
-                geonode_resource.owner["username"]
-            )
-            owner_contact.role = tr("owner")
-            metadata.addContact(owner_contact)
-        if geonode_resource.metadata_author:
-            metadata_author = qgis.core.QgsAbstractMetadataBase.Contact(
-                geonode_resource.metadata_author["username"]
-            )
-            metadata_author.role = tr("metadata_author")
-            metadata.addContact(metadata_author)
-
-        links = []
-
-        if geonode_resource.thumbnail_url:
-            link = qgis.core.QgsAbstractMetadataBase.Link(
-                tr("Thumbnail"), tr("Thumbail_link"), geonode_resource.thumbnail_url
-            )
-            links.append(link)
-
-        if geonode_resource.api_url:
-            link = qgis.core.QgsAbstractMetadataBase.Link(
-                tr("API"), tr("API_URL"), geonode_resource.api_url
-            )
-            links.append(link)
-
-        if geonode_resource.gui_url:
-            link = qgis.core.QgsAbstractMetadataBase.Link(
-                tr("Detail"), tr("Detail_URL"), geonode_resource.gui_url
-            )
-            links.append(link)
-
-        metadata.setLinks(links)
-
-        layer.setMetadata(metadata)
-
-    def load_sld_layer(self, layer, sld_named_layer: QtXml.QDomElement):
-        """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
-        error_message = ""
-        loaded_sld = layer.readSld(sld_named_layer, error_message)
-        if not loaded_sld:
-            self.get_datasource_widget().show_message(
-                tr(f"Problem in applying GeoNode style for the layer: {error_message}")
-            )
-            self.toggle_service_url_buttons(True)
-        self.add_layer_to_project(layer)
+            self._get_datasource_widget().show_message(tr(message))
 
     def toggle_service_url_buttons(self, enabled: bool):
         for index in range(self.action_buttons_layout.count()):
@@ -259,9 +125,10 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
-        request = QtCore.QUrl(self.geonode_resource.thumbnail_url)
         # TODO: do we need to provide auth config here?
-        task = qgis.core.QgsNetworkContentFetcherTask(request)
+        task = qgis.core.QgsNetworkContentFetcherTask(
+            QtCore.QUrl(self.brief_resource.thumbnail_url)
+        )
         task.fetched.connect(partial(self.handle_thumbnail_response, task))
         task.run()
 
@@ -273,25 +140,95 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.thumbnail_loader_task = ThumbnailLoader(
                 contents,
                 self.thumbnail_la,
-                self.geonode_resource.title,
+                self.brief_resource.title,
             )
             qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_loader_task)
         else:
             log(f"Error retrieving thumbnail for {self.geonode_resource.title}")
 
-    def open_resource_page(self):
-        if self.geonode_resource.gui_url is not None:
-            QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.geonode_resource.gui_url))
-        else:
-            message = (
-                "Couldn't open resource in browser page, the resource doesn't contain "
-                "GeoNode layer page URL"
-            )
-            log(message)
-            self.get_datasource_widget().show_message(tr(message))
+    def _get_datasource_widget(self):
+        return self.parent().parent().parent().parent()
 
-    def clear_progress(self):
-        self.get_datasource_widget().message_bar.clearWidgets()
+    def handle_layer_load_start(self):
+        parent = self._get_datasource_widget()
+        parent.toggle_search_controls(False)
+        parent.show_progress(tr("Loading layer..."))
+        self.toggle_service_url_buttons(False)
+
+    def handle_layer_load_end(self):
+        parent = self._get_datasource_widget()
+        parent.toggle_search_controls(True)
+        parent.toggle_search_buttons()
+        self.toggle_service_url_buttons(True)
+        self._get_datasource_widget().message_bar.clearWidgets()
+
+    def handle_loading_error(
+        self, qt_error: str, http_status_code: int, http_status_reason: str
+    ):
+        if http_status_code != 0:
+            http_status = f"{http_status_code} - {http_status_reason}"
+        else:
+            http_status = ""
+        self.handle_layer_load_end()
+        message = " ".join((qt_error, http_status))
+        self._get_datasource_widget().show_message(
+            message, level=qgis.core.Qgis.Critical
+        )
+
+    def load_layer(self, service_type: GeonodeService):
+        self.handle_layer_load_start()
+        uri = self.brief_resource.service_urls[service_type]
+        self.layer_loader_task = LayerLoaderTask(
+            uri,
+            self.brief_resource.title,
+            service_type,
+            api_client=self.api_client,
+            layer_handler=self.prepare_loaded_layer,
+            error_handler=self.handle_loading_error,
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.layer_loader_task)
+
+    def prepare_loaded_layer(self, layer: "QgsMapLayer"):
+        """Retrieve layer details for the layer that has been loaded"""
+        self.layer = layer
+        self.api_client.layer_detail_received.connect(self.handle_layer_detail)
+        self.api_client.error_received.connect(self.handle_loading_error)
+        self.api_client.get_layer_detail_from_brief_resource(self.brief_resource)
+
+    def handle_layer_detail(self, resource: GeonodeResource):
+        """Populate the loaded layer with metadata from the retrived GeoNode resource
+
+        Then either retrieve the layer's SLD or add it to QGIS project
+
+        """
+
+        self.full_resource = resource
+        log("handle_layer_detail called")
+        self.api_client.layer_detail_received.disconnect(self.handle_layer_detail)
+        metadata = populate_metadata(self.layer.metadata(), resource)
+        self.layer.setMetadata(metadata)
+        if self.layer.type() == qgis.core.QgsMapLayer.VectorLayer:
+            self.api_client.style_detail_received.connect(self.handle_sld_received)
+            self.api_client.get_layer_style(self.full_resource)
+        else:  # TODO: add support for loading SLDs for raster layers too
+            self.add_layer_to_project()
+
+    def handle_sld_received(self, sld_named_layer: QtXml.QDomElement):
+        """Retrieve SLD style and set it to the layer, then add layer to QGIS project"""
+        self.api_client.style_detail_received.disconnect(self.handle_sld_received)
+        error_message = ""
+        loaded_sld = self.layer.readSld(sld_named_layer, error_message)
+        if not loaded_sld:
+            self._get_datasource_widget().show_message(
+                tr(f"Problem in applying GeoNode style for the layer: {error_message}")
+            )
+        self.add_layer_to_project()
+
+    def add_layer_to_project(self):
+        self.api_client.error_received.disconnect(self.handle_loading_error)
+        self.project.addMapLayer(self.layer)
+        # log("Pretend to add layer to QGIS")
+        self.handle_layer_load_end()
 
 
 class ThumbnailLoader(qgis.core.QgsTask):
@@ -318,3 +255,123 @@ class ThumbnailLoader(qgis.core.QgsTask):
             self.label.setPixmap(thumbnail)
         else:
             log(f"Error retrieving thumbnail for {self.resource_title!r}")
+
+
+class LayerLoaderTask(qgis.core.QgsTask):
+    brief_resource: BriefGeonodeResource
+    service_type: GeonodeService
+    api_client: "BaseGeonodeClient"
+    layer_handler: typing.Callable
+    error_handler: typing.Callable
+    layer: typing.Optional["QgsMapLayer"]
+
+    def __init__(
+        self,
+        uri: str,
+        layer_title: str,
+        service_type: GeonodeService,
+        api_client: "BaseGeonodeClient",
+        layer_handler: typing.Callable,
+        error_handler: typing.Callable,
+    ):
+        super().__init__()
+        self.uri = uri
+        self.layer_title = layer_title
+        self.service_type = service_type
+        self.api_client = api_client
+        self.layer_handler = layer_handler
+        self.error_handler = error_handler
+        self.layer = None
+
+    def run(self):
+        log(f"service_uri: {self.uri}")
+        layer_class, provider = {
+            GeonodeService.OGC_WMS: (qgis.core.QgsRasterLayer, "wms"),
+            GeonodeService.OGC_WCS: (qgis.core.QgsRasterLayer, "wcs"),
+            GeonodeService.OGC_WFS: (
+                qgis.core.QgsVectorLayer,
+                "WFS",
+            ),  # TODO: does this really require all caps?
+        }[self.service_type]
+        layer = layer_class(self.uri, self.layer_title, provider)
+        if layer.isValid():
+            self.layer = layer
+        return self.layer is not None
+
+    def finished(self, result: bool):
+        if result:
+            # Cloning the layer seems to be required in order to make sure the WMS
+            # layers work appropriately - Otherwise we get random crashes when loading
+            # WMS layers. This may be related to how the layer is moved from the
+            # secondary thread by QgsTaskManager and the layer's ownership.
+            cloned_layer = self.layer.clone()
+            self.layer_handler(cloned_layer)
+        else:
+            message = f"Error loading layer {self.layer_uri!r}"
+            log(message)
+            self.error_handler(message)
+
+
+def populate_metadata(
+    metadata: qgis.core.QgsLayerMetadata, geonode_resource: GeonodeResource
+):
+    metadata.setIdentifier(str(geonode_resource.uuid))
+    metadata.setTitle(geonode_resource.title)
+    metadata.setAbstract(geonode_resource.abstract)
+    metadata.setLanguage(geonode_resource.language)
+    metadata.setKeywords({"layer": geonode_resource.keywords})
+    if geonode_resource.category:
+        metadata.setCategories([geonode_resource.category])
+    if geonode_resource.license:
+        metadata.setLicenses([geonode_resource.license])
+    if geonode_resource.constraints:
+        constraints = [
+            qgis.core.QgsLayerMetadata.Constraint(geonode_resource.constraints)
+        ]
+        metadata.setConstraints(constraints)
+    metadata.setCrs(geonode_resource.crs)
+    spatial_extent = qgis.core.QgsLayerMetadata.SpatialExtent()
+    spatial_extent.extentCrs = geonode_resource.crs
+    if geonode_resource.spatial_extent:
+        spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
+        if geonode_resource.temporal_extent:
+            metadata.extent().setTemporalExtents(
+                [
+                    qgis.core.QgsDateTimeRange(
+                        geonode_resource.temporal_extent[0],
+                        geonode_resource.temporal_extent[1],
+                    )
+                ]
+            )
+
+    metadata.extent().setSpatialExtents([spatial_extent])
+    if geonode_resource.owner:
+        owner_contact = qgis.core.QgsAbstractMetadataBase.Contact(
+            geonode_resource.owner["username"]
+        )
+        owner_contact.role = tr("owner")
+        metadata.addContact(owner_contact)
+    if geonode_resource.metadata_author:
+        metadata_author = qgis.core.QgsAbstractMetadataBase.Contact(
+            geonode_resource.metadata_author["username"]
+        )
+        metadata_author.role = tr("metadata_author")
+        metadata.addContact(metadata_author)
+    links = []
+    if geonode_resource.thumbnail_url:
+        link = qgis.core.QgsAbstractMetadataBase.Link(
+            tr("Thumbnail"), tr("Thumbail_link"), geonode_resource.thumbnail_url
+        )
+        links.append(link)
+    if geonode_resource.api_url:
+        link = qgis.core.QgsAbstractMetadataBase.Link(
+            tr("API"), tr("API_URL"), geonode_resource.api_url
+        )
+        links.append(link)
+    if geonode_resource.gui_url:
+        link = qgis.core.QgsAbstractMetadataBase.Link(
+            tr("Detail"), tr("Detail_URL"), geonode_resource.gui_url
+        )
+        links.append(link)
+    metadata.setLinks(links)
+    return metadata
