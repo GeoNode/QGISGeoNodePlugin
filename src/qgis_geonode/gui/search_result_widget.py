@@ -301,7 +301,9 @@ class LayerLoaderTask(qgis.core.QgsTask):
     def finished(self, result: bool):
         if result:
             # Cloning the layer seems to be required in order to make sure the WMS
-            # layers work appropriately
+            # layers work appropriately - Otherwise we get random crashes when loading
+            # WMS layers. This may be related to how the layer is moved from the
+            # secondary thread by QgsTaskManager and the layer's ownership.
             cloned_layer = self.layer.clone()
             self.layer_handler(cloned_layer)
         else:

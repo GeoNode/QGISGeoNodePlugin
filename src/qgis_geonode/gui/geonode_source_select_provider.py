@@ -116,11 +116,16 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         )
         self.next_btn.clicked.connect(self.request_next_page)
         self.previous_btn.clicked.connect(self.request_previous_page)
+        self.grid_layout = QtWidgets.QGridLayout()
         self.message_bar = qgis.gui.QgsMessageBar()
         self.message_bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
         )
-        self.layout().insertWidget(4, self.message_bar)
+        self.grid_layout.addWidget(self.scroll_area, 0, 0, 1, 1)
+        self.grid_layout.addWidget(
+            self.message_bar, 0, 0, 1, 1, alignment=QtCore.Qt.AlignTop
+        )
+        self.layout().insertLayout(4, self.grid_layout)
 
         self.keyword_tool_btn.clicked.connect(self.search_keywords)
         self.toggle_search_buttons()
