@@ -300,7 +300,10 @@ class LayerLoaderTask(qgis.core.QgsTask):
 
     def finished(self, result: bool):
         if result:
-            self.layer_handler(self.layer)
+            # Cloning the layer seems to be required in order to make sure the WMS
+            # layers work appropriately
+            cloned_layer = self.layer.clone()
+            self.layer_handler(cloned_layer)
         else:
             message = f"Error loading layer {self.layer_uri!r}"
             log(message)
