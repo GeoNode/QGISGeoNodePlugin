@@ -62,10 +62,13 @@ class BaseGeonodeClient(QtCore.QObject):
         abstract: typing.Optional[str] = None,
         keyword: typing.Optional[str] = None,
         topic_category: typing.Optional[str] = None,
-        layer_type: typing.Optional[models.GeonodeResourceType] = None,
+        layer_types: typing.Optional[models.GeonodeResourceType] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-        temporal_range: typing.Optional[QgsDateTimeRange] = None,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -86,7 +89,10 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-        temporal_range: typing.Optional[QgsDateTimeRange] = None,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -135,21 +141,28 @@ class BaseGeonodeClient(QtCore.QObject):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-        temporal_range: typing.Optional[QgsDateTimeRange] = None,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
     ):
         url = self.get_layers_url_endpoint(
+            page=page,
+            page_size=page_size,
             title=title,
             abstract=abstract,
             keyword=keyword,
             topic_category=topic_category,
             layer_types=layer_types,
-            page=page,
-            page_size=page_size,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
-            temporal_range=temporal_range,
+            temporal_extent_start=temporal_extent_start,
+            temporal_extent_end=temporal_extent_end,
+            publication_date_start=publication_date_start,
+            publication_date_end=publication_date_end,
         )
         request = QtNetwork.QNetworkRequest(url)
+        log(f"URL: {url.toString()}")
         self.run_task(request, self.handle_layer_list)
 
     def get_layer_detail_from_brief_resource(
@@ -191,7 +204,10 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-        temporal_range: typing.Optional[QgsDateTimeRange] = None,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
     ):
         url = self.get_maps_url_endpoint(
             page=page,
@@ -201,7 +217,10 @@ class BaseGeonodeClient(QtCore.QObject):
             topic_category=topic_category,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
-            temporal_range=temporal_range,
+            temporal_extent_start=temporal_extent_start,
+            temporal_extent_end=temporal_extent_end,
+            publication_date_start=publication_date_start,
+            publication_date_end=publication_date_end,
         )
         request = QtNetwork.QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)
