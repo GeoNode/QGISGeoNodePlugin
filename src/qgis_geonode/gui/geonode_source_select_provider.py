@@ -4,6 +4,7 @@ import typing
 from functools import partial
 
 import qgis.core
+from qgis.utils import iface
 import qgis.gui
 from qgis.PyQt import (
     QtCore,
@@ -137,6 +138,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.publication_end_dte.clear()
         self.load_categories()
         self.load_sorting_fields(selected_by_default=models.OrderingType.NAME)
+
+        self.spatial_extent_box.setCurrentExtent(
+            iface.mapCanvas().extent(), iface.mapCanvas().mapSettings().destinationCrs()
+        )
 
         # we use these to control enabling/disabling UI controls during searches
         self._connection_controls = [
@@ -304,6 +309,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         search_vector = self.vector_chb.isChecked()
         search_raster = self.raster_chb.isChecked()
         search_map = self.map_chb.isChecked()
+        spatial_extent = self.spatial_extent_box.outputExtent()
+
         if any((search_vector, search_raster, search_map)):
             if search_vector:
                 resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
@@ -335,6 +342,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 temporal_extent_end=extent_end if not extent_end.isNull() else None,
                 publication_date_start=pub_start if not pub_start.isNull() else None,
                 publication_date_end=pub_end if not pub_end.isNull() else None,
+                spatial_extent=spatial_extent,
             )
 
     def toggle_search_controls(self, enabled: bool):

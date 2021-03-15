@@ -130,6 +130,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+        spatial_extent: typing.Optional[QgsRectangle] = None,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.catalogue_url}")
         query = self._build_search_query(
@@ -300,6 +301,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+        spatial_extent: typing.Optional[QgsRectangle] = None,
     ):
         """Get layers from the CSW endpoint
 
@@ -343,6 +345,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             temporal_extent_end,
             publication_date_start,
             publication_date_end,
+            spatial_extent,
         )
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
@@ -837,3 +840,20 @@ def _get_wfs_uri(
     if auth_config is not None:
         params["authcfg"] = auth_config
     return " ".join(f"{k}='{v}'" for k, v in params.items())
+
+
+def _get_spatial_extent_filter(extent: QgsRectangle):
+    spatial_filter = (
+        '<?xml version = "1.0" encoding = "UTF-8"? >'
+        '<ogc:Filter xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc">'
+        "<ogc:BBOX>"
+        "<ogc:PropertyName>ows:BoundingBox</ogc:PropertyName>"
+        '<gml:Envelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">'
+        f"<gml:lowerCorner>{extent.xMinimum()} {extent.yMinimum()}</gml:lowerCorner>"
+        f"<gml:upperCorner>{extent.xMaximum()} {extent.yMaximum()}</gml:upperCorner>"
+        "</gml:Envelope>"
+        "</ogc:BBOX>"
+        "</ogc:Filter>"
+    )
+
+    return spatial_filter

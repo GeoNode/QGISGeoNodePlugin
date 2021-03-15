@@ -2,11 +2,15 @@ import typing
 import uuid
 from functools import partial
 
+<<<<<<< HEAD
 from qgis.core import (
     QgsDateTimeRange,
     QgsMessageLog,
     QgsNetworkContentFetcherTask,
 )
+=======
+from qgis.core import QgsMessageLog, QgsNetworkContentFetcherTask, QgsRectangle
+>>>>>>> support for spatial filtering
 from qgis.PyQt import (
     QtCore,
     QtNetwork,
@@ -65,10 +69,14 @@ class BaseGeonodeClient(QtCore.QObject):
         layer_types: typing.Optional[models.GeonodeResourceType] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+=======
+        spatial_extent: typing.Optional[QgsRectangle] = None,
+>>>>>>> support for spatial filtering
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -89,10 +97,14 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+=======
+        spatial_extent: typing.Optional[QgsRectangle] = None,
+>>>>>>> support for spatial filtering
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -141,10 +153,14 @@ class BaseGeonodeClient(QtCore.QObject):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+=======
+        spatial_extent: typing.Optional[QgsRectangle] = None,
+>>>>>>> support for spatial filtering
     ):
         url = self.get_layers_url_endpoint(
             page=page,
@@ -156,10 +172,14 @@ class BaseGeonodeClient(QtCore.QObject):
             layer_types=layer_types,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
+<<<<<<< HEAD
             temporal_extent_start=temporal_extent_start,
             temporal_extent_end=temporal_extent_end,
             publication_date_start=publication_date_start,
             publication_date_end=publication_date_end,
+=======
+            spatial_extent=spatial_extent,
+>>>>>>> support for spatial filtering
         )
         request = QtNetwork.QNetworkRequest(url)
         log(f"URL: {url.toString()}")
@@ -204,10 +224,14 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+=======
+        spatial_extent: typing.Optional[QgsRectangle] = None,
+>>>>>>> support for spatial filtering
     ):
         url = self.get_maps_url_endpoint(
             page=page,
@@ -217,10 +241,14 @@ class BaseGeonodeClient(QtCore.QObject):
             topic_category=topic_category,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
+<<<<<<< HEAD
             temporal_extent_start=temporal_extent_start,
             temporal_extent_end=temporal_extent_end,
             publication_date_start=publication_date_start,
             publication_date_end=publication_date_end,
+=======
+            spatial_extent=spatial_extent,
+>>>>>>> support for spatial filtering
         )
         request = QtNetwork.QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)

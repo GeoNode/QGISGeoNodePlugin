@@ -371,19 +371,10 @@
            </layout>
           </widget>
          </item>
-         <item row="6" column="0" colspan="2">
-          <widget class="QgsCollapsibleGroupBox" name="mGroupBox_2">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
+         <item row="7" column="0" colspan="2">
+          <widget class="QgsExtentGroupBox" name="spatial_extent_box">
            <property name="title">
             <string>Spatial Extent</string>
-           </property>
-           <property name="checkable">
-            <bool>false</bool>
-           </property>
-           <property name="checked">
-            <bool>false</bool>
            </property>
            <property name="collapsed">
             <bool>true</bool>
@@ -612,7 +603,7 @@
         <x>0</x>
         <y>0</y>
         <width>708</width>
-        <height>152</height>
+        <height>141</height>
        </rect>
       </property>
      </widget>
@@ -641,6 +632,12 @@
    <class>QgsDateTimeEdit</class>
    <extends>QDateTimeEdit</extends>
    <header>qgsdatetimeedit.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QgsExtentGroupBox</class>
+   <extends>QgsCollapsibleGroupBox</extends>
+   <header>qgsextentgroupbox.h</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <tabstops>
