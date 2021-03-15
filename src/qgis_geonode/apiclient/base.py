@@ -66,7 +66,7 @@ class BaseGeonodeClient(QtCore.QObject):
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
         temporal_range: typing.Optional[QgsDateTimeRange] = None,
-    ) -> QUrl:
+    ) -> QtCore.QUrl:
         raise NotImplementedError
 
     def get_layer_detail_url_endpoint(
