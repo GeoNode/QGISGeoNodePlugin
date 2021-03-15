@@ -55,7 +55,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     connections_cmb: QtWidgets.QComboBox
     current_page: int = 0
     edit_connection_btn: QtWidgets.QPushButton
-    end_dte: qgis.gui.QgsDateTimeEdit
     delete_connection_btn: QtWidgets.QPushButton
     keyword_cmb: QtWidgets.QComboBox
     keyword_tool_btn: QtWidgets.QToolButton
@@ -66,6 +65,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     new_connection_btn: QtWidgets.QPushButton
     pagination_info_la: QtWidgets.QLabel
     previous_btn: QtWidgets.QPushButton
+    publication_start_dte: qgis.gui.QgsDateTimeEdit
+    publication_end_dte: qgis.gui.QgsDateTimeEdit
     raster_chb: QtWidgets.QCheckBox
     resource_types_btngrp: QtWidgets.QButtonGroup
     reverse_order_chb: QtWidgets.QCheckBox
@@ -73,7 +74,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     scroll_area: QtWidgets.QScrollArea
     search_btn: QtWidgets.QPushButton
     sort_field_cmb: QtWidgets.QComboBox
-    start_dte: qgis.gui.QgsDateTimeEdit
+    temporal_extent_start_dte: qgis.gui.QgsDateTimeEdit
+    temporal_extent_end_dte: qgis.gui.QgsDateTimeEdit
     title_le: QtWidgets.QLineEdit
     total_pages: int = 0
     vector_chb: QtWidgets.QCheckBox
@@ -129,8 +131,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
         self.keyword_tool_btn.clicked.connect(self.search_keywords)
         self.toggle_search_buttons()
-        self.start_dte.clear()
-        self.end_dte.clear()
+        self.temporal_extent_start_dte.clear()
+        self.temporal_extent_end_dte.clear()
+        self.publication_start_dte.clear()
+        self.publication_end_dte.clear()
         self.load_categories()
         self.load_sorting_fields(selected_by_default=models.OrderingType.NAME)
 
@@ -152,8 +156,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.vector_chb,
             self.raster_chb,
             self.map_chb,
-            self.start_dte,
-            self.end_dte,
+            self.temporal_extent_start_dte,
+            self.temporal_extent_end_dte,
+            self.publication_start_dte,
+            self.publication_end_dte,
             self.search_btn,
             self.next_btn,
             self.previous_btn,
@@ -306,11 +312,13 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             if search_map:
                 resource_types.append(models.GeonodeResourceType.MAP)
             # FIXME: Implement these as search filters
-            start = self.start_dte.dateTime()
-            end = self.end_dte.dateTime()
             if reset_pagination:
                 self.current_page = 1
                 self.total_pages = 1
+            extent_start = self.temporal_extent_start_dte.dateTime()
+            extent_end = self.temporal_extent_end_dte.dateTime()
+            pub_start = self.publication_start_dte.dateTime()
+            pub_end = self.publication_end_dte.dateTime()
             client.get_layers(
                 page=self.current_page,
                 page_size=connection_settings.page_size,
@@ -321,6 +329,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 layer_types=resource_types,
                 ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
                 reverse_ordering=self.reverse_order_chb.isChecked(),
+                temporal_extent_start=(
+                    extent_start if not extent_start.isNull() else None
+                ),
+                temporal_extent_end=extent_end if not extent_end.isNull() else None,
+                publication_date_start=pub_start if not pub_start.isNull() else None,
+                publication_date_end=pub_end if not pub_end.isNull() else None,
             )
 
     def toggle_search_controls(self, enabled: bool):

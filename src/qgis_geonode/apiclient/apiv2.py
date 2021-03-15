@@ -5,12 +5,11 @@ import uuid
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsDateTimeRange,
     QgsRectangle,
 )
-from qgis.PyQt.QtCore import (
-    QByteArray,
-    QUrl,
-    QUrlQuery,
+from qgis.PyQt import (
+    QtCore,
 )
 
 from ..utils import log
@@ -55,9 +54,47 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-    ) -> QUrl:
-        url = QUrl(f"{self.api_url}/layers/")
-        query = QUrlQuery()
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+    ) -> QtCore.QUrl:
+        url = QtCore.QUrl(f"{self.api_url}/layers/")
+        query = self._build_search_query(
+            page,
+            page_size,
+            title,
+            abstract,
+            keyword,
+            topic_category,
+            layer_types,
+            ordering_field,
+            reverse_ordering,
+            temporal_extent_start,
+            temporal_extent_end,
+            publication_date_start,
+            publication_date_end,
+        )
+        url.setQuery(query.query())
+        return url
+
+    def _build_search_query(
+        self,
+        page: int,
+        page_size: int,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_types: typing.Optional[typing.Iterable[GeonodeResourceType]] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+    ) -> QtCore.QUrlQuery:
+        query = QtCore.QUrlQuery()
         query.addQueryItem("page", str(page))
         query.addQueryItem("page_size", str(page_size))
         if title is not None:
@@ -92,14 +129,31 @@ class GeonodeApiV2Client(BaseGeonodeClient):
                 ordering_field, reverse_sort=reverse_ordering
             )
             query.addQueryItem("sort[]", ordering_field_value)
-        url.setQuery(query.query())
-        return url
+        if temporal_extent_start is not None:
+            query.addQueryItem(
+                "filter{temporal_extent_start.gte}",
+                temporal_extent_start.toString(QtCore.Qt.ISODate),
+            )
+        if temporal_extent_end is not None:
+            query.addQueryItem(
+                "filter{temporal_extent_end.lte}",
+                temporal_extent_end.toString(QtCore.Qt.ISODate),
+            )
+        if publication_date_start is not None:
+            query.addQueryItem(
+                "filter{date.gte}", publication_date_start.toString(QtCore.Qt.ISODate)
+            )
+        if publication_date_end is not None:
+            query.addQueryItem(
+                "filter{date.lte}", publication_date_end.toString(QtCore.Qt.ISODate)
+            )
+        return query
 
-    def get_layer_detail_url_endpoint(self, id_: int) -> QUrl:
-        return QUrl(f"{self.api_url}/layers/{id_}/")
+    def get_layer_detail_url_endpoint(self, id_: int) -> QtCore.QUrl:
+        return QtCore.QUrl(f"{self.api_url}/layers/{id_}/")
 
     def get_layer_styles_url_endpoint(self, layer_id: int):
-        return QUrl(f"{self.api_url}/layers/{layer_id}/styles/")
+        return QtCore.QUrl(f"{self.api_url}/layers/{layer_id}/styles/")
 
     def get_maps_url_endpoint(
         self,
@@ -110,23 +164,25 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-    ) -> QUrl:
-        url = QUrl(f"{self.api_url}/maps/")
-        query = QUrlQuery()
-        query.addQueryItem("page", str(page))
-        query.addQueryItem("page_size", str(page_size))
-        if title:
-            query.addQueryItem("filter{title.icontains}", title)
-        if keyword:  # TODO: Allow using multiple keywords
-            query.addQueryItem("filter{keywords.name.icontains}", keyword)
-        if topic_category:
-            query.addQueryItem("filter{category.identifier}", topic_category)
-
-        if ordering_field is not None:
-            ordering_field_value = self.get_ordering_filter_name(
-                ordering_field, reverse_sort=reverse_ordering
-            )
-            query.addQueryItem("sort[]", ordering_field_value)
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+    ) -> QtCore.QUrl:
+        url = QtCore.QUrl(f"{self.api_url}/maps/")
+        query = self._build_search_query(
+            page,
+            page_size,
+            title,
+            keyword=keyword,
+            topic_category=topic_category,
+            ordering_field=ordering_field,
+            reverse_ordering=reverse_ordering,
+            temporal_extent_start=temporal_extent_start,
+            temporal_extent_end=temporal_extent_end,
+            publication_date_start=publication_date_start,
+            publication_date_end=publication_date_end,
+        )
         url.setQuery(query.query())
         return url
 
@@ -135,16 +191,21 @@ class GeonodeApiV2Client(BaseGeonodeClient):
     ):
         self.get_layer_detail(brief_resource.pk)
 
-    def deserialize_response_contents(self, contents: QByteArray) -> typing.Dict:
+    def deserialize_response_contents(self, contents: QtCore.QByteArray) -> typing.Dict:
         decoded_contents: str = contents.data().decode()
         return json.loads(decoded_contents)
 
     def handle_layer_list(self, payload: typing.Dict):
         layers = []
         for item in payload.get("layers", []):
-            layers.append(
-                get_brief_geonode_resource(item, self.base_url, self.auth_config)
-            )
+            try:
+                brief_resource = get_brief_geonode_resource(
+                    item, self.base_url, self.auth_config
+                )
+            except ValueError:
+                log(f"Could not parse {item!r} into a valid item")
+            else:
+                layers.append(brief_resource)
         pagination_info = models.GeoNodePaginationInfo(
             total_records=payload["total"],
             current_page=payload["page"],

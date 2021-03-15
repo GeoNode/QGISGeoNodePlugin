@@ -144,7 +144,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             )
             qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_loader_task)
         else:
-            log(f"Error retrieving thumbnail for {self.geonode_resource.title}")
+            log(f"Error retrieving thumbnail for {self.brief_resource.title}")
 
     def _get_datasource_widget(self):
         return self.parent().parent().parent().parent()

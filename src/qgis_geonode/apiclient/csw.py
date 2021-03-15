@@ -1,4 +1,3 @@
-import dataclasses
 import datetime as dt
 import enum
 import json
@@ -13,6 +12,7 @@ from xml.etree import ElementTree as ET
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsDateTimeRange,
     QgsNetworkAccessManager,
     QgsRectangle,
     QgsSettings,
@@ -22,7 +22,6 @@ from qgis.PyQt import (
     QtNetwork,
 )
 
-from ..utils import log
 from . import models
 from .base import BaseGeonodeClient
 from .models import GeonodeService
@@ -127,8 +126,49 @@ class GeonodeCswClient(BaseGeonodeClient):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.catalogue_url}")
+        query = self._build_search_query(
+            page,
+            page_size,
+            title,
+            abstract,
+            keyword,
+            topic_category,
+            layer_types,
+            ordering_field,
+            reverse_ordering,
+            temporal_extent_start,
+            temporal_extent_end,
+            publication_date_start,
+            publication_date_end,
+        )
+        url.setQuery(query.query())
+        return url
+
+    def _build_search_query(
+        self,
+        page: int,
+        page_size: int,
+        title: typing.Optional[str] = None,
+        abstract: typing.Optional[str] = None,
+        keyword: typing.Optional[str] = None,
+        topic_category: typing.Optional[str] = None,
+        layer_types: typing.Optional[
+            typing.Iterable[models.GeonodeResourceType]
+        ] = None,
+        ordering_field: typing.Optional[models.OrderingType] = None,
+        reverse_ordering: typing.Optional[bool] = False,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+    ) -> QtCore.QUrlQuery:
+        # FIXME: Add support for filtering with the other parameters
         query = QtCore.QUrlQuery()
         query.addQueryItem("service", "CSW")
         query.addQueryItem("version", "2.0.2")
@@ -139,21 +179,66 @@ class GeonodeCswClient(BaseGeonodeClient):
         query.addQueryItem("typenames", self.TYPE_NAME)
         query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
         query.addQueryItem("elementsetname", "full")
-
         if ordering_field is not None:
             ordering_value = self.get_ordering_filter_name(
                 ordering_field, reverse_ordering
             )
             query.addQueryItem("sortby", ordering_value)
-        # if any((title, abstract, keyword, topic_category, layer_types)):
-        #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
-        #     constraint_values = []
-        #     if title is not None:
-        #         constraint_values.append(f"dc:title like '{title}'")
-        #     # FIXME: Add support for filtering with the other parameters
-        #     query.addQueryItem("constraint", " AND ".join(constraint_values))
-        url.setQuery(query.query())
-        return url
+        if layer_types is None:
+            types = [
+                models.GeonodeResourceType.VECTOR_LAYER,
+                models.GeonodeResourceType.RASTER_LAYER,
+                models.GeonodeResourceType.MAP,
+            ]
+        else:
+            types = list(layer_types)
+        cql_filter_params = (
+            title,
+            abstract,
+            keyword,
+            topic_category,
+            types,
+            temporal_extent_start,
+            temporal_extent_end,
+            publication_date_start,
+            publication_date_end,
+        )
+        if any(cql_filter_params):
+            constraint_parts = []
+            if title is not None:
+                constraint_parts.append(f"dc:title like '%{title}%'")
+                pass
+            if abstract is not None:
+                pass
+            if keyword is not None:
+                pass
+            if topic_category is not None:
+                pass
+            if types is not None:
+                pass
+            if temporal_extent_start is not None:
+                constraint_parts.append(
+                    f"apiso:TempExtent_begin >= "
+                    f"{temporal_extent_start.toString(QtCore.Qt.ISODate)}"
+                )
+            if temporal_extent_end is not None:
+                constraint_parts.append(
+                    f"apiso:TempExtent_end <= "
+                    f"{temporal_extent_end.toString(QtCore.Qt.ISODate)}"
+                )
+            if publication_date_start is not None:
+                constraint_parts.append(
+                    f"dc:date >= {publication_date_start.toString(QtCore.Qt.ISODate)}"
+                )
+            if publication_date_end is not None:
+                constraint_parts.append(
+                    f"dc:date <= {publication_date_end.toString(QtCore.Qt.ISODate)}"
+                )
+            query_param = " AND ".join(constraint_parts)
+            if query_param != "":
+                query.addQueryItem("constraintlanguage", "CQL_TEXT")
+                query.addQueryItem("constraint", " AND ".join(constraint_parts))
+        return query
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
@@ -211,6 +296,10 @@ class GeonodeCswClient(BaseGeonodeClient):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
+        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
+        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
+        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
     ):
         """Get layers from the CSW endpoint
 
@@ -250,11 +339,14 @@ class GeonodeCswClient(BaseGeonodeClient):
             page_size,
             ordering_field,
             reverse_ordering,
+            temporal_extent_start,
+            temporal_extent_end,
+            publication_date_start,
+            publication_date_end,
         )
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
         decoded_contents: str = contents.data().decode()
-        log(f"decoded_contents: {decoded_contents}")
         return ET.fromstring(decoded_contents)
 
     def handle_layer_list(self, payload: ET.Element):
@@ -271,9 +363,14 @@ class GeonodeCswClient(BaseGeonodeClient):
                 f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"
             )
             for item in items:
-                layers.append(
-                    get_brief_geonode_resource(item, self.base_url, self.auth_config)
-                )
+                try:
+                    brief_resource = get_brief_geonode_resource(
+                        item, self.base_url, self.auth_config
+                    )
+                except (AttributeError, ValueError):
+                    log(f"Could not parse {item!r} into a valid item")
+                else:
+                    layers.append(brief_resource)
             pagination_info = models.GeoNodePaginationInfo(
                 total_records=total, current_page=current_page, page_size=self.PAGE_SIZE
             )
