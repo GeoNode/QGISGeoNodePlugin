@@ -2,15 +2,17 @@ import typing
 import uuid
 from functools import partial
 
-<<<<<<< HEAD
 from qgis.core import (
+    QgsApplication,
     QgsDateTimeRange,
     QgsMessageLog,
+    QgsNetworkAccessManager,
     QgsNetworkContentFetcherTask,
+    QgsNetworkReplyContent,
+    QgsRectangle,
+    QgsTask,
 )
-=======
-from qgis.core import QgsMessageLog, QgsNetworkContentFetcherTask, QgsRectangle
->>>>>>> support for spatial filtering
+
 from qgis.PyQt import (
     QtCore,
     QtNetwork,
@@ -19,6 +21,42 @@ from qgis.PyQt import (
 
 from . import models
 from ..utils import log
+
+
+class NetworkFetchTask(QgsTask):
+    request: QtNetwork.QNetworkRequest
+    authcfg: str
+    manager: QgsNetworkAccessManager
+    method: models.HttpMethod
+    reply_content: QgsNetworkReplyContent
+
+    fetched = QtCore.pyqtSignal()
+
+    def __init__(
+        self,
+        request: QtNetwork.QNetworkRequest,
+        method: models.HttpMethod = models.HttpMethod.GET,
+        authcfg: str = None,
+    ):
+        super().__init__()
+        self.request = request
+        self.authcfg = authcfg
+        self.manager = QgsNetworkAccessManager()
+        self.method = method
+        self.reply_content = None
+
+    def run(self, payload=None):
+        if self.method == models.HttpMethod.GET:
+            self.reply_content = self.manager.blockingGet(self.request, self.authcfg)
+            self.fetched.emit()
+        elif self.method == models.HttpMethod.POST:
+            self.reply_content = self.manager.blockingPost(
+                self.request, payload, self.authcfg
+            )
+            self.fetched.emit()
+
+    def reply(self):
+        return self.reply_content
 
 
 class BaseGeonodeClient(QtCore.QObject):
@@ -69,14 +107,11 @@ class BaseGeonodeClient(QtCore.QObject):
         layer_types: typing.Optional[models.GeonodeResourceType] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-=======
         spatial_extent: typing.Optional[QgsRectangle] = None,
->>>>>>> support for spatial filtering
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -97,14 +132,11 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-=======
         spatial_extent: typing.Optional[QgsRectangle] = None,
->>>>>>> support for spatial filtering
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -153,14 +185,11 @@ class BaseGeonodeClient(QtCore.QObject):
         page_size: typing.Optional[int] = 10,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-=======
         spatial_extent: typing.Optional[QgsRectangle] = None,
->>>>>>> support for spatial filtering
     ):
         url = self.get_layers_url_endpoint(
             page=page,
@@ -172,14 +201,11 @@ class BaseGeonodeClient(QtCore.QObject):
             layer_types=layer_types,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
-<<<<<<< HEAD
             temporal_extent_start=temporal_extent_start,
             temporal_extent_end=temporal_extent_end,
             publication_date_start=publication_date_start,
             publication_date_end=publication_date_end,
-=======
             spatial_extent=spatial_extent,
->>>>>>> support for spatial filtering
         )
         request = QtNetwork.QNetworkRequest(url)
         log(f"URL: {url.toString()}")
@@ -224,14 +250,11 @@ class BaseGeonodeClient(QtCore.QObject):
         topic_category: typing.Optional[str] = None,
         ordering_field: typing.Optional[models.OrderingType] = None,
         reverse_ordering: typing.Optional[bool] = False,
-<<<<<<< HEAD
         temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-=======
         spatial_extent: typing.Optional[QgsRectangle] = None,
->>>>>>> support for spatial filtering
     ):
         url = self.get_maps_url_endpoint(
             page=page,
@@ -241,14 +264,11 @@ class BaseGeonodeClient(QtCore.QObject):
             topic_category=topic_category,
             ordering_field=ordering_field,
             reverse_ordering=reverse_ordering,
-<<<<<<< HEAD
             temporal_extent_start=temporal_extent_start,
             temporal_extent_end=temporal_extent_end,
             publication_date_start=publication_date_start,
             publication_date_end=publication_date_end,
-=======
             spatial_extent=spatial_extent,
->>>>>>> support for spatial filtering
         )
         request = QtNetwork.QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)
@@ -260,7 +280,7 @@ class BaseGeonodeClient(QtCore.QObject):
         response_deserializer: typing.Optional[typing.Callable] = None,
     ):
         """Fetches the response from the GeoNode API"""
-        task = QgsNetworkContentFetcherTask(request, authcfg=self.auth_config)
+        task = NetworkFetchTask(request, authcfg=self.auth_config)
         response_handler = partial(
             self.response_fetched,
             task,
@@ -272,7 +292,7 @@ class BaseGeonodeClient(QtCore.QObject):
 
     def response_fetched(
         self,
-        task: QgsNetworkContentFetcherTask,
+        task: NetworkFetchTask,
         handler: typing.Callable,
         deserializer: typing.Callable,
     ):
@@ -280,7 +300,7 @@ class BaseGeonodeClient(QtCore.QObject):
         reply: QtNetwork.QNetworkReply = task.reply()
         error = reply.error()
         if error == QtNetwork.QNetworkReply.NoError:
-            contents: QtCore.QByteArray = reply.readAll()
+            contents: QtCore.QByteArray = reply.content()
             payload = deserializer(contents)
             handler(payload)
         else:

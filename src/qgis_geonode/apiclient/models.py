@@ -28,6 +28,11 @@ class OrderingType(enum.Enum):
     NAME = "name"
 
 
+class HttpMethod(enum.Enum):
+    GET = "GET"
+    POST = "POST"
+
+
 @dataclasses.dataclass
 class GeoNodePaginationInfo:
     total_records: int
