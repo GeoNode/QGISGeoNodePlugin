@@ -58,6 +58,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+        spatial_extent: typing.Optional[QgsRectangle] = None,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/layers/")
         query = self._build_search_query(
@@ -74,6 +75,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             temporal_extent_end,
             publication_date_start,
             publication_date_end,
+            spatial_extent
         )
         url.setQuery(query.query())
         return url
@@ -93,14 +95,9 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+        spatial_extent: typing.Optional[QgsRectangle] = None,
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
-=======
-        spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QUrl:
-        url = QUrl(f"{self.api_url}/layers/")
-        query = QUrlQuery()
->>>>>>> support for spatial filtering
         query.addQueryItem("page", str(page))
         query.addQueryItem("page_size", str(page_size))
         if title is not None:
@@ -174,6 +171,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+        spatial_extent: typing.Optional[QgsRectangle] = None,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/maps/")
         query = self._build_search_query(
@@ -188,27 +186,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             temporal_extent_end=temporal_extent_end,
             publication_date_start=publication_date_start,
             publication_date_end=publication_date_end,
+            spatial_extent=spatial_extent
         )
-=======
-        spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QUrl:
-        url = QUrl(f"{self.api_url}/maps/")
-        query = QUrlQuery()
-        query.addQueryItem("page", str(page))
-        query.addQueryItem("page_size", str(page_size))
-        if title:
-            query.addQueryItem("filter{title.icontains}", title)
-        if keyword:  # TODO: Allow using multiple keywords
-            query.addQueryItem("filter{keywords.name.icontains}", keyword)
-        if topic_category:
-            query.addQueryItem("filter{category.identifier}", topic_category)
-
-        if ordering_field is not None:
-            ordering_field_value = self.get_ordering_filter_name(
-                ordering_field, reverse_sort=reverse_ordering
-            )
-            query.addQueryItem("sort[]", ordering_field_value)
->>>>>>> support for spatial filtering
         url.setQuery(query.query())
         return url
 

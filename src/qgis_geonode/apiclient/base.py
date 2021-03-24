@@ -29,6 +29,7 @@ class NetworkFetchTask(QgsTask):
     manager: QgsNetworkAccessManager
     method: models.HttpMethod
     reply_content: QgsNetworkReplyContent
+    payload: QtCore.QByteArray
 
     fetched = QtCore.pyqtSignal()
 
@@ -36,6 +37,7 @@ class NetworkFetchTask(QgsTask):
         self,
         request: QtNetwork.QNetworkRequest,
         method: models.HttpMethod = models.HttpMethod.GET,
+        payload: QtCore.QByteArray = None,
         authcfg: str = None,
     ):
         super().__init__()
@@ -43,15 +45,16 @@ class NetworkFetchTask(QgsTask):
         self.authcfg = authcfg
         self.manager = QgsNetworkAccessManager()
         self.method = method
+        self.payload = payload
         self.reply_content = None
 
-    def run(self, payload=None):
+    def run(self):
         if self.method == models.HttpMethod.GET:
             self.reply_content = self.manager.blockingGet(self.request, self.authcfg)
             self.fetched.emit()
         elif self.method == models.HttpMethod.POST:
             self.reply_content = self.manager.blockingPost(
-                self.request, payload, self.authcfg
+                self.request, self.payload, self.authcfg
             )
             self.fetched.emit()
 
@@ -191,7 +194,7 @@ class BaseGeonodeClient(QtCore.QObject):
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
         spatial_extent: typing.Optional[QgsRectangle] = None,
     ):
-        url = self.get_layers_url_endpoint(
+        url, data = self.get_layers_url_endpoint(
             page=page,
             page_size=page_size,
             title=title,
@@ -209,7 +212,8 @@ class BaseGeonodeClient(QtCore.QObject):
         )
         request = QtNetwork.QNetworkRequest(url)
         log(f"URL: {url.toString()}")
-        self.run_task(request, self.handle_layer_list)
+        self.run_task(request, self.handle_layer_list, data)
+
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
@@ -277,10 +281,20 @@ class BaseGeonodeClient(QtCore.QObject):
         self,
         request,
         handler: typing.Callable,
+        payload: str = None,
         response_deserializer: typing.Optional[typing.Callable] = None,
     ):
         """Fetches the response from the GeoNode API"""
-        task = NetworkFetchTask(request, authcfg=self.auth_config)
+        if payload is not None:
+            request.setHeader(
+                QtNetwork.QNetworkRequest.ContentTypeHeader,
+                "application/x-www-form-urlencoded",
+            )
+            task = NetworkFetchTask(
+                request, models.HttpMethod.POST, payload, authcfg=self.auth_config
+            )
+        else:
+            task = NetworkFetchTask(request, authcfg=self.auth_config)
         response_handler = partial(
             self.response_fetched,
             task,

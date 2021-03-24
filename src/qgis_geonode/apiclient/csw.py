@@ -147,6 +147,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             temporal_extent_end,
             publication_date_start,
             publication_date_end,
+            spatial_extent
         )
         url.setQuery(query.query())
         return url
@@ -168,6 +169,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
+        spatial_extent: typing.Optional[QgsRectangle] = None,
     ) -> QtCore.QUrlQuery:
         # FIXME: Add support for filtering with the other parameters
         query = QtCore.QUrlQuery()
@@ -240,6 +242,36 @@ class GeonodeCswClient(BaseGeonodeClient):
                 query.addQueryItem("constraintlanguage", "CQL_TEXT")
                 query.addQueryItem("constraint", " AND ".join(constraint_parts))
         return query
+=======
+        record_tag = _get_record_tag(
+            position=str((page_size * page + 1) - page_size),
+            records=str(page_size),
+            name=self.TYPE_NAME,
+            schema=self.OUTPUT_SCHEMA,
+        )
+
+        if ordering_field is not None:
+            sort_tag = _get_sort_tag("dc:title", reverse_ordering)
+            record_tag = record_tag + sort_tag
+        # if any((title, abstract, keyword, topic_category, layer_types)):
+        #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
+        #     constraint_values = []
+        #     if title is not None:
+        #         constraint_values.append(f"dc:title like '{title}'")
+        #     # FIXME: Add support for filtering with the other parameters
+        #     query.addQueryItem("constraint", " AND ".join(constraint_values))
+
+        data = QtCore.QByteArray()
+        if spatial_extent is not None and not spatial_extent.isNull():
+            spatial_filter = _get_spatial_extent_filter(spatial_extent)
+            filter_tag = (
+                _get_filter_start_tag() + spatial_filter + _get_filter_end_tag()
+            )
+            record_tag = record_tag + filter_tag
+        record_tag = record_tag + _get_record_close_tag()
+        data.append(record_tag)
+        return url, data
+>>>>>>> added creation of xml contents for CSW POST requests
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
@@ -844,8 +876,6 @@ def _get_wfs_uri(
 
 def _get_spatial_extent_filter(extent: QgsRectangle):
     spatial_filter = (
-        '<?xml version = "1.0" encoding = "UTF-8"? >'
-        '<ogc:Filter xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc">'
         "<ogc:BBOX>"
         "<ogc:PropertyName>ows:BoundingBox</ogc:PropertyName>"
         '<gml:Envelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">'
@@ -853,7 +883,66 @@ def _get_spatial_extent_filter(extent: QgsRectangle):
         f"<gml:upperCorner>{extent.xMaximum()} {extent.yMaximum()}</gml:upperCorner>"
         "</gml:Envelope>"
         "</ogc:BBOX>"
-        "</ogc:Filter>"
     )
 
     return spatial_filter
+
+
+def _get_filter_start_tag():
+
+    return '<csw:Constraint version="1.1.0">' "<ogc:Filter>"
+
+
+def _get_filter_end_tag():
+    return "</ ogc:Filter >" "</ csw:Constraint >"
+
+
+def _get_record_tag(position: str, records: str, name: str, schema: str):
+    return (
+        '<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>'
+        '<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2"'
+        ' xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" '
+        'resultType="results" startPosition="{}" maxRecords="{}" outputFormat="application/json"'
+        ' outputSchema="{}"'
+        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        ' xsi:schemaLocation="http://www.opengis.net/cat/csw/2.0.2 '
+        'http://schemas.opengis.net/csw/2.0.2/CSW-discovery.xsd" '
+        'xmlns:gml="http://www.opengis.net/gml">'
+        '<csw:Query typeNames="{}">'
+        "<csw:ElementSetName>full</csw:ElementSetName>".format(
+            position, records, schema, name
+        )
+    )
+
+
+def _get_sort_tag(property: str, reverse):
+    order = "DESC" if reverse else "ASC"
+    return (
+        "<ogc:SortBy >"
+        "< ogc:SortProperty >"
+        "< ogc:PropertyName > {} < / ogc:PropertyName >"
+        "< ogc:SortOrder > {} < / ogc:SortOrder >"
+        "< / ogc:SortProperty >"
+        "< / ogc:SortBy >".format(property, order)
+    )
+
+
+def _get_record_close_tag():
+    return "</ csw:Query>" "</ csw:GetRecords>"
+
+
+def _get_all_record():
+
+    return (
+        '<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>'
+        '<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" '
+        'xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2"'
+        ' resultType="results" startPosition="1" maxRecords="5"'
+        'outputFormat="application/json" outputSchema="http://www.opengis.net/cat/csw/2.0.2"'
+        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        'xsi:schemaLocation="http://www.opengis.net/cat/csw/2.0.2 http://schemas.opengis.net/csw/2.0.2/CSW-discovery.xsd">'
+        '<csw:Query typeNames="csw:Record" >'
+        "<csw:ElementSetName > full < / csw:ElementSetName >"
+        "< / csw:Query >"
+        "< / csw:GetRecords >"
+    )
