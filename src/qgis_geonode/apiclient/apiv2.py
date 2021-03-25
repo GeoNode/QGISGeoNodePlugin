@@ -59,7 +59,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
         spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QtCore.QUrl:
+    ) -> (QtCore.QUrl, QtCore.QByteArray):
         url = QtCore.QUrl(f"{self.api_url}/layers/")
         query = self._build_search_query(
             page,
@@ -75,10 +75,10 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             temporal_extent_end,
             publication_date_start,
             publication_date_end,
-            spatial_extent
+            spatial_extent,
         )
         url.setQuery(query.query())
-        return url
+        return url, None
 
     def _build_search_query(
         self,
@@ -150,6 +150,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem(
                 "filter{date.lte}", publication_date_end.toString(QtCore.Qt.ISODate)
             )
+        if spatial_extent is not None and not spatial_extent.isNull():
+            pass
         return query
 
     def get_layer_detail_url_endpoint(self, id_: int) -> QtCore.QUrl:
@@ -186,7 +188,7 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             temporal_extent_end=temporal_extent_end,
             publication_date_start=publication_date_start,
             publication_date_end=publication_date_end,
-            spatial_extent=spatial_extent
+            spatial_extent=spatial_extent,
         )
         url.setQuery(query.query())
         return url

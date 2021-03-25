@@ -115,7 +115,7 @@ class BaseGeonodeClient(QtCore.QObject):
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
         spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QtCore.QUrl:
+    ) -> (QtCore.QUrl, QtCore.QByteArray):
         raise NotImplementedError
 
     def get_layer_detail_url_endpoint(
@@ -213,7 +213,6 @@ class BaseGeonodeClient(QtCore.QObject):
         request = QtNetwork.QNetworkRequest(url)
         log(f"URL: {url.toString()}")
         self.run_task(request, self.handle_layer_list, data)
-
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource

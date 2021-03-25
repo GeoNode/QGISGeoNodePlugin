@@ -131,9 +131,9 @@ class GeonodeCswClient(BaseGeonodeClient):
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
         spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QtCore.QUrl:
+    ) -> (QtCore.QUrl, QtCore.QByteArray):
         url = QtCore.QUrl(f"{self.catalogue_url}")
-        query = self._build_search_query(
+        data = self._build_search_query(
             page,
             page_size,
             title,
@@ -147,10 +147,9 @@ class GeonodeCswClient(BaseGeonodeClient):
             temporal_extent_end,
             publication_date_start,
             publication_date_end,
-            spatial_extent
+            spatial_extent,
         )
-        url.setQuery(query.query())
-        return url
+        return url, data
 
     def _build_search_query(
         self,
@@ -170,23 +169,8 @@ class GeonodeCswClient(BaseGeonodeClient):
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
         spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QtCore.QUrlQuery:
+    ) -> QtCore.QByteArray:
         # FIXME: Add support for filtering with the other parameters
-        query = QtCore.QUrlQuery()
-        query.addQueryItem("service", "CSW")
-        query.addQueryItem("version", "2.0.2")
-        query.addQueryItem("request", "GetRecords")
-        query.addQueryItem("resulttype", "results")
-        query.addQueryItem("startposition", str((page_size * page + 1) - page_size))
-        query.addQueryItem("maxrecords", str(page_size))
-        query.addQueryItem("typenames", self.TYPE_NAME)
-        query.addQueryItem("outputschema", self.OUTPUT_SCHEMA)
-        query.addQueryItem("elementsetname", "full")
-        if ordering_field is not None:
-            ordering_value = self.get_ordering_filter_name(
-                ordering_field, reverse_ordering
-            )
-            query.addQueryItem("sortby", ordering_value)
         if layer_types is None:
             types = [
                 models.GeonodeResourceType.VECTOR_LAYER,
@@ -205,11 +189,29 @@ class GeonodeCswClient(BaseGeonodeClient):
             temporal_extent_end,
             publication_date_start,
             publication_date_end,
+            spatial_extent,
         )
+
+        data = QtCore.QByteArray()
+
+        record_tag = _get_record_tag(
+            position=str((page_size * page + 1) - page_size),
+            records=str(page_size),
+            name=self.TYPE_NAME,
+            schema=self.OUTPUT_SCHEMA,
+        )
+
+        record_tag = record_tag + '<csw:Constraint version="1.1.0">'
+
+        if ordering_field is not None:
+            sort_tag = _get_sort_tag("dc:title", reverse_ordering)
+            record_tag = record_tag + sort_tag
+
         if any(cql_filter_params):
-            constraint_parts = []
             if title is not None:
-                constraint_parts.append(f"dc:title like '%{title}%'")
+                record_tag = (
+                    record_tag + f"<csw:CqlText>dc:title like '{title}'</csw:CqlText>"
+                )
                 pass
             if abstract is not None:
                 pass
@@ -220,58 +222,23 @@ class GeonodeCswClient(BaseGeonodeClient):
             if types is not None:
                 pass
             if temporal_extent_start is not None:
-                constraint_parts.append(
-                    f"apiso:TempExtent_begin >= "
-                    f"{temporal_extent_start.toString(QtCore.Qt.ISODate)}"
-                )
+                pass
             if temporal_extent_end is not None:
-                constraint_parts.append(
-                    f"apiso:TempExtent_end <= "
-                    f"{temporal_extent_end.toString(QtCore.Qt.ISODate)}"
-                )
+                pass
             if publication_date_start is not None:
-                constraint_parts.append(
-                    f"dc:date >= {publication_date_start.toString(QtCore.Qt.ISODate)}"
-                )
+                pass
             if publication_date_end is not None:
-                constraint_parts.append(
-                    f"dc:date <= {publication_date_end.toString(QtCore.Qt.ISODate)}"
-                )
-            query_param = " AND ".join(constraint_parts)
-            if query_param != "":
-                query.addQueryItem("constraintlanguage", "CQL_TEXT")
-                query.addQueryItem("constraint", " AND ".join(constraint_parts))
-        return query
-=======
-        record_tag = _get_record_tag(
-            position=str((page_size * page + 1) - page_size),
-            records=str(page_size),
-            name=self.TYPE_NAME,
-            schema=self.OUTPUT_SCHEMA,
-        )
+                pass
+            if spatial_extent is not None and not spatial_extent.isNull():
+                spatial_filter = _get_spatial_extent_filter(spatial_extent)
+                filter_tag = "<ogc:Filter>" + spatial_filter + "</ogc:Filter>"
+                record_tag = record_tag + filter_tag
 
-        if ordering_field is not None:
-            sort_tag = _get_sort_tag("dc:title", reverse_ordering)
-            record_tag = record_tag + sort_tag
-        # if any((title, abstract, keyword, topic_category, layer_types)):
-        #     query.addQueryItem("constraintlanguage", "CQL_TEXT")
-        #     constraint_values = []
-        #     if title is not None:
-        #         constraint_values.append(f"dc:title like '{title}'")
-        #     # FIXME: Add support for filtering with the other parameters
-        #     query.addQueryItem("constraint", " AND ".join(constraint_values))
-
-        data = QtCore.QByteArray()
-        if spatial_extent is not None and not spatial_extent.isNull():
-            spatial_filter = _get_spatial_extent_filter(spatial_extent)
-            filter_tag = (
-                _get_filter_start_tag() + spatial_filter + _get_filter_end_tag()
+            record_tag = (
+                record_tag + "</ csw:Constraint >" "</ csw:Query>" "</ csw:GetRecords>"
             )
-            record_tag = record_tag + filter_tag
-        record_tag = record_tag + _get_record_close_tag()
-        data.append(record_tag)
-        return url, data
->>>>>>> added creation of xml contents for CSW POST requests
+            data.append(record_tag)
+        return data
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
@@ -888,15 +855,6 @@ def _get_spatial_extent_filter(extent: QgsRectangle):
     return spatial_filter
 
 
-def _get_filter_start_tag():
-
-    return '<csw:Constraint version="1.1.0">' "<ogc:Filter>"
-
-
-def _get_filter_end_tag():
-    return "</ ogc:Filter >" "</ csw:Constraint >"
-
-
 def _get_record_tag(position: str, records: str, name: str, schema: str):
     return (
         '<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>'
@@ -925,10 +883,6 @@ def _get_sort_tag(property: str, reverse):
         "< / ogc:SortProperty >"
         "< / ogc:SortBy >".format(property, order)
     )
-
-
-def _get_record_close_tag():
-    return "</ csw:Query>" "</ csw:GetRecords>"
 
 
 def _get_all_record():
