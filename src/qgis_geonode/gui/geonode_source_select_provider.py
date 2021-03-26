@@ -20,6 +20,7 @@ from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
 from ..utils import (
     IsoTopicCategory,
+    log,
     tr,
 )
 
@@ -140,10 +141,16 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.load_categories()
         self.load_sorting_fields(selected_by_default=models.OrderingType.NAME)
 
-        self.spatial_extent_box.setCurrentExtent(
-            qgis.core.QgsRectangle(180, -90, 180, 90),
-            iface.mapCanvas().mapSettings().destinationCrs(),
-        )
+        # ATTENTION: the order of initialization of the self.spatial_extent_box widget
+        # is crucial here. Only call self.spatial_extent_box.setMapCanvas() after
+        # having called self.spatial_extent_box.setOutputExtentFromCurrent()
+        epsg_4326 = qgis.core.QgsCoordinateReferenceSystem("EPSG:4326")
+        self.spatial_extent_box.setOutputCrs(epsg_4326)
+        map_canvas = iface.mapCanvas()
+        current_crs = map_canvas.mapSettings().destinationCrs()
+        self.spatial_extent_box.setCurrentExtent(current_crs.bounds(), current_crs)
+        self.spatial_extent_box.setOutputExtentFromCurrent()
+        self.spatial_extent_box.setMapCanvas(map_canvas)
 
         # we use these to control enabling/disabling UI controls during searches
         self._connection_controls = [
@@ -312,9 +319,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         search_vector = self.vector_chb.isChecked()
         search_raster = self.raster_chb.isChecked()
         search_map = self.map_chb.isChecked()
-        spatial_extent = self.spatial_extent_box.outputExtent()
-        spatial_extent_crs = self.spatial_extent_box.outputCrs()
-
+        spatial_extent_epsg4326 = self.spatial_extent_box.outputExtent()
         if any((search_vector, search_raster, search_map)):
             if search_vector:
                 resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
@@ -322,12 +327,11 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
             if search_map:
                 resource_types.append(models.GeonodeResourceType.MAP)
-            # FIXME: Implement these as search filters
             if reset_pagination:
                 self.current_page = 1
                 self.total_pages = 1
-            extent_start = self.temporal_extent_start_dte.dateTime()
-            extent_end = self.temporal_extent_end_dte.dateTime()
+            temp_extent_start = self.temporal_extent_start_dte.dateTime()
+            temp_extent_end = self.temporal_extent_end_dte.dateTime()
             pub_start = self.publication_start_dte.dateTime()
             pub_end = self.publication_end_dte.dateTime()
             client.get_layers(
@@ -341,12 +345,14 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
                 reverse_ordering=self.reverse_order_chb.isChecked(),
                 temporal_extent_start=(
-                    extent_start if not extent_start.isNull() else None
+                    temp_extent_start if not temp_extent_start.isNull() else None
                 ),
-                temporal_extent_end=extent_end if not extent_end.isNull() else None,
+                temporal_extent_end=(
+                    temp_extent_end if not temp_extent_end.isNull() else None
+                ),
                 publication_date_start=pub_start if not pub_start.isNull() else None,
                 publication_date_end=pub_end if not pub_end.isNull() else None,
-                spatial_extent=spatial_extent,
+                spatial_extent=spatial_extent_epsg4326,
             )
 
     def toggle_search_controls(self, enabled: bool):

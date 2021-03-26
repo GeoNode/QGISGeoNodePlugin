@@ -1,18 +1,7 @@
 import typing
 import uuid
-from functools import partial
 
-from qgis.core import (
-    QgsApplication,
-    QgsDateTimeRange,
-    QgsMessageLog,
-    QgsNetworkAccessManager,
-    QgsNetworkContentFetcherTask,
-    QgsNetworkReplyContent,
-    QgsRectangle,
-    QgsTask,
-)
-
+import qgis.core
 from qgis.PyQt import (
     QtCore,
     QtNetwork,
@@ -23,39 +12,49 @@ from . import models
 from ..utils import log
 
 
-class NetworkFetchTask(QgsTask):
-    request: QtNetwork.QNetworkRequest
+class NetworkFetcherTask(qgis.core.QgsTask):
     authcfg: str
-    reply_content: QgsNetworkReplyContent
-    handler: typing.Callable
     deserializer: typing.Callable
-    payload: QtCore.QByteArray
+    handler: typing.Callable
+    request: QtNetwork.QNetworkRequest
+    request_payload: typing.Optional[str]
+    reply_content: typing.Optional[QtCore.QByteArray]
+    http_status_code: typing.Optional[int]
 
     def __init__(
         self,
         request: QtNetwork.QNetworkRequest,
         handler: typing.Callable,
         deserializer: typing.Callable,
-        payload: QtCore.QByteArray = None,
+        request_payload: typing.Optional[str] = None,
         authcfg: str = None,
     ):
         super().__init__()
-        self.request = request
         self.authcfg = authcfg
-        self.payload = payload
+        self.request = request
+        self.request_payload = request_payload
         self.handler = handler
         self.deserializer = deserializer
+        self.reply_content = None
+        self.http_status_code = None
 
     def run(self):
+        network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
         if self.payload is None:
-            self.reply_content = QgsNetworkAccessManager().blockingGet(
-                self.request, self.authcfg
-            )
+            reply = network_access_manager.blockingGet(self.request, self.authcfg)
         else:
-            self.reply_content = QgsNetworkAccessManager().blockingPost(
+            self.request.setHeader(
+                QtNetwork.QNetworkRequest.ContentTypeHeader,
+                "application/x-www-form-urlencoded",
+            )
+            reply = network_access_manager.blockingPost(
                 self.request, self.payload, self.authcfg
             )
-        return self.reply_content is not None
+        self.http_status_code = reply.attribute(
+            QtNetwork.QNetworkRequest.HttpStatusCodeAttribute
+        )
+        self.reply_content = reply.content()
+        return True if reply.error == QtNetwork.QNetworkReply.NoError else False
 
     def finished(self, result: bool):
         if result:
@@ -121,7 +120,7 @@ class BaseGeonodeClient(QtCore.QObject):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None,
     ) -> (QtCore.QUrl, QtCore.QByteArray):
         raise NotImplementedError
 
@@ -146,7 +145,7 @@ class BaseGeonodeClient(QtCore.QObject):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None,
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -199,7 +198,7 @@ class BaseGeonodeClient(QtCore.QObject):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None,
     ):
         url, data = self.get_layers_url_endpoint(
             page=page,
@@ -217,9 +216,15 @@ class BaseGeonodeClient(QtCore.QObject):
             publication_date_end=publication_date_end,
             spatial_extent=spatial_extent,
         )
-        request = QtNetwork.QNetworkRequest(url)
         log(f"URL: {url.toString()}")
-        self.run_task(request, self.handle_layer_list, data)
+        task = NetworkFetcherTask(
+            request=QtNetwork.QNetworkRequest(url),
+            handler=self.handle_layer_list(),
+            deserializer=self.deserialize_response_contents,
+            request_payload=data,
+            authcfg=self.auth_config,
+        )
+        qgis.core.QgsApplication.taskManager().addTask(task)
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
@@ -264,7 +269,7 @@ class BaseGeonodeClient(QtCore.QObject):
         temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
         publication_date_start: typing.Optional[QtCore.QDateTime] = None,
         publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None,
     ):
         url = self.get_maps_url_endpoint(
             page=page,
@@ -283,7 +288,7 @@ class BaseGeonodeClient(QtCore.QObject):
         request = QtNetwork.QNetworkRequest(url)
         self.run_task(request, self.handle_map_list)
 
-    def run_task(
+    def _run_task(
         self,
         request,
         handler: typing.Callable,
@@ -291,32 +296,18 @@ class BaseGeonodeClient(QtCore.QObject):
         response_deserializer: typing.Optional[typing.Callable] = None,
     ):
         """Fetches the response from the GeoNode API"""
-        if payload is not None:
-            request.setHeader(
-                QtNetwork.QNetworkRequest.ContentTypeHeader,
-                "application/x-www-form-urlencoded",
-            )
-            task = NetworkFetchTask(
-                request,
-                handler=handler,
-                deserializer=response_deserializer,
-                payload=payload,
-                authcfg=self.auth_config,
-            )
-        else:
-            task = NetworkFetchTask(
-                request,
-                request,
-                handler=handler,
-                deserializer=response_deserializer,
-                authcfg=self.auth_config,
-            )
-
-        task.run()
+        task = NetworkFetcherTask(
+            request=request,
+            handler=handler,
+            deserializer=response_deserializer,
+            request_payload=payload,
+            authcfg=self.auth_config,
+        )
+        qgis.core.QgsApplication.taskManager().addTask(task)
 
     def response_fetched(
         self,
-        task: NetworkFetchTask,
+        task: NetworkFetcherTask,
         handler: typing.Callable,
         deserializer: typing.Callable,
     ):
