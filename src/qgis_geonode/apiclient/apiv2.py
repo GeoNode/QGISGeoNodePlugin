@@ -150,6 +150,8 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem(
                 "filter{date.lte}", publication_date_end.toString(QtCore.Qt.ISODate)
             )
+        # TODO revisit once the support for spatial extent is available on
+        # GeoNode API V2
         if spatial_extent is not None and not spatial_extent.isNull():
             pass
         return query

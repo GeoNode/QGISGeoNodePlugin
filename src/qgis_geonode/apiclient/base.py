@@ -26,40 +26,47 @@ from ..utils import log
 class NetworkFetchTask(QgsTask):
     request: QtNetwork.QNetworkRequest
     authcfg: str
-    manager: QgsNetworkAccessManager
-    method: models.HttpMethod
     reply_content: QgsNetworkReplyContent
+    handler: typing.Callable
+    deserializer: typing.Callable
     payload: QtCore.QByteArray
-
-    fetched = QtCore.pyqtSignal()
 
     def __init__(
         self,
         request: QtNetwork.QNetworkRequest,
-        method: models.HttpMethod = models.HttpMethod.GET,
+        handler: typing.Callable,
+        deserializer: typing.Callable,
         payload: QtCore.QByteArray = None,
         authcfg: str = None,
     ):
         super().__init__()
         self.request = request
         self.authcfg = authcfg
-        self.manager = QgsNetworkAccessManager()
-        self.method = method
         self.payload = payload
-        self.reply_content = None
+        self.handler = handler
+        self.deserializer = deserializer
 
     def run(self):
-        if self.method == models.HttpMethod.GET:
-            self.reply_content = self.manager.blockingGet(self.request, self.authcfg)
-            self.fetched.emit()
-        elif self.method == models.HttpMethod.POST:
-            self.reply_content = self.manager.blockingPost(
+        if self.payload is None:
+            self.reply_content = QgsNetworkAccessManager().blockingGet(
+                self.request, self.authcfg
+            )
+        else:
+            self.reply_content = QgsNetworkAccessManager().blockingPost(
                 self.request, self.payload, self.authcfg
             )
-            self.fetched.emit()
+        return self.reply_content is not None
 
-    def reply(self):
-        return self.reply_content
+    def finished(self, result: bool):
+        if result:
+            self.handler(self.deserializer(self.reply_content.content()))
+        else:
+            message = "Error fetching content over network"
+            log(message)
+
+    def cancel(self):
+        log("Operation was canceled")
+        super().cancel()
 
 
 class BaseGeonodeClient(QtCore.QObject):
@@ -290,17 +297,21 @@ class BaseGeonodeClient(QtCore.QObject):
                 "application/x-www-form-urlencoded",
             )
             task = NetworkFetchTask(
-                request, models.HttpMethod.POST, payload, authcfg=self.auth_config
+                request,
+                handler=handler,
+                deserializer=response_deserializer,
+                payload=payload,
+                authcfg=self.auth_config,
             )
         else:
-            task = NetworkFetchTask(request, authcfg=self.auth_config)
-        response_handler = partial(
-            self.response_fetched,
-            task,
-            handler,
-            response_deserializer or self.deserialize_response_contents,
-        )
-        task.fetched.connect(response_handler)
+            task = NetworkFetchTask(
+                request,
+                request,
+                handler=handler,
+                deserializer=response_deserializer,
+                authcfg=self.auth_config,
+            )
+
         task.run()
 
     def response_fetched(

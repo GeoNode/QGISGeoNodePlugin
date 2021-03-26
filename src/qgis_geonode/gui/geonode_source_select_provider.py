@@ -75,6 +75,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     scroll_area: QtWidgets.QScrollArea
     search_btn: QtWidgets.QPushButton
     sort_field_cmb: QtWidgets.QComboBox
+    spatial_extent_box: qgis.gui.QgsExtentGroupBox
     temporal_extent_start_dte: qgis.gui.QgsDateTimeEdit
     temporal_extent_end_dte: qgis.gui.QgsDateTimeEdit
     title_le: QtWidgets.QLineEdit
@@ -140,7 +141,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.load_sorting_fields(selected_by_default=models.OrderingType.NAME)
 
         self.spatial_extent_box.setCurrentExtent(
-            iface.mapCanvas().extent(), iface.mapCanvas().mapSettings().destinationCrs()
+            qgis.core.QgsRectangle(180, -90, 180, 90),
+            iface.mapCanvas().mapSettings().destinationCrs(),
         )
 
         # we use these to control enabling/disabling UI controls during searches
@@ -169,6 +171,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.next_btn,
             self.previous_btn,
             self.sort_field_cmb,
+            self.spatial_extent_box,
             self.reverse_order_chb,
             self.pagination_info_la,
         ]
@@ -310,6 +313,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         search_raster = self.raster_chb.isChecked()
         search_map = self.map_chb.isChecked()
         spatial_extent = self.spatial_extent_box.outputExtent()
+        spatial_extent_crs = self.spatial_extent_box.outputCrs()
 
         if any((search_vector, search_raster, search_map)):
             if search_vector:
