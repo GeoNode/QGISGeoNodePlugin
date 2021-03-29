@@ -3,6 +3,7 @@ import json
 import typing
 import uuid
 
+import qgis_geonode.apiclient.models
 from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsDateTimeRange,
@@ -14,14 +15,10 @@ from qgis.PyQt import (
 
 from ..utils import log
 from . import models
-from .models import (
-    GeonodeResourceType,
-    GeonodeService,
-)
-from .base import BaseGeonodeClient
+from . import base
 
 
-class GeonodeApiV2Client(BaseGeonodeClient):
+class GeonodeApiV2Client(base.BaseGeonodeClient):
     _api_path: str = "/api/v2"
 
     @property
@@ -44,81 +41,40 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         return resource.name
 
     def get_layers_url_endpoint(
-        self,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> (QtCore.QUrl, QtCore.QByteArray):
+        self, search_params: models.GeonodeApiSearchParameters
+    ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/layers/")
-        query = self._build_search_query(
-            page,
-            page_size,
-            title,
-            abstract,
-            keyword,
-            topic_category,
-            layer_types,
-            ordering_field,
-            reverse_ordering,
-            temporal_extent_start,
-            temporal_extent_end,
-            publication_date_start,
-            publication_date_end,
-            spatial_extent,
-        )
+        query = self._build_search_query(search_params)
         url.setQuery(query.query())
-        return url, None
+        return url
 
     def _build_search_query(
-        self,
-        page: int,
-        page_size: int,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_types: typing.Optional[typing.Iterable[GeonodeResourceType]] = None,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        self, search_params: models.GeonodeApiSearchParameters
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
-        query.addQueryItem("page", str(page))
-        query.addQueryItem("page_size", str(page_size))
-        if title is not None:
-            query.addQueryItem("filter{title.icontains}", title)
-        if abstract is not None:
-            query.addQueryItem("filter{abstract.icontains}", abstract)
-        if keyword is not None:  # TODO: Allow using multiple keywords
-            query.addQueryItem("filter{keywords.name.icontains}", keyword)
-        if topic_category is not None:
-            query.addQueryItem("filter{category.identifier}", topic_category)
-        if layer_types is None:
+        query.addQueryItem("page", str(search_params.page))
+        query.addQueryItem("page_size", str(search_params.page_size))
+        if search_params.title is not None:
+            query.addQueryItem("filter{title.icontains}", search_params.title)
+        if search_params.abstract is not None:
+            query.addQueryItem("filter{abstract.icontains}", search_params.abstract)
+        if search_params.keyword is not None:  # TODO: Allow using multiple keywords
+            query.addQueryItem("filter{keywords.name.icontains}", search_params.keyword)
+        if search_params.topic_category is not None:
+            query.addQueryItem(
+                "filter{category.identifier}", search_params.topic_category
+            )
+        if search_params.layer_types is None:
             types = [
-                GeonodeResourceType.VECTOR_LAYER,
-                GeonodeResourceType.RASTER_LAYER,
-                GeonodeResourceType.MAP,
+                models.GeonodeResourceType.VECTOR_LAYER,
+                models.GeonodeResourceType.RASTER_LAYER,
+                models.GeonodeResourceType.MAP,
             ]
         else:
-            types = list(layer_types)
-        is_vector = GeonodeResourceType.VECTOR_LAYER in types
-        is_raster = GeonodeResourceType.RASTER_LAYER in types
-        is_map = GeonodeResourceType.MAP in types
+            types = list(search_params.layer_types)
+        is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
+        is_raster = models.GeonodeResourceType.RASTER_LAYER in types
+        is_map = models.GeonodeResourceType.MAP in types
         if is_vector and is_raster:
             pass
         elif is_vector:
@@ -127,32 +83,38 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             query.addQueryItem("filter{storeType}", "coverageStore")
         else:
             raise NotImplementedError
-        if ordering_field is not None:
+        if search_params.ordering_field is not None:
             ordering_field_value = self.get_ordering_filter_name(
-                ordering_field, reverse_sort=reverse_ordering
+                search_params.ordering_field,
+                reverse_sort=search_params.reverse_ordering,
             )
             query.addQueryItem("sort[]", ordering_field_value)
-        if temporal_extent_start is not None:
+        if search_params.temporal_extent_start is not None:
             query.addQueryItem(
                 "filter{temporal_extent_start.gte}",
-                temporal_extent_start.toString(QtCore.Qt.ISODate),
+                search_params.temporal_extent_start.toString(QtCore.Qt.ISODate),
             )
-        if temporal_extent_end is not None:
+        if search_params.temporal_extent_end is not None:
             query.addQueryItem(
                 "filter{temporal_extent_end.lte}",
-                temporal_extent_end.toString(QtCore.Qt.ISODate),
+                search_params.temporal_extent_end.toString(QtCore.Qt.ISODate),
             )
-        if publication_date_start is not None:
+        if search_params.publication_date_start is not None:
             query.addQueryItem(
-                "filter{date.gte}", publication_date_start.toString(QtCore.Qt.ISODate)
+                "filter{date.gte}",
+                search_params.publication_date_start.toString(QtCore.Qt.ISODate),
             )
-        if publication_date_end is not None:
+        if search_params.publication_date_end is not None:
             query.addQueryItem(
-                "filter{date.lte}", publication_date_end.toString(QtCore.Qt.ISODate)
+                "filter{date.lte}",
+                search_params.publication_date_end.toString(QtCore.Qt.ISODate),
             )
         # TODO revisit once the support for spatial extent is available on
         # GeoNode API V2
-        if spatial_extent is not None and not spatial_extent.isNull():
+        if (
+            search_params.spatial_extent is not None
+            and not search_params.spatial_extent.isNull()
+        ):
             pass
         return query
 
@@ -204,9 +166,10 @@ class GeonodeApiV2Client(BaseGeonodeClient):
         decoded_contents: str = contents.data().decode()
         return json.loads(decoded_contents)
 
-    def handle_layer_list(self, payload: typing.Dict):
+    def handle_layer_list(self, raw_reply_contents: QtCore.QByteArray):
+        deserialized = self.deserialize_response_contents(raw_reply_contents)
         layers = []
-        for item in payload.get("layers", []):
+        for item in deserialized.get("layers", []):
             try:
                 brief_resource = get_brief_geonode_resource(
                     item, self.base_url, self.auth_config
@@ -216,14 +179,18 @@ class GeonodeApiV2Client(BaseGeonodeClient):
             else:
                 layers.append(brief_resource)
         pagination_info = models.GeoNodePaginationInfo(
-            total_records=payload["total"],
-            current_page=payload["page"],
-            page_size=payload["page_size"],
+            total_records=deserialized["total"],
+            current_page=deserialized["page"],
+            page_size=deserialized["page_size"],
         )
         self.layer_list_received.emit(layers, pagination_info)
 
-    def handle_layer_detail(self, payload: typing.Dict):
-        layer = get_geonode_resource(payload["layer"], self.base_url, self.auth_config)
+    # def handle_layer_detail(self, payload: typing.Dict):
+    def handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
+        deserialized = self.deserialize_response_contents(raw_reply_contents)
+        layer = get_geonode_resource(
+            deserialized["layer"], self.base_url, self.auth_config
+        )
         self.layer_detail_received.emit(layer)
 
     def handle_layer_style_list(self, payload: typing.Dict):
@@ -287,25 +254,25 @@ def _get_common_model_fields(
     deserialized_resource: typing.Dict, geonode_base_url: str, auth_config: str
 ) -> typing.Dict:
     resource_type = _get_resource_type(deserialized_resource)
-    if resource_type == GeonodeResourceType.VECTOR_LAYER:
+    if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
         service_urls = {
-            GeonodeService.OGC_WMS: _get_wms_uri(
+            models.GeonodeService.OGC_WMS: _get_wms_uri(
                 geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
-            GeonodeService.OGC_WFS: _get_wfs_uri(
+            models.GeonodeService.OGC_WFS: _get_wfs_uri(
                 geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
         }
-    elif resource_type == GeonodeResourceType.RASTER_LAYER:
+    elif resource_type == models.GeonodeResourceType.RASTER_LAYER:
         service_urls = {
-            GeonodeService.OGC_WMS: _get_wms_uri(
+            models.GeonodeService.OGC_WMS: _get_wms_uri(
                 geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
-            GeonodeService.OGC_WCS: _get_wcs_uri(
+            models.GeonodeService.OGC_WCS: _get_wcs_uri(
                 geonode_base_url, deserialized_resource, auth_config=auth_config
             ),
         }
-    elif resource_type == GeonodeResourceType.MAP:
+    elif resource_type == models.GeonodeResourceType.MAP:
         service_urls = None  # FIXME: devise a way to retrieve WMS URL for maps
     else:
         service_urls = None

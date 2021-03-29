@@ -1,5 +1,6 @@
 import datetime as dt
 import enum
+import io
 import json
 import http.cookiejar
 import math
@@ -10,13 +11,7 @@ import uuid
 from xml.etree import ElementTree as ET
 
 
-from qgis.core import (
-    QgsCoordinateReferenceSystem,
-    QgsDateTimeRange,
-    QgsNetworkAccessManager,
-    QgsRectangle,
-    QgsSettings,
-)
+import qgis.core
 from qgis.PyQt import (
     QtCore,
     QtNetwork,
@@ -24,7 +19,6 @@ from qgis.PyQt import (
 
 from . import models
 from .base import BaseGeonodeClient
-from .models import GeonodeService
 from ..utils import log
 
 
@@ -42,7 +36,10 @@ class Csw202Namespace(enum.Enum):
 class GeonodeCswClient(BaseGeonodeClient):
     """Asynchronous GeoNode API client for pre-v2 API"""
 
+    SERVICE = "CSW"
+    VERSION = "2.0.2"
     OUTPUT_SCHEMA = "http://www.isotc211.org/2005/gmd"
+    OUTPUT_FORMAT = "application/xml"
     TYPE_NAME = "gmd:MD_Metadata"
     # TODO: move this to the connection settings
     PAGE_SIZE: int = 10
@@ -117,140 +114,53 @@ class GeonodeCswClient(BaseGeonodeClient):
         return resource.title
 
     def get_layers_url_endpoint(
-        self,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> (QtCore.QUrl, QtCore.QByteArray):
-        url = QtCore.QUrl(f"{self.catalogue_url}")
-        data = self._build_search_query(
-            page,
-            page_size,
-            title,
-            abstract,
-            keyword,
-            topic_category,
-            layer_types,
-            ordering_field,
-            reverse_ordering,
-            temporal_extent_start,
-            temporal_extent_end,
-            publication_date_start,
-            publication_date_end,
-            spatial_extent,
+        self, search_params: models.GeonodeApiSearchParameters
+    ) -> QtCore.QUrl:
+        return QtCore.QUrl(self.catalogue_url)
+
+    def get_layers_request_payload(
+        self, search_params: models.GeonodeApiSearchParameters
+    ) -> typing.Optional[str]:
+        start_position = (
+            search_params.page_size * search_params.page + 1
+        ) - search_params.page_size
+        for member in Csw202Namespace:
+            ET.register_namespace(member.name.lower(), member.value)
+        get_records_el = ET.Element(
+            ET.QName(Csw202Namespace.CSW.value, "GetRecords"),
+            attrib={
+                "service": self.SERVICE,
+                "version": self.VERSION,
+                "resultType": "results",
+                "startPosition": str(start_position),
+                "maxRecords": str(search_params.page_size),
+                "outputFormat": self.OUTPUT_FORMAT,
+                "outputSchema": self.OUTPUT_SCHEMA,
+            },
         )
-        return url, data
-
-    def _build_search_query(
-        self,
-        page: int,
-        page_size: int,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_types: typing.Optional[
-            typing.Iterable[models.GeonodeResourceType]
-        ] = None,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
-    ) -> QtCore.QByteArray:
-        # FIXME: Add support for filtering with the other parameters
-        if layer_types is None:
-            types = [
-                models.GeonodeResourceType.VECTOR_LAYER,
-                models.GeonodeResourceType.RASTER_LAYER,
-                models.GeonodeResourceType.MAP,
-            ]
-        else:
-            types = list(layer_types)
-        cql_filter_params = (
-            title,
-            abstract,
-            keyword,
-            topic_category,
-            types,
-            temporal_extent_start,
-            temporal_extent_end,
-            publication_date_start,
-            publication_date_end,
-            spatial_extent,
+        log(f"get_records_el: {ET.tostring(get_records_el, encoding='unicode')}")
+        query_el = ET.SubElement(
+            get_records_el,
+            ET.QName(Csw202Namespace.CSW.value, "Query"),
+            attrib={"typeNames": self.TYPE_NAME},
         )
-
-        data = QtCore.QByteArray()
-
-        record_tag = _get_record_tag(
-            position=str((page_size * page + 1) - page_size),
-            records=str(page_size),
-            schema=self.OUTPUT_SCHEMA,
+        elementsetname_el = ET.SubElement(
+            query_el, ET.QName(Csw202Namespace.CSW.value, "ElementSetName")
         )
-
-        ET.register_namespace("csw", Csw202Namespace.CSW)
-        ET.register_namespace("ogc", Csw202Namespace.OGC)
-        ET.register_namespace("gml", Csw202Namespace.GML)
-
-        record_element = ET.fromstring(record_tag)
-        query_element = ET.SubElement(record_element, "csw:Query")
-        query_element.set("typesNames", self.TYPE_NAME)
-        name_element = ET.SubElement(query_element, "csw:ElementSetName")
-        name_element.text = "full"
-
-        constraint_element = ET.SubElement(query_element, "csw:Constraint")
-        constraint_element.set("version", "1.1.0")
-
-        if ordering_field is not None:
-            sort_tag = _get_sort_tag("dc:title", reverse_ordering)
-            sort_element = ET.fromstring(sort_tag)
-            constraint_element.insert(1, sort_element)
-
-        filter_element = ET.SubElement(constraint_element, "ogc:Filter")
-        and_element = ET.SubElement(filter_element, "ogc:And")
-
-        if any(cql_filter_params):
-            if title is not None:
-                title_element = ET.Element("csw:CqlText")
-                title_element.text = "dc:title like {title}"
-                constraint_element.insert(3, title_element)
-                pass
-            if abstract is not None:
-                pass
-            if keyword is not None:
-                pass
-            if topic_category is not None:
-                pass
-            if types is not None:
-                pass
-            if temporal_extent_start is not None:
-                pass
-            if temporal_extent_end is not None:
-                pass
-            if publication_date_start is not None:
-                pass
-            if publication_date_end is not None:
-                pass
-            if spatial_extent is not None and not spatial_extent.isNull():
-                spatial_filter = _get_spatial_extent_filter(spatial_extent)
-                spatial_filter_element = ET.fromstring(spatial_filter)
-                and_element.insert(1, spatial_filter_element)
-
-            data.append(ET.tostring(record_element))
-        return data
+        elementsetname_el.text = "full"
+        _add_constraints(query_el, search_params)
+        _add_ordering(query_el, "dc:title", search_params.reverse_ordering)
+        tree = ET.ElementTree(get_records_el)
+        buffer = io.StringIO()
+        tree.write(buffer, xml_declaration=True, encoding="unicode")
+        result = buffer.getvalue()
+        with open(
+            "/home/ricardo/Desktop/test_request_payload.xml", "w", encoding="utf-8"
+        ) as fh:
+            fh.write(result)
+        buffer.close()
+        log(f"result: {result}")
+        return result
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
@@ -299,20 +209,7 @@ class GeonodeCswClient(BaseGeonodeClient):
 
     def get_layers(
         self,
-        title: typing.Optional[str] = None,
-        abstract: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        layer_types: typing.Optional[typing.List[models.GeonodeResourceType]] = None,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        search_params: models.GeonodeApiSearchParameters,
     ):
         """Get layers from the CSW endpoint
 
@@ -337,35 +234,23 @@ class GeonodeCswClient(BaseGeonodeClient):
                 )
                 session_cookie.setDomain(self.host)
                 session_cookie.setPath("/")
-                network_manager = QgsNetworkAccessManager.instance()
+                network_manager = qgis.core.QgsNetworkAccessManager.instance()
                 qt_cookie_jar: QtNetwork.QNetworkCookieJar = network_manager.cookieJar()
                 qt_cookie_jar.insertCookie(session_cookie)
             else:
                 raise RuntimeError("Unable to login")
-        super().get_layers(
-            title,
-            abstract,
-            keyword,
-            topic_category,
-            layer_types,
-            page,
-            page_size,
-            ordering_field,
-            reverse_ordering,
-            temporal_extent_start,
-            temporal_extent_end,
-            publication_date_start,
-            publication_date_end,
-            spatial_extent,
-        )
+        super().get_layers(search_params)
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
         decoded_contents: str = contents.data().decode()
         return ET.fromstring(decoded_contents)
 
-    def handle_layer_list(self, payload: ET.Element):
+    def handle_layer_list(self, raw_reply_contents: QtCore.QByteArray):
+        deserialized = self.deserialize_response_contents(raw_reply_contents)
         layers = []
-        search_results = payload.find(f"{{{Csw202Namespace.CSW.value}}}SearchResults")
+        search_results = deserialized.find(
+            f"{{{Csw202Namespace.CSW.value}}}SearchResults"
+        )
         if search_results is not None:
             total = int(search_results.attrib["numberOfRecordsMatched"])
             next_record = int(search_results.attrib["nextRecord"])
@@ -397,7 +282,7 @@ class GeonodeCswClient(BaseGeonodeClient):
                 ),
             )
 
-    def handle_layer_detail(self, payload: ET.Element):
+    def handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
         """Parse the input payload into a GeonodeResource instance
 
         This method performs additional blocking HTTP requests.
@@ -416,7 +301,8 @@ class GeonodeCswClient(BaseGeonodeClient):
 
         """
 
-        record = payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
+        deserialized = self.deserialize_response_contents(raw_reply_contents)
+        record = deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
         layer_title = record.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
             f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
@@ -432,7 +318,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             raise
         else:
             layer = get_geonode_resource(
-                payload.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
+                deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
                 self.base_url,
                 self.auth_config,
                 default_style=brief_style,
@@ -553,17 +439,27 @@ def _get_common_model_fields(
     resource_type = _get_resource_type(record)
     if resource_type == models.GeonodeResourceType.VECTOR_LAYER:
         service_urls = {
-            GeonodeService.OGC_WMS: _get_wms_uri(record, layer_name, crs, auth_config),
-            GeonodeService.OGC_WFS: _get_wfs_uri(record, layer_name, auth_config),
+            models.GeonodeService.OGC_WMS: _get_wms_uri(
+                record, layer_name, crs, auth_config
+            ),
+            models.GeonodeService.OGC_WFS: _get_wfs_uri(
+                record, layer_name, auth_config
+            ),
         }
     elif resource_type == models.GeonodeResourceType.RASTER_LAYER:
         service_urls = {
-            GeonodeService.OGC_WMS: _get_wms_uri(record, layer_name, crs, auth_config),
-            GeonodeService.OGC_WCS: _get_wcs_uri(record, layer_name, auth_config),
+            models.GeonodeService.OGC_WMS: _get_wms_uri(
+                record, layer_name, crs, auth_config
+            ),
+            models.GeonodeService.OGC_WCS: _get_wcs_uri(
+                record, layer_name, auth_config
+            ),
         }
     elif resource_type == models.GeonodeResourceType.MAP:
         service_urls = {
-            GeonodeService.OGC_WMS: _get_wms_uri(record, layer_name, crs, auth_config),
+            models.GeonodeService.OGC_WMS: _get_wms_uri(
+                record, layer_name, crs, auth_config
+            ),
         }
     else:
         service_urls = None
@@ -648,7 +544,7 @@ def _get_resource_type(
     return result
 
 
-def _get_crs(rs_identifier: ET.Element) -> QgsCoordinateReferenceSystem:
+def _get_crs(rs_identifier: ET.Element) -> qgis.core.QgsCoordinateReferenceSystem:
     code = rs_identifier.find(
         f"{{{Csw202Namespace.GMD.value}}}code/"
         f"{{{Csw202Namespace.GCO.value}}}CharacterString"
@@ -657,10 +553,10 @@ def _get_crs(rs_identifier: ET.Element) -> QgsCoordinateReferenceSystem:
         f"{{{Csw202Namespace.GMD.value}}}codeSpace/"
         f"{{{Csw202Namespace.GCO.value}}}CharacterString"
     ).text
-    return QgsCoordinateReferenceSystem(f"{authority}:{code}")
+    return qgis.core.QgsCoordinateReferenceSystem(f"{authority}:{code}")
 
 
-def _get_spatial_extent(geographic_bounding_box: ET.Element) -> QgsRectangle:
+def _get_spatial_extent(geographic_bounding_box: ET.Element) -> qgis.core.QgsRectangle:
     # sometimes pycsw returns the extent fields with a comma as the decimal separator,
     # so we replace a comma with a dot
     min_x = float(
@@ -687,7 +583,7 @@ def _get_spatial_extent(geographic_bounding_box: ET.Element) -> QgsRectangle:
             f"{{{Csw202Namespace.GCO.value}}}Decimal"
         ).text.replace(",", ".")
     )
-    return QgsRectangle(min_x, min_y, max_x, max_y)
+    return qgis.core.QgsRectangle(min_x, min_y, max_x, max_y)
 
 
 def _get_temporal_extent(
@@ -807,7 +703,7 @@ def _find_protocol_linkage(record: ET.Element, protocol: str) -> typing.Optional
 def _get_wms_uri(
     record: ET.Element,
     layer_name: str,
-    crs: QgsCoordinateReferenceSystem,
+    crs: qgis.core.QgsCoordinateReferenceSystem,
     auth_config: typing.Optional[str] = None,
     wms_format: typing.Optional[str] = "image/png",
 ) -> str:
@@ -853,57 +749,122 @@ def _get_wfs_uri(
     return " ".join(f"{k}='{v}'" for k, v in params.items())
 
 
-def _get_spatial_extent_filter(extent: QgsRectangle):
-    spatial_filter = (
-        '<ogc:BBOX xmlns:ogc="http://www.opengis.net/ogc" >'
-        "<ogc:PropertyName>ows:BoundingBox</ogc:PropertyName>"
-        '<gml:Envelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">'
-        f"<gml:lowerCorner>{extent.xMinimum()} {extent.yMinimum()}</gml:lowerCorner>"
-        f"<gml:upperCorner>{extent.xMaximum()} {extent.yMaximum()}</gml:upperCorner>"
-        "</gml:Envelope>"
-        "</ogc:BBOX>"
+def _add_constraints(
+    parent: ET.Element,
+    search_params: models.GeonodeApiSearchParameters,
+):
+    if search_params.layer_types is None:
+        types = [
+            models.GeonodeResourceType.VECTOR_LAYER,
+            models.GeonodeResourceType.RASTER_LAYER,
+            models.GeonodeResourceType.MAP,
+        ]
+    else:
+        types = list(search_params.layer_types)
+    filter_params = (
+        search_params.title,
+        search_params.abstract,
+        search_params.keyword,
+        search_params.topic_category,
+        types,
+        search_params.temporal_extent_start,
+        search_params.temporal_extent_end,
+        search_params.publication_date_start,
+        search_params.publication_date_end,
+        search_params.spatial_extent,
     )
+    if any(filter_params):
+        constraint_el = ET.SubElement(
+            parent,
+            ET.QName(Csw202Namespace.CSW.value, "Constraint"),
+            attrib={"version": "1.1.0"},
+        )
+        filter_el = ET.SubElement(
+            constraint_el, ET.QName(Csw202Namespace.OGC.value, "Filter")
+        )
+        multiple_conditions = len([i for i in filter_params if i]) > 1
+        filter_root_el = filter_el
+        if multiple_conditions:
+            and_el = ET.SubElement(
+                filter_el, ET.QName(Csw202Namespace.OGC.value, "And")
+            )
+            filter_root_el = and_el
+        if search_params.title is not None:
+            _add_property_is_like_element(
+                filter_root_el, "dc:title", search_params.title
+            )
+        if search_params.abstract is not None:
+            _add_property_is_like_element(
+                filter_root_el, "dc:abstract", search_params.abstract
+            )
+        if search_params.keyword is not None:
+            pass
+        if search_params.topic_category is not None:
+            pass
+        if types is not None:
+            pass
+        if search_params.temporal_extent_start is not None:
+            pass
+        if search_params.temporal_extent_end is not None:
+            pass
+        if search_params.publication_date_start is not None:
+            pass
+        if search_params.publication_date_end is not None:
+            pass
+        if search_params.spatial_extent is not None:
+            _add_bbox_operator(filter_root_el, search_params.spatial_extent)
 
-    return spatial_filter
 
-
-def _get_record_tag(position: str, records: str, schema: str):
-    return (
-        '<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2"'
-        ' xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2" '
-        f'resultType="results" startPosition="{position}" maxRecords="{records}" outputFormat="application/xml"'
-        f' outputSchema="{schema}"'
-        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-        ' xsi:schemaLocation="http://www.opengis.net/cat/csw/2.0.2 '
-        'http://schemas.opengis.net/csw/2.0.2/CSW-discovery.xsd" '
-        'xmlns:gml="http://www.opengis.net/gml">'
-        "</csw:GetRecords>"
+def _add_ordering(parent: ET.Element, ordering_field: str, reverse: bool):
+    sort_by_el = ET.SubElement(parent, ET.QName(Csw202Namespace.OGC.value, "SortBy"))
+    sort_property_el = ET.SubElement(
+        sort_by_el, ET.QName(Csw202Namespace.OGC.value, "SortProperty")
     )
-
-
-def _get_sort_tag(property_name: str, reverse):
-    order = "DESC" if reverse else "ASC"
-    return (
-        '<ogc:SortBy xmlns:ogc="http://www.opengis.net/ogc">'
-        "<ogc:SortProperty>"
-        f"<ogc:PropertyName>{property_name}</ogc:PropertyName>"
-        f"<ogc:SortOrder>{order}</ogc:SortOrder>"
-        "</ogc:SortProperty>"
-        "</ogc:SortBy>"
+    property_name_el = ET.SubElement(
+        sort_property_el, ET.QName(Csw202Namespace.OGC.value, "PropertyName")
     )
-
-
-def _get_all_record():
-
-    return (
-        '<csw:GetRecords xmlns:csw="http://www.opengis.net/cat/csw/2.0.2" '
-        'xmlns:ogc="http://www.opengis.net/ogc" service="CSW" version="2.0.2"'
-        ' resultType="results" startPosition="1" maxRecords="5"'
-        'outputFormat="application/xml" outputSchema="http://www.opengis.net/cat/csw/2.0.2"'
-        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-        'xsi:schemaLocation="http://www.opengis.net/cat/csw/2.0.2 http://schemas.opengis.net/csw/2.0.2/CSW-discovery.xsd">'
-        '<csw:Query typeNames="csw:Record" >'
-        "<csw:ElementSetName > full < / csw:ElementSetName >"
-        "< / csw:Query >"
-        "< / csw:GetRecords >"
+    property_name_el.text = ordering_field
+    sort_order_el = ET.SubElement(
+        sort_property_el, ET.QName(Csw202Namespace.OGC.value, "SortOrder")
     )
+    sort_order_el.text = "DESC" if reverse else "ASC"
+
+
+def _add_property_is_like_element(parent: ET.Element, name: str, value: str):
+    wildcard = "*"
+    property_is_like_el = ET.SubElement(
+        parent,
+        ET.QName(Csw202Namespace.OGC.value, "PropertyIsLike"),
+        attrib={
+            "wildCard": wildcard,
+            "escapeChar": "",
+            "singleChar": "?",
+        },
+    )
+    property_name_el = ET.SubElement(
+        property_is_like_el, ET.QName(Csw202Namespace.OGC.value, "PropertyName")
+    )
+    property_name_el.text = name
+    literal_el = ET.SubElement(
+        property_is_like_el, ET.QName(Csw202Namespace.OGC.value, "Literal")
+    )
+    literal_el.text = f"{wildcard}{value}{wildcard}"
+
+
+def _add_bbox_operator(parent: ET.Element, spatial_extent: qgis.core.QgsRectangle):
+    bbox_el = ET.SubElement(parent, ET.QName(Csw202Namespace.OGC.value, "BBOX"))
+    property_name_el = ET.SubElement(
+        bbox_el, ET.QName(Csw202Namespace.OGC.value, "PropertyName")
+    )
+    property_name_el.text = "ows:BoundingBox"
+    envelope_el = ET.SubElement(
+        bbox_el, ET.QName(Csw202Namespace.GML.value, "Envelope")
+    )
+    lower_corner_el = ET.SubElement(
+        envelope_el, ET.QName(Csw202Namespace.GML.value, "lowerCorner")
+    )
+    lower_corner_el.text = f"{spatial_extent.xMinimum()} {spatial_extent.yMinimum()}"
+    upper_corner_el = ET.SubElement(
+        envelope_el, ET.QName(Csw202Namespace.GML.value, "upperCorner")
+    )
+    upper_corner_el.text = f"{spatial_extent.xMaximum()} {spatial_extent.yMaximum()}"

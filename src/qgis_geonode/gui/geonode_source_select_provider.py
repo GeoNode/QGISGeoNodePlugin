@@ -4,6 +4,7 @@ import typing
 from functools import partial
 
 import qgis.core
+import qgis_geonode.apiclient.models
 from qgis.utils import iface
 import qgis.gui
 from qgis.PyQt import (
@@ -13,8 +14,11 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
-from ..apiclient import get_geonode_client
-from ..apiclient import models
+from ..apiclient import (
+    base,
+    get_geonode_client,
+    models,
+)
 from ..conf import connections_manager
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
@@ -335,24 +339,28 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             pub_start = self.publication_start_dte.dateTime()
             pub_end = self.publication_end_dte.dateTime()
             client.get_layers(
-                page=self.current_page,
-                page_size=connection_settings.page_size,
-                title=self.title_le.text() or None,
-                abstract=self.abstract_le.text() or None,
-                keyword=self.keyword_cmb.currentText() or None,
-                topic_category=self.category_cmb.currentText().lower() or None,
-                layer_types=resource_types,
-                ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
-                reverse_ordering=self.reverse_order_chb.isChecked(),
-                temporal_extent_start=(
-                    temp_extent_start if not temp_extent_start.isNull() else None
-                ),
-                temporal_extent_end=(
-                    temp_extent_end if not temp_extent_end.isNull() else None
-                ),
-                publication_date_start=pub_start if not pub_start.isNull() else None,
-                publication_date_end=pub_end if not pub_end.isNull() else None,
-                spatial_extent=spatial_extent_epsg4326,
+                qgis_geonode.apiclient.models.GeonodeApiSearchParameters(
+                    page=self.current_page,
+                    page_size=connection_settings.page_size,
+                    title=self.title_le.text() or None,
+                    abstract=self.abstract_le.text() or None,
+                    keyword=self.keyword_cmb.currentText() or None,
+                    topic_category=self.category_cmb.currentText().lower() or None,
+                    layer_types=resource_types,
+                    ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
+                    reverse_ordering=self.reverse_order_chb.isChecked(),
+                    temporal_extent_start=(
+                        temp_extent_start if not temp_extent_start.isNull() else None
+                    ),
+                    temporal_extent_end=(
+                        temp_extent_end if not temp_extent_end.isNull() else None
+                    ),
+                    publication_date_start=pub_start
+                    if not pub_start.isNull()
+                    else None,
+                    publication_date_end=pub_end if not pub_end.isNull() else None,
+                    spatial_extent=spatial_extent_epsg4326,
+                )
             )
 
     def toggle_search_controls(self, enabled: bool):

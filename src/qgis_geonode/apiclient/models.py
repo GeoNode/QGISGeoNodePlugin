@@ -5,6 +5,9 @@ import math
 import typing
 from uuid import UUID
 
+import qgis.core
+from qgis.PyQt import QtCore
+
 from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsRectangle,
@@ -132,3 +135,21 @@ class GeonodeResource(BriefGeonodeResource):
         self.metadata_author = metadata_author
         self.default_style = default_style
         self.styles = styles
+
+
+@dataclasses.dataclass
+class GeonodeApiSearchParameters:
+    page: typing.Optional[int] = 1
+    page_size: typing.Optional[int] = 10
+    title: typing.Optional[str] = None
+    abstract: typing.Optional[str] = None
+    keyword: typing.Optional[str] = None
+    topic_category: typing.Optional[str] = None
+    layer_types: typing.Optional[typing.List[GeonodeResourceType]] = None
+    ordering_field: typing.Optional[OrderingType] = None
+    reverse_ordering: typing.Optional[bool] = False
+    temporal_extent_start: typing.Optional[QtCore.QDateTime] = None
+    temporal_extent_end: typing.Optional[QtCore.QDateTime] = None
+    publication_date_start: typing.Optional[QtCore.QDateTime] = None
+    publication_date_end: typing.Optional[QtCore.QDateTime] = None
+    spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None
