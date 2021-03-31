@@ -21,6 +21,16 @@ from . import base
 class GeonodeApiV2Client(base.BaseGeonodeClient):
     _api_path: str = "/api/v2"
 
+    capabilities = [
+        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_ABSTRACT,
+        models.ApiClientCapability.FILTER_BY_KEYWORD,
+        models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
+        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
+        models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
+        models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+    ]
+
     @property
     def api_url(self):
         return f"{self.base_url}{self._api_path}"
@@ -58,37 +68,12 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             query.addQueryItem("filter{title.icontains}", search_params.title)
         if search_params.abstract is not None:
             query.addQueryItem("filter{abstract.icontains}", search_params.abstract)
-        if search_params.keyword is not None:  # TODO: Allow using multiple keywords
+        if search_params.keyword is not None:
             query.addQueryItem("filter{keywords.name.icontains}", search_params.keyword)
         if search_params.topic_category is not None:
             query.addQueryItem(
                 "filter{category.identifier}", search_params.topic_category
             )
-        if search_params.layer_types is None:
-            types = [
-                models.GeonodeResourceType.VECTOR_LAYER,
-                models.GeonodeResourceType.RASTER_LAYER,
-                models.GeonodeResourceType.MAP,
-            ]
-        else:
-            types = list(search_params.layer_types)
-        is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
-        is_raster = models.GeonodeResourceType.RASTER_LAYER in types
-        is_map = models.GeonodeResourceType.MAP in types
-        if is_vector and is_raster:
-            pass
-        elif is_vector:
-            query.addQueryItem("filter{storeType}", "dataStore")
-        elif is_raster:
-            query.addQueryItem("filter{storeType}", "coverageStore")
-        else:
-            raise NotImplementedError
-        if search_params.ordering_field is not None:
-            ordering_field_value = self.get_ordering_filter_name(
-                search_params.ordering_field,
-                reverse_sort=search_params.reverse_ordering,
-            )
-            query.addQueryItem("sort[]", ordering_field_value)
         if search_params.temporal_extent_start is not None:
             query.addQueryItem(
                 "filter{temporal_extent_start.gte}",
@@ -116,6 +101,31 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             and not search_params.spatial_extent.isNull()
         ):
             pass
+        if search_params.layer_types is None:
+            types = [
+                models.GeonodeResourceType.VECTOR_LAYER,
+                models.GeonodeResourceType.RASTER_LAYER,
+                models.GeonodeResourceType.MAP,
+            ]
+        else:
+            types = list(search_params.layer_types)
+        is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
+        is_raster = models.GeonodeResourceType.RASTER_LAYER in types
+        is_map = models.GeonodeResourceType.MAP in types
+        if is_vector and is_raster:
+            pass
+        elif is_vector:
+            query.addQueryItem("filter{storeType}", "dataStore")
+        elif is_raster:
+            query.addQueryItem("filter{storeType}", "coverageStore")
+        else:
+            raise NotImplementedError
+        if search_params.ordering_field is not None:
+            ordering_field_value = self.get_ordering_filter_name(
+                search_params.ordering_field,
+                reverse_sort=search_params.reverse_ordering,
+            )
+            query.addQueryItem("sort[]", ordering_field_value)
         return query
 
     def get_layer_detail_url_endpoint(self, id_: int) -> QtCore.QUrl:
@@ -126,34 +136,10 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def get_maps_url_endpoint(
         self,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        title: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[QgsRectangle] = None,
+        search_params: base.GeonodeApiSearchParameters,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/maps/")
-        query = self._build_search_query(
-            page,
-            page_size,
-            title,
-            keyword=keyword,
-            topic_category=topic_category,
-            ordering_field=ordering_field,
-            reverse_ordering=reverse_ordering,
-            temporal_extent_start=temporal_extent_start,
-            temporal_extent_end=temporal_extent_end,
-            publication_date_start=publication_date_start,
-            publication_date_end=publication_date_end,
-            spatial_extent=spatial_extent,
-        )
+        query = self._build_search_query(search_params)
         url.setQuery(query.query())
         return url
 
@@ -166,7 +152,11 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         decoded_contents: str = contents.data().decode()
         return json.loads(decoded_contents)
 
-    def handle_layer_list(self, raw_reply_contents: QtCore.QByteArray):
+    def handle_layer_list(
+        self,
+        original_search_params: base.GeonodeApiSearchParameters,
+        raw_reply_contents: QtCore.QByteArray,
+    ):
         deserialized = self.deserialize_response_contents(raw_reply_contents)
         layers = []
         for item in deserialized.get("layers", []):
@@ -193,22 +183,28 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         )
         self.layer_detail_received.emit(layer)
 
-    def handle_layer_style_list(self, payload: typing.Dict):
+    def handle_layer_style_list(self, raw_reply_contents: QtCore.QByteArray):
+        deserialized = self.deserialize_response_contents(raw_reply_contents)
         styles = []
-        for item in payload.get("styles", []):
+        for item in deserialized.get("styles", []):
             styles.append(get_brief_geonode_style(item, self.base_url))
         self.layer_styles_received.emit(styles)
 
-    def handle_map_list(self, payload: typing.Dict):
+    def handle_map_list(
+        self,
+        original_search_params: base.GeonodeApiSearchParameters,
+        raw_reply_contents: QtCore.QByteArray,
+    ):
+        deserialized = self.deserialize_response_contents(raw_reply_contents)
         maps = []
-        for item in payload.get("maps", []):
+        for item in deserialized.get("maps", []):
             maps.append(
                 get_brief_geonode_resource(item, self.base_url, self.auth_config)
             )
         pagination_info = models.GeoNodePaginationInfo(
-            total_records=payload["total"],
-            current_page=payload["page"],
-            page_size=payload["page_size"],
+            total_records=deserialized["total"],
+            current_page=deserialized["page"],
+            page_size=deserialized["page_size"],
         )
         self.map_list_received.emit(maps, pagination_info)
 

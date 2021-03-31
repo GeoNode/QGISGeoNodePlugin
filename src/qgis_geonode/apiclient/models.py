@@ -14,6 +14,19 @@ from qgis.core import (
 )
 
 
+class ApiClientCapability(enum.Enum):
+    FILTER_BY_NAME = enum.auto()
+    FILTER_BY_ABSTRACT = enum.auto()
+    FILTER_BY_KEYWORD = enum.auto()
+    FILTER_BY_TOPIC_CATEGORY = enum.auto()
+    FILTER_BY_RESOURCE_TYPES = enum.auto()
+    FILTER_BY_TEMPORAL_EXTENT = enum.auto()
+    FILTER_BY_PUBLICATION_DATE = enum.auto()
+    FILTER_BY_SPATIAL_EXTENT = enum.auto()
+    MODIFY_LAYER_METADATA = enum.auto()
+    MODIFY_LAYER_STYLE = enum.auto()
+
+
 class GeonodeService(enum.Enum):
     OGC_WMS = "wms"
     OGC_WFS = "wfs"

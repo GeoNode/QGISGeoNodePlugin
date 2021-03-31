@@ -1,5 +1,6 @@
 import typing
 import uuid
+from functools import partial
 
 import qgis.core
 from qgis.PyQt import (
@@ -10,11 +11,14 @@ from qgis.PyQt import (
 from qgis_geonode.apiclient.models import GeonodeApiSearchParameters
 
 from . import models
-from ..utils import log
+from ..utils import (
+    log,
+    parse_network_reply,
+)
 
 
 class NetworkFetcherTask(qgis.core.QgsTask):
-    authcfg: str
+    authcfg: typing.Optional[str]
     reply_handler: typing.Callable
     request: QtNetwork.QNetworkRequest
     request_payload: typing.Optional[str]
@@ -28,7 +32,7 @@ class NetworkFetcherTask(qgis.core.QgsTask):
         request: QtNetwork.QNetworkRequest,
         reply_handler: typing.Callable,
         request_payload: typing.Optional[str] = None,
-        authcfg: str = None,
+        authcfg: typing.Optional[str] = None,
     ):
         super().__init__()
         self.authcfg = authcfg
@@ -45,23 +49,14 @@ class NetworkFetcherTask(qgis.core.QgsTask):
             reply = self._perform_get_request()
         else:
             reply = self._perform_post_request()
-        self.http_status_code = reply.attribute(
-            QtNetwork.QNetworkRequest.HttpStatusCodeAttribute
-        )
-        self.http_status_reason = reply.attribute(
-            QtNetwork.QNetworkRequest.HttpReasonPhraseAttribute
-        )
+
         self.reply_content = reply.content()
+        parsed_reply = parse_network_reply(reply)
+        self.http_status_code = parsed_reply.http_status_code
+        self.http_status_reason = parsed_reply.http_status_reason
+        self.qt_error = parsed_reply.qt_error
         self.setProgress(100)
-        error = reply.error()
-        if error == QtNetwork.QNetworkReply.NoError:
-            result = True
-        else:
-            result = False
-            self.qt_error = _get_qt_error(
-                QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError, error
-            )
-        return result
+        return self.qt_error is None
 
     def finished(self, result: bool):
         if result:
@@ -94,6 +89,7 @@ class BaseGeonodeClient(QtCore.QObject):
     auth_config: str
     base_url: str
     network_fetcher_task: typing.Optional[NetworkFetcherTask]
+    capabilities: typing.List[models.ApiClientCapability]
 
     layer_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
     layer_detail_received = QtCore.pyqtSignal(models.GeonodeResource)
@@ -139,6 +135,11 @@ class BaseGeonodeClient(QtCore.QObject):
     ) -> typing.Optional[str]:
         return None
 
+    def get_maps_request_payload(
+        self, search_params: GeonodeApiSearchParameters
+    ) -> typing.Optional[str]:
+        return None
+
     def get_layer_detail_url_endpoint(
         self, id_: typing.Union[int, uuid.UUID]
     ) -> QtCore.QUrl:
@@ -148,19 +149,7 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_maps_url_endpoint(
-        self,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        title: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None,
+        self, search_params: GeonodeApiSearchParameters
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
@@ -176,14 +165,19 @@ class BaseGeonodeClient(QtCore.QObject):
             raise RuntimeError("Could not load downloaded SLD document")
         return sld_doc
 
-    def handle_layer_list(self, raw_reply_contents: QtCore.QByteArray):
+    def handle_layer_list(
+        self,
+        original_search_params: GeonodeApiSearchParameters,
+        raw_reply_contents: QtCore.QByteArray,
+    ):
         raise NotImplementedError
 
     def handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
         raise NotImplementedError
 
-    def handle_layer_style_detail(self, payload: QtXml.QDomDocument):
-        sld_root = payload.documentElement()
+    def handle_layer_style_detail(self, raw_reply_contents: QtCore.QByteArray):
+        deserialized = self.deserialize_sld_style(raw_reply_contents)
+        sld_root = deserialized.documentElement()
         error_message = "Could not parse downloaded SLD document"
         if sld_root.isNull():
             raise RuntimeError(error_message)
@@ -195,17 +189,23 @@ class BaseGeonodeClient(QtCore.QObject):
     def handle_layer_style_list(self, payload: typing.Any):
         raise NotImplementedError
 
-    def handle_map_list(self, payload: typing.Any):
+    def handle_map_list(
+        self, original_search_params: GeonodeApiSearchParameters, payload: typing.Any
+    ):
         raise NotImplementedError
 
-    def get_layers(self, search_params: GeonodeApiSearchParameters):
+    def get_layers(
+        self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
+    ):
         url = self.get_layers_url_endpoint(search_params)
-        request_payload = self.get_layers_request_payload(search_params)
+        params = (
+            search_params if search_params is not None else GeonodeApiSearchParameters()
+        )
+        request_payload = self.get_layers_request_payload(params)
         log(f"URL: {url.toString()}")
-        log(f"request_payload: {request_payload}")
         self.network_fetcher_task = NetworkFetcherTask(
             request=QtNetwork.QNetworkRequest(url),
-            reply_handler=self.handle_layer_list,
+            reply_handler=partial(self.handle_layer_list, params),
             request_payload=request_payload,
             authcfg=self.auth_config,
         )
@@ -228,7 +228,10 @@ class BaseGeonodeClient(QtCore.QObject):
         request = QtNetwork.QNetworkRequest(
             self.get_layer_styles_url_endpoint(layer_id)
         )
-        self.run_task(request, self.handle_layer_style_list)
+        self.network_fetcher_task = NetworkFetcherTask(
+            request, self.handle_layer_style_list, authcfg=self.auth_config
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def get_layer_style(
         self, layer: models.GeonodeResource, style_name: typing.Optional[str] = None
@@ -238,57 +241,21 @@ class BaseGeonodeClient(QtCore.QObject):
         else:
             style_details = [i for i in layer.styles if i.name == style_name][0]
             style_url = style_details.sld_url
-        request = QtNetwork.QNetworkRequest(QtCore.QUrl(style_url))
-        self.run_task(
-            request,
-            self.handle_layer_style_detail,
-            response_deserializer=self.deserialize_sld_style,
+        self.network_fetcher_task = NetworkFetcherTask(
+            request=QtNetwork.QNetworkRequest(QtCore.QUrl(style_url)),
+            reply_handler=self.handle_layer_style_detail,
+            authcfg=self.auth_config,
         )
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def get_maps(
-        self,
-        page: typing.Optional[int] = 1,
-        page_size: typing.Optional[int] = 10,
-        title: typing.Optional[str] = None,
-        keyword: typing.Optional[str] = None,
-        topic_category: typing.Optional[str] = None,
-        ordering_field: typing.Optional[models.OrderingType] = None,
-        reverse_ordering: typing.Optional[bool] = False,
-        temporal_extent_start: typing.Optional[QtCore.QDateTime] = None,
-        temporal_extent_end: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_start: typing.Optional[QtCore.QDateTime] = None,
-        publication_date_end: typing.Optional[QtCore.QDateTime] = None,
-        spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None,
-    ):
-        url = self.get_maps_url_endpoint(
-            page=page,
-            page_size=page_size,
-            title=title,
-            keyword=keyword,
-            topic_category=topic_category,
-            ordering_field=ordering_field,
-            reverse_ordering=reverse_ordering,
-            temporal_extent_start=temporal_extent_start,
-            temporal_extent_end=temporal_extent_end,
-            publication_date_start=publication_date_start,
-            publication_date_end=publication_date_end,
-            spatial_extent=spatial_extent,
+    def get_maps(self, search_params: GeonodeApiSearchParameters):
+        url = self.get_maps_url_endpoint(search_params)
+        request_payload = self.get_maps_request_payload(search_params)
+        log(f"URL: {url.toString()}")
+        self.network_fetcher_task = NetworkFetcherTask(
+            request=QtNetwork.QNetworkRequest(url),
+            reply_handler=partial(self.handle_map_list, search_params),
+            request_payload=request_payload,
+            authcfg=self.auth_config,
         )
-        request = QtNetwork.QNetworkRequest(url)
-        self.run_task(request, self.handle_map_list)
-
-
-def _get_qt_error(cls, enum, error: QtNetwork.QNetworkReply.NetworkError) -> str:
-    """workaround for accessing unsubscriptable sip enum types
-
-    from https://stackoverflow.com/a/39677321
-
-    """
-
-    mapping = {}
-    for key in dir(cls):
-        value = getattr(cls, key)
-        if isinstance(value, enum):
-            mapping[key] = value
-            mapping[value] = key
-    return mapping[error]
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)

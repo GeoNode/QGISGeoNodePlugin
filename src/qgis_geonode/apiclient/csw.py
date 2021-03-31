@@ -8,6 +8,7 @@ import typing
 import urllib.request
 import urllib.parse
 import uuid
+from functools import partial
 from xml.etree import ElementTree as ET
 
 
@@ -18,8 +19,96 @@ from qgis.PyQt import (
 )
 
 from . import models
-from .base import BaseGeonodeClient
-from ..utils import log
+from .base import (
+    BaseGeonodeClient,
+    GeonodeApiSearchParameters,
+    NetworkFetcherTask,
+)
+from ..utils import (
+    log,
+    parse_network_reply,
+)
+
+
+class CswNetworkFetcherTask(NetworkFetcherTask):
+    base_url: str
+    username: typing.Optional[str]
+    password: typing.Optional[str]
+
+    def __init__(
+        self,
+        base_url: str,
+        *args,
+        username: typing.Optional[str] = None,
+        password: typing.Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.base_url = base_url
+        self.username = username
+        self.password = password
+
+    @property
+    def login_url(self):
+        return f"{self.base_url}/account/login/"
+
+    def run(self):
+        if self.username is not None:
+            logged_in = self._login()
+            log(f"logged_in: {logged_in}")
+            if logged_in:
+                self.setProgress(30)
+                result = super().run()
+            else:
+                result = False
+        else:
+            result = super().run()
+        return result
+
+    def _login(self) -> bool:
+        csrf_token = self._get_csrf_token(self.login_url)
+        log(f"csrf_token: {csrf_token}")
+        if csrf_token is not None:
+            form_data = QtCore.QUrlQuery()
+            form_data.addQueryItem("login", self.username)
+            form_data.addQueryItem("password", self.password)
+            form_data.addQueryItem("csrfmiddlewaretoken", str(csrf_token))
+            data_ = form_data.query().encode("utf-8")
+            log(f"data_: {data_}")
+
+            request = QtNetwork.QNetworkRequest(QtCore.QUrl(self.login_url))
+            request.setRawHeader(b"Referer", self.login_url.encode("utf-8"))
+            self.request.setHeader(
+                QtNetwork.QNetworkRequest.ContentTypeHeader,
+                "application/x-www-form-urlencoded",
+            )
+            network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
+            reply = network_access_manager.blockingPost(request, data_)
+            parsed_reply = parse_network_reply(reply)
+            log(
+                f"login reply: {parsed_reply.qt_error} - {parsed_reply.http_status_code} - {reply.content()}"
+            )
+            result = parsed_reply.qt_error is None
+        else:
+            result = False
+        return result
+
+    def _get_csrf_token(self, url: str) -> typing.Optional[str]:
+        network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
+        request = QtNetwork.QNetworkRequest(QtCore.QUrl(url))
+        reply = network_access_manager.blockingGet(request)
+        result = None
+        if reply.error() == QtNetwork.QNetworkReply.NoError:
+            jar = network_access_manager.cookieJar()
+            for cookie in jar.cookiesForUrl(QtCore.QUrl(self.base_url)):
+                if cookie.name() == "csrftoken":
+                    result = str(cookie.value(), encoding="utf-8")
+                    break
+            else:
+                log("Unable to retrieve csrf_token from cookies")
+        else:
+            log("Unable to reach login_url")
+        return result
 
 
 class Csw202Namespace(enum.Enum):
@@ -31,6 +120,7 @@ class Csw202Namespace(enum.Enum):
     GML = "http://www.opengis.net/gml"
     OWS = "http://www.opengis.net/ows"
     OGC = "http://www.opengis.net/ogc"
+    APISO = "http://www.opengis.net/cat/csw/apiso/1.0"
 
 
 class GeonodeCswClient(BaseGeonodeClient):
@@ -38,12 +128,20 @@ class GeonodeCswClient(BaseGeonodeClient):
 
     SERVICE = "CSW"
     VERSION = "2.0.2"
-    OUTPUT_SCHEMA = "http://www.isotc211.org/2005/gmd"
+    OUTPUT_SCHEMA = Csw202Namespace.GMD.value
     OUTPUT_FORMAT = "application/xml"
-    TYPE_NAME = "gmd:MD_Metadata"
-    # TODO: move this to the connection settings
-    PAGE_SIZE: int = 10
+    TYPE_NAME = ET.QName(Csw202Namespace.GMD.value, "MD_Metadata")
 
+    capabilities = [
+        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_ABSTRACT,
+        # models.ApiClientCapability.FILTER_BY_KEYWORD,
+        # models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
+        # models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
+        # models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
+        # models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        # models.ApiClientCapability.FILTER_BY_SPATIAL_EXTENT,
+    ]
     python_cookie_jar: http.cookiejar.CookieJar
     request_opener: urllib.request.OpenerDirector
     host: str
@@ -58,11 +156,20 @@ class GeonodeCswClient(BaseGeonodeClient):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.username = username or "ricardo"
-        self.password = password or "0seTY7nr4CAu"
+        self.username = username
+        self.password = password
         self.python_cookie_jar = http.cookiejar.CookieJar()
         self.request_opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.python_cookie_jar)
+        )
+
+    @classmethod
+    def from_connection_settings(cls, connection_settings: "ConnectionSettings"):
+        return cls(
+            username=connection_settings.api_version_settings.username,
+            password=connection_settings.api_version_settings.password,
+            base_url=connection_settings.base_url,
+            auth_config=connection_settings.auth_config,
         )
 
     @property
@@ -155,7 +262,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         tree.write(buffer, xml_declaration=True, encoding="unicode")
         result = buffer.getvalue()
         with open(
-            "/home/ricardo/Desktop/test_request_payload.xml", "w", encoding="utf-8"
+            "/home/ricardo/SCRATCH/test_request_payload.xml", "w", encoding="utf-8"
         ) as fh:
             fh.write(result)
         buffer.close()
@@ -209,7 +316,7 @@ class GeonodeCswClient(BaseGeonodeClient):
 
     def get_layers(
         self,
-        search_params: models.GeonodeApiSearchParameters,
+        search_params: typing.Optional[models.GeonodeApiSearchParameters] = None,
     ):
         """Get layers from the CSW endpoint
 
@@ -223,29 +330,49 @@ class GeonodeCswClient(BaseGeonodeClient):
 
         """
 
-        if self.username is not None:
-            logged_in = self.blocking_login()
-            if logged_in:
-                session_cookie = QtNetwork.QNetworkCookie(
-                    name="sessionid".encode("utf-8"),
-                    value=self.python_cookie_jar._cookies[self.host]["/"][
-                        "sessionid"
-                    ].value.encode("utf-8"),
-                )
-                session_cookie.setDomain(self.host)
-                session_cookie.setPath("/")
-                network_manager = qgis.core.QgsNetworkAccessManager.instance()
-                qt_cookie_jar: QtNetwork.QNetworkCookieJar = network_manager.cookieJar()
-                qt_cookie_jar.insertCookie(session_cookie)
-            else:
-                raise RuntimeError("Unable to login")
-        super().get_layers(search_params)
+        # if self.username is not None:
+        #     logged_in = self.blocking_login()
+        #     if logged_in:
+        #         session_cookie = QtNetwork.QNetworkCookie(
+        #             name="sessionid".encode("utf-8"),
+        #             value=self.python_cookie_jar._cookies[self.host]["/"][
+        #                 "sessionid"
+        #             ].value.encode("utf-8"),
+        #         )
+        #         session_cookie.setDomain(self.host)
+        #         session_cookie.setPath("/")
+        #         network_manager = qgis.core.QgsNetworkAccessManager.instance()
+        #         qt_cookie_jar: QtNetwork.QNetworkCookieJar = network_manager.cookieJar()
+        #         qt_cookie_jar.insertCookie(session_cookie)
+        #     else:
+        #         raise RuntimeError("Unable to login")
+        # super().get_layers(search_params)
+        url = self.get_layers_url_endpoint(search_params)
+        params = (
+            search_params if search_params is not None else GeonodeApiSearchParameters()
+        )
+        request_payload = self.get_layers_request_payload(params)
+        log(f"URL: {url.toString()}")
+        self.network_fetcher_task = CswNetworkFetcherTask(
+            request=QtNetwork.QNetworkRequest(url),
+            reply_handler=partial(self.handle_layer_list, params),
+            request_payload=request_payload,
+            authcfg=self.auth_config,
+            base_url=self.base_url,
+            username=self.username,
+            password=self.password,
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
         decoded_contents: str = contents.data().decode()
         return ET.fromstring(decoded_contents)
 
-    def handle_layer_list(self, raw_reply_contents: QtCore.QByteArray):
+    def handle_layer_list(
+        self,
+        original_search_params: GeonodeApiSearchParameters,
+        raw_reply_contents: QtCore.QByteArray,
+    ):
         deserialized = self.deserialize_response_contents(raw_reply_contents)
         layers = []
         search_results = deserialized.find(
@@ -255,9 +382,13 @@ class GeonodeCswClient(BaseGeonodeClient):
             total = int(search_results.attrib["numberOfRecordsMatched"])
             next_record = int(search_results.attrib["nextRecord"])
             if next_record == 0:  # reached the last page
-                current_page = max(int(math.ceil(total / self.PAGE_SIZE)), 1)
+                current_page = max(
+                    int(math.ceil(total / original_search_params.page_size)), 1
+                )
             else:
-                current_page = max(int((next_record - 1) / self.PAGE_SIZE), 1)
+                current_page = max(
+                    int((next_record - 1) / original_search_params.page_size), 1
+                )
             items = search_results.findall(
                 f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"
             )
@@ -271,14 +402,18 @@ class GeonodeCswClient(BaseGeonodeClient):
                 else:
                     layers.append(brief_resource)
             pagination_info = models.GeoNodePaginationInfo(
-                total_records=total, current_page=current_page, page_size=self.PAGE_SIZE
+                total_records=total,
+                current_page=current_page,
+                page_size=original_search_params.page_size,
             )
             self.layer_list_received.emit(layers, pagination_info)
         else:
             self.layer_list_received.emit(
                 layers,
                 models.GeoNodePaginationInfo(
-                    total_records=0, current_page=1, page_size=self.PAGE_SIZE
+                    total_records=0,
+                    current_page=1,
+                    page_size=original_search_params.page_size,
                 ),
             )
 
@@ -764,14 +899,6 @@ def _add_constraints(
     filter_params = (
         search_params.title,
         search_params.abstract,
-        search_params.keyword,
-        search_params.topic_category,
-        types,
-        search_params.temporal_extent_start,
-        search_params.temporal_extent_end,
-        search_params.publication_date_start,
-        search_params.publication_date_end,
-        search_params.spatial_extent,
     )
     if any(filter_params):
         constraint_el = ET.SubElement(
@@ -797,22 +924,22 @@ def _add_constraints(
             _add_property_is_like_element(
                 filter_root_el, "dc:abstract", search_params.abstract
             )
-        if search_params.keyword is not None:
-            pass
-        if search_params.topic_category is not None:
-            pass
-        if types is not None:
-            pass
-        if search_params.temporal_extent_start is not None:
-            pass
-        if search_params.temporal_extent_end is not None:
-            pass
-        if search_params.publication_date_start is not None:
-            pass
-        if search_params.publication_date_end is not None:
-            pass
-        if search_params.spatial_extent is not None:
-            _add_bbox_operator(filter_root_el, search_params.spatial_extent)
+        # if search_params.keyword is not None:
+        #     pass
+        # if search_params.topic_category is not None:
+        #     pass
+        # if types is not None:
+        #     pass
+        # if search_params.temporal_extent_start is not None:
+        #     pass
+        # if search_params.temporal_extent_end is not None:
+        #     pass
+        # if search_params.publication_date_start is not None:
+        #     pass
+        # if search_params.publication_date_end is not None:
+        #     pass
+        # if search_params.spatial_extent is not None:
+        #     _add_bbox_operator(filter_root_el, search_params.spatial_extent)
 
 
 def _add_ordering(parent: ET.Element, ordering_field: str, reverse: bool):
@@ -839,6 +966,7 @@ def _add_property_is_like_element(parent: ET.Element, name: str, value: str):
             "wildCard": wildcard,
             "escapeChar": "",
             "singleChar": "?",
+            "matchCase": "false",
         },
     )
     property_name_el = ET.SubElement(
@@ -856,15 +984,15 @@ def _add_bbox_operator(parent: ET.Element, spatial_extent: qgis.core.QgsRectangl
     property_name_el = ET.SubElement(
         bbox_el, ET.QName(Csw202Namespace.OGC.value, "PropertyName")
     )
-    property_name_el.text = "ows:BoundingBox"
+    property_name_el.text = "apiso:BoundingBox"
     envelope_el = ET.SubElement(
         bbox_el, ET.QName(Csw202Namespace.GML.value, "Envelope")
     )
     lower_corner_el = ET.SubElement(
         envelope_el, ET.QName(Csw202Namespace.GML.value, "lowerCorner")
     )
-    lower_corner_el.text = f"{spatial_extent.xMinimum()} {spatial_extent.yMinimum()}"
+    lower_corner_el.text = f"{spatial_extent.yMinimum()} {spatial_extent.xMinimum()}"
     upper_corner_el = ET.SubElement(
         envelope_el, ET.QName(Csw202Namespace.GML.value, "upperCorner")
     )
-    upper_corner_el.text = f"{spatial_extent.xMaximum()} {spatial_extent.yMaximum()}"
+    upper_corner_el.text = f"{spatial_extent.yMaximum()} {spatial_extent.xMaximum()}"

@@ -196,7 +196,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.api_client.get_layer_detail_from_brief_resource(self.brief_resource)
 
     def handle_layer_detail(self, resource: GeonodeResource):
-        """Populate the loaded layer with metadata from the retrived GeoNode resource
+        """Populate the loaded layer with metadata from the retrieved GeoNode resource
 
         Then either retrieve the layer's SLD or add it to QGIS project
 
