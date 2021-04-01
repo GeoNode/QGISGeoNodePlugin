@@ -150,6 +150,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> typing.Dict:
         decoded_contents: str = contents.data().decode()
+        log(f"decoded_contents: {decoded_contents}")
         return json.loads(decoded_contents)
 
     def handle_layer_list(
