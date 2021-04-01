@@ -30,6 +30,84 @@ from ..utils import (
 )
 
 
+class MyNetworkFetcherTask(qgis.core.QgsTask):
+    authcfg: typing.Optional[str]
+    description: str
+    reply_handler: typing.Callable
+    request: QtNetwork.QNetworkRequest
+    request_payload: typing.Optional[str]
+    reply_content: typing.Optional[QtCore.QByteArray]
+    http_status_code: typing.Optional[int]
+    http_status_reason: typing.Optional[str]
+    qt_error: typing.Optional[str]
+    event_loop: QtCore.QEventLoop
+    redirect_policy: QtNetwork.QNetworkRequest.RedirectPolicy
+
+    finished = QtCore.pyqtSignal()
+
+    def __init__(
+        self,
+        request: QtNetwork.QNetworkRequest,
+        reply_handler: typing.Callable,
+        request_payload: typing.Optional[str] = None,
+        authcfg: typing.Optional[str] = None,
+        description: typing.Optional[str] = "MyNetworkfetcherTask",
+        redirect_policy: QtNetwork.QNetworkRequest.RedirectPolicy = (
+            QtNetwork.QNetworkRequest.NoLessSafeRedirectPolicy
+        ),
+    ):
+        """
+        Custom QgsTask that performs network requests
+
+        This class is able to perform both GET and POST HTTP requests.
+
+        It is needed because:
+
+        - QgsNetworkContentFetcherTask only performs GET requests
+        - QgsNetworkAcessManager.blockingPost() does not seem to handle redirects
+          correctly
+
+        Implementation is based on QgsNetworkContentFetcher. The run() method performs
+        a normal async request using QtNetworkAccessManager's get() or post() methods.
+        The resulting QNetworkReply instance has its `finished` signal be connected to
+        a custom handler. The request is executed in scope of a custom Qt event loop,
+        which blocks the current thread while the request is being processed.
+
+        """
+
+        super().__init__(description)
+        self.event_loop = QtCore.QEventLoop()
+        self.authcfg = authcfg
+        self.request = request
+        self.request_payload = request_payload
+        self.reply_handler = reply_handler
+        self.reply_content = None
+        self.http_status_code = None
+        self.http_status_reason = None
+        self.qt_error = None
+        self.redirect_policy = redirect_policy
+
+    def run(self):
+        network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
+        network_access_manager.setRedirectPolicy(self.redirect_policy)
+        if self.request_payload is None:
+            reply = network_access_manager.get(self.request)
+        else:
+            reply = network_access_manager.post(self.request, self.request_payload)
+        reply.finished.connect(partial(self._request_done, reply))
+        self.event_loop.exec_()
+        self.finished.emit()
+        return True
+
+    def _request_done(self, reply: QtNetwork.QNetworkReply):
+        self.reply_content = reply.readAll()
+        parsed_reply = parse_network_reply(reply)
+        self.http_status_code = parsed_reply.http_status_code
+        self.http_status_reason = parsed_reply.http_status_reason
+        self.qt_error = parsed_reply.qt_error
+        self.event_loop.quit()
+
+
 class CswNetworkFetcherTask(NetworkFetcherTask):
     base_url: str
     username: typing.Optional[str]
@@ -67,26 +145,38 @@ class CswNetworkFetcherTask(NetworkFetcherTask):
 
     def _login(self) -> bool:
         csrf_token = self._get_csrf_token(self.login_url)
+        log(f"login_url: {self.login_url}")
         log(f"csrf_token: {csrf_token}")
         if csrf_token is not None:
             form_data = QtCore.QUrlQuery()
             form_data.addQueryItem("login", self.username)
             form_data.addQueryItem("password", self.password)
-            form_data.addQueryItem("csrfmiddlewaretoken", str(csrf_token))
+            form_data.addQueryItem("csrfmiddlewaretoken", csrf_token)
             data_ = form_data.query().encode("utf-8")
             log(f"data_: {data_}")
 
-            request = QtNetwork.QNetworkRequest(QtCore.QUrl(self.login_url))
+            url = QtCore.QUrl(self.login_url)
+            # query = QtCore.QUrlQuery()
+            # query.addQueryItem("next", "/")
+            # url.setQuery(query)
+            request = QtNetwork.QNetworkRequest(url)
             request.setRawHeader(b"Referer", self.login_url.encode("utf-8"))
-            self.request.setHeader(
-                QtNetwork.QNetworkRequest.ContentTypeHeader,
-                "application/x-www-form-urlencoded",
-            )
+            # self.request.setHeader(
+            #     QtNetwork.QNetworkRequest.ContentTypeHeader,
+            #     "application/x-www-form-urlencoded",
+            # )
             network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
+            old_redirect_policy = network_access_manager.redirectPolicy()
+            log(f"old redirect policy: {old_redirect_policy}")
+            network_access_manager.setRedirectPolicy(
+                QtNetwork.QNetworkRequest.SameOriginRedirectPolicy
+            )
+            log(f"new redirect policy: {network_access_manager.redirectPolicy()}")
             reply = network_access_manager.blockingPost(request, data_)
             parsed_reply = parse_network_reply(reply)
             log(
-                f"login reply: {parsed_reply.qt_error} - {parsed_reply.http_status_code} - {reply.content()}"
+                f"login reply: {parsed_reply.qt_error} - "
+                f"{parsed_reply.http_status_code} - {reply.content()}"
             )
             result = parsed_reply.qt_error is None
         else:
