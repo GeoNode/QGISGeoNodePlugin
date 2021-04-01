@@ -397,7 +397,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             temp_extent_end = self.temporal_extent_end_dte.dateTime()
             pub_start = self.publication_start_dte.dateTime()
             pub_end = self.publication_end_dte.dateTime()
-            self.api_client.get_layers(
+            # self.api_client.get_layers(
+            self.api_client.new_get_layers(
                 qgis_geonode.apiclient.models.GeonodeApiSearchParameters(
                     page=self.current_page,
                     page_size=connection_settings.page_size,

@@ -175,6 +175,30 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         )
         self.layer_list_received.emit(layers, pagination_info)
 
+    def new_handle_layer_list(
+        self,
+        original_search_params: base.GeonodeApiSearchParameters,
+    ):
+        deserialized = self.deserialize_response_contents(
+            self.network_fetcher_task.reply_content
+        )
+        layers = []
+        for item in deserialized.get("layers", []):
+            try:
+                brief_resource = get_brief_geonode_resource(
+                    item, self.base_url, self.auth_config
+                )
+            except ValueError:
+                log(f"Could not parse {item!r} into a valid item")
+            else:
+                layers.append(brief_resource)
+        pagination_info = models.GeoNodePaginationInfo(
+            total_records=deserialized["total"],
+            current_page=deserialized["page"],
+            page_size=deserialized["page_size"],
+        )
+        self.layer_list_received.emit(layers, pagination_info)
+
     # def handle_layer_detail(self, payload: typing.Dict):
     def handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
         deserialized = self.deserialize_response_contents(raw_reply_contents)

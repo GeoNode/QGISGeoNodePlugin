@@ -55,7 +55,7 @@ def tr(text):
     return QtCore.QCoreApplication.translate("QgisGeoNode", text)
 
 
-def parse_network_reply(reply: QgsNetworkReplyContent):
+def parse_network_reply(reply: QgsNetworkReplyContent) -> ParsedNetworkReply:
     http_status_code = reply.attribute(
         QtNetwork.QNetworkRequest.HttpStatusCodeAttribute
     )
