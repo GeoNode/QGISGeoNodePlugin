@@ -97,7 +97,7 @@ class MyNetworkFetcherTask(qgis.core.QgsTask):
     def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
         log(f"requested_url: {qgis_reply.request().url().toString()}")
         self.reply_content = self._reply.readAll()
-        #log(f"reply_content: {self.reply_content}")
+        # log(f"reply_content: {self.reply_content}")
         self.parsed_reply = parse_network_reply(qgis_reply)
         log(f"http_status_code: {self.parsed_reply.http_status_code}")
         log(f"qt_error: {self.parsed_reply.qt_error}")
