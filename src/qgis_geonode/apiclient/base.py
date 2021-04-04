@@ -75,6 +75,9 @@ class MyNetworkFetcherTask(qgis.core.QgsTask):
         self._request_id = None
 
     def run(self):
+        if self.authcfg is not None:
+            auth_manager = qgis.core.QgsApplication.authManager()
+            auth_manager.updateNetworkRequest(self.request, self.authcfg)
         if self.request_payload is None:
             self._reply = self.network_access_manager.get(self.request)
         else:
@@ -254,11 +257,14 @@ class BaseGeonodeClient(QtCore.QObject):
             raise RuntimeError("Could not load downloaded SLD document")
         return sld_doc
 
-    def handle_layer_list(
+    def old_handle_layer_list(
         self,
         original_search_params: GeonodeApiSearchParameters,
         raw_reply_contents: QtCore.QByteArray,
     ):
+        raise NotImplementedError
+
+    def handle_layer_list(self, original_search_params: GeonodeApiSearchParameters):
         raise NotImplementedError
 
     def handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
@@ -283,7 +289,7 @@ class BaseGeonodeClient(QtCore.QObject):
     ):
         raise NotImplementedError
 
-    def get_layers(
+    def old_get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
     ):
         url = self.get_layers_url_endpoint(search_params)
@@ -300,7 +306,7 @@ class BaseGeonodeClient(QtCore.QObject):
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def new_get_layers(
+    def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
     ):
         params = (
@@ -312,12 +318,9 @@ class BaseGeonodeClient(QtCore.QObject):
             authcfg=self.auth_config,
         )
         self.network_fetcher_task.request_finished.connect(
-            partial(self.new_handle_layer_list, params)
+            partial(self.handle_layer_list, params)
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
-    def new_handle_layer_list(self, original_search_params: GeonodeApiSearchParameters):
-        raise NotImplementedError
 
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource

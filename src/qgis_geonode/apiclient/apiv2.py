@@ -153,7 +153,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         log(f"decoded_contents: {decoded_contents}")
         return json.loads(decoded_contents)
 
-    def handle_layer_list(
+    def old_handle_layer_list(
         self,
         original_search_params: base.GeonodeApiSearchParameters,
         raw_reply_contents: QtCore.QByteArray,
@@ -176,7 +176,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         )
         self.layer_list_received.emit(layers, pagination_info)
 
-    def new_handle_layer_list(
+    def handle_layer_list(
         self,
         original_search_params: base.GeonodeApiSearchParameters,
     ):

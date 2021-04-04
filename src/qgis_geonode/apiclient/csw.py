@@ -34,7 +34,7 @@ from ..utils import (
 
 
 @contextmanager
-def custom_event_loop(signal, timeout: int = 10000, **kwargs):
+def custom_event_loop(signal, timeout: int = 10000):
     loop = QtCore.QEventLoop()
     signal.connect(loop.quit)
     yield
@@ -150,23 +150,37 @@ class GeonodeCswAuthenticatedNetworkFetcher(MyNetworkFetcherTask):
         return parsed_reply, reply_content
 
     def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
+        log("inside _request_done")
         log(f"requested_url: {qgis_reply.request().url().toString()}")
         this_request_id = qgis_reply.requestId()
         self.parsed_reply = parse_network_reply(qgis_reply)
         log(f"http_status_code: {self.parsed_reply.http_status_code}")
         log(f"qt_error: {self.parsed_reply.qt_error}")
-
+        log(f"this_request_id: {this_request_id}")
         prop_name = "requestId"
+        log(f"_first_login_reply is None: {self._first_login_reply is None}")
+        log(f"_second_login_reply is None: {self._second_login_reply is None}")
+        log(f"_final_reply is None: {self._final_reply is None}")
+        found_matched_reply = False
         if self._first_login_reply is not None:
-            if self._first_login_reply.property(prop_name) == this_request_id:
+            first_request_id = int(self._first_login_reply.property(prop_name))
+            log(f"first_request_id: {first_request_id}")
+            if first_request_id == this_request_id:
+                found_matched_reply = True
                 self.first_login_parsed.emit()
         if self._second_login_reply is not None:
-            if self._second_login_reply.property(prop_name) == this_request_id:
+            second_request_id = int(self._second_login_reply.property(prop_name))
+            log(f"second_request_id: {second_request_id}")
+            if second_request_id == this_request_id:
+                found_matched_reply = True
                 self.second_login_parsed.emit()
         if self._final_reply is not None:
-            if self._final_reply.property(prop_name) == this_request_id:
+            third_request_id = int(self._final_reply.property(prop_name))
+            log(f"third_request_id: {third_request_id}")
+            if third_request_id == this_request_id:
+                found_matched_reply = True
                 self.request_parsed.emit()
-        else:
+        if not found_matched_reply:
             raise RuntimeError("Could not match this reply with a previous one")
 
     def old_run(self):
@@ -580,7 +594,7 @@ class GeonodeCswClient(BaseGeonodeClient):
             result = None
         return result
 
-    def get_layers(
+    def old_get_layers(
         self,
         search_params: typing.Optional[models.GeonodeApiSearchParameters] = None,
     ):
@@ -630,7 +644,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def new_get_layers(
+    def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
     ):
         url = self.get_layers_url_endpoint(search_params)
@@ -648,13 +662,14 @@ class GeonodeCswClient(BaseGeonodeClient):
                 request=request,
                 request_payload=request_payload,
                 authcfg=self.auth_config,
+                redirect_policy=QtNetwork.QNetworkRequest.ManualRedirectPolicy,
             )
         else:
             self.network_fetcher_task = MyNetworkFetcherTask(
                 request, request_payload=request_payload, authcfg=self.auth_config
             )
         self.network_fetcher_task.request_finished.connect(
-            partial(self.new_handle_layer_list, params)
+            partial(self.handle_layer_list, params)
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
@@ -662,7 +677,7 @@ class GeonodeCswClient(BaseGeonodeClient):
         decoded_contents: str = contents.data().decode()
         return ET.fromstring(decoded_contents)
 
-    def handle_layer_list(
+    def old_layer_list(
         self,
         original_search_params: GeonodeApiSearchParameters,
         raw_reply_contents: QtCore.QByteArray,
@@ -711,7 +726,7 @@ class GeonodeCswClient(BaseGeonodeClient):
                 ),
             )
 
-    def new_handle_layer_list(
+    def handle_layer_list(
         self,
         original_search_params: GeonodeApiSearchParameters,
     ):
