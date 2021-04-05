@@ -1,4 +1,3 @@
-import logging
 import os
 import typing
 from functools import partial
@@ -27,8 +26,6 @@ from ..utils import (
     log,
     tr,
 )
-
-logger = logging.getLogger(__name__)
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/geonode_datasource_widget.ui")

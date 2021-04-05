@@ -8,7 +8,6 @@ import typing
 import urllib.request
 import urllib.parse
 import uuid
-from contextlib import contextmanager
 from functools import partial
 from xml.etree import ElementTree as ET
 
@@ -20,31 +19,14 @@ from qgis.PyQt import (
 )
 
 from . import models
-from .base import (
-    BaseGeonodeClient,
-    GeonodeApiSearchParameters,
-    NetworkFetcherTask,
-    MyNetworkFetcherTask,
-)
+from . import base
 from ..utils import (
     log,
     parse_network_reply,
-    ParsedNetworkReply,
 )
 
 
-@contextmanager
-def custom_event_loop(signal, timeout: int = 10000):
-    loop = QtCore.QEventLoop()
-    signal.connect(loop.quit)
-    yield
-    QtCore.QTimer.singleShot(timeout, loop.quit)
-    log(f"About to start custom event loop...")
-    loop.exec_()
-    log(f"First event loop ended, resuming...")
-
-
-class GeonodeCswAuthenticatedNetworkFetcher(MyNetworkFetcherTask):
+class GeonodeCswAuthenticatedNetworkFetcher(base.MyNetworkFetcherTask):
     TIMEOUT: int = 10000
     username: str
     password: str
@@ -52,16 +34,20 @@ class GeonodeCswAuthenticatedNetworkFetcher(MyNetworkFetcherTask):
     _first_login_reply: typing.Optional[QtNetwork.QNetworkReply]
     _second_login_reply: typing.Optional[QtNetwork.QNetworkReply]
     _final_reply: typing.Optional[QtNetwork.QNetworkReply]
+    _logout_reply: typing.Optional[QtNetwork.QNetworkReply]
 
     first_login_parsed = QtCore.pyqtSignal()
     second_login_parsed = QtCore.pyqtSignal()
+    logout_parsed = QtCore.pyqtSignal()
 
     def __init__(self, base_url: str, username: str, password: str, *args, **kwargs):
-        """A class suitable for performing POST requests to GeoNode's CSW endpoint
+        """Performs authenticated POST requests against a GeoNode's legacy CSW endpoint.
 
-        This is most suitable for perfoming CSW GetRecords operations. These need to
-        be sent as HTTP POST requests. However, due to GeoNode having the CSW API
-        protected by django's session-based authentication, before being able to
+        This is mainly usable for perfoming CSW GetRecords operations. In order to
+        support a broader range of search filters, GeoNode CSW GetRecords requests
+        ought to be sent as HTTP POST requests (why? in brief, pycsw has better
+        support for POST when doing GetRecords). However, due to GeoNode having the
+        CSW API protected by django's session-based authentication, before being able to
         perform a POST request we need to simulate a browser login. This is achieved
         by:
 
@@ -82,34 +68,99 @@ class GeonodeCswAuthenticatedNetworkFetcher(MyNetworkFetcherTask):
         self._first_login_reply = None
         self._second_login_reply = None
         self._final_reply = None
+        self._logout_reply = None
 
     @property
     def login_url(self) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.base_url}/account/login/")
 
+    @property
+    def logout_url(self) -> QtCore.QUrl:
+        return QtCore.QUrl(f"{self.base_url}/account/logout/")
+
     def run(self) -> bool:
-        if self._run_first_loop():
-            if self._run_second_loop():
-                parsed_reply, reply_content = self._run_third_loop()
-                # the reply object in self._final_reply is now finished
-                self.parsed_reply = parsed_reply
-                self.reply_content = reply_content
+        if self._blocking_get_csrf_token():
+            if self._blocking_login():
+                if self._blocking_get_authenticated_reply():
+                    self.parsed_reply = parse_network_reply(self._final_reply)
+                    self.reply_content = self._final_reply.readAll()
+                self._blocking_logout()
+                self.network_access_manager.finished.disconnect(self._request_done)
                 self.request_finished.emit()
                 result = self.parsed_reply.qt_error is None
             else:
                 result = False
+            # self._first_login_reply.deleteLater()
+            # self._second_login_reply.deleteLater()
+            # self._first_login_reply.deleteLater()
         else:
             result = False
         return result
 
-    def _run_first_loop(self) -> bool:
-        with custom_event_loop(self.first_login_parsed, self.TIMEOUT):
+    def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
+        log(f"requested_url: {qgis_reply.request().url().toString()}")
+        self.parsed_reply = parse_network_reply(qgis_reply)
+        log(f"http_status_code: {self.parsed_reply.http_status_code}")
+        log(f"qt_error: {self.parsed_reply.qt_error}")
+        found_matched_reply = False
+        if self._first_login_reply is not None:
+            if base.reply_matches(qgis_reply, self._first_login_reply):
+                found_matched_reply = True
+                self.first_login_parsed.emit()
+        if self._second_login_reply is not None:
+            if base.reply_matches(qgis_reply, self._second_login_reply):
+                found_matched_reply = True
+                self.second_login_parsed.emit()
+        if self._final_reply is not None:
+            if base.reply_matches(qgis_reply, self._final_reply):
+                found_matched_reply = True
+                self.request_parsed.emit()
+        if self._logout_reply is not None:
+            if base.reply_matches(qgis_reply, self._logout_reply):
+                found_matched_reply = True
+                self.logout_parsed.emit()
+        if not found_matched_reply:
+            log("Could not match this reply with a previous one, ignoring...")
+
+    def _blocking_get_csrf_token(self) -> bool:
+        """Perform a first request to login URL to get a csrf token
+
+        Logging in to a django-baased website (such as GeoNode) requires obtaining
+        a CSRF token first. This token needs to be sent together with the login
+        credentials. This function performs a first visit to the login page and gets
+        the CSRF token.
+
+        """
+
+        with base.wait_for_signal(self.first_login_parsed, self.TIMEOUT):
             self._first_login_reply = self.network_access_manager.get(
                 QtNetwork.QNetworkRequest(self.login_url)
             )
         return self._first_login_reply.error() == QtNetwork.QNetworkReply.NoError
 
-    def _run_second_loop(self) -> bool:
+    def _blocking_login(self) -> bool:
+        """Login to GeoNode using the previously gotten CSRF token
+
+        In order to perform a session-based login to a django app (i.e. GeoNode) we need
+        to:
+
+        - Perform a first GET request to the login page in order to get some relevant
+          cookies:
+
+          - sessionid
+          - csrftoken
+
+        - Retrieve the CSRF TOKEN from the cookies, as it also needs to be sent as form
+          data
+
+        - Perform a second request to the login page, this time using POST method,
+          sending:
+
+          - the previously gotten cookies
+          - form data with the username, password and csrftoken
+
+        """
+
         csrf_token = self._get_csrf_token()
         log(f"csrf_token: {csrf_token}")
         if csrf_token is not None:
@@ -120,24 +171,33 @@ class GeonodeCswAuthenticatedNetworkFetcher(MyNetworkFetcherTask):
             data_ = form_data.query().encode("utf-8")
             request = QtNetwork.QNetworkRequest(self.login_url)
             request.setRawHeader(b"Referer", self.login_url.toString().encode("utf-8"))
-            # self.request.setHeader(
-            #     QtNetwork.QNetworkRequest.ContentTypeHeader,
-            #     "application/x-www-form-urlencoded",
-            # )
-            with custom_event_loop(self.second_login_parsed, self.TIMEOUT):
+            with base.wait_for_signal(self.second_login_parsed, self.TIMEOUT):
                 self._second_login_reply = self.network_access_manager.post(
                     request, data_
                 )
             result = self._second_login_reply.error() == QtNetwork.QNetworkReply.NoError
-            # self._first_login_reply.deleteLater()
         else:
             log("Could not retrieve CSRF token")
             result = False
         return result
 
-    def _run_third_loop(self) -> typing.Tuple[ParsedNetworkReply, QtCore.QByteArray]:
+    def _get_csrf_token(self) -> typing.Optional[str]:
+        """Retrieves CSRF token from the current cookie jar."""
+
+        cookie_jar = self.network_access_manager.cookieJar()
+        for cookie in cookie_jar.cookiesForUrl(QtCore.QUrl(self.base_url)):
+            if cookie.name() == "csrftoken":
+                result = str(cookie.value(), encoding="utf-8")
+                break
+        else:
+            result = None
+        return result
+
+    def _blocking_get_authenticated_reply(
+        self,
+    ) -> bool:
         """We are now logged in and can perform the final request"""
-        with custom_event_loop(self.request_parsed, self.TIMEOUT):
+        with base.wait_for_signal(self.request_parsed, self.TIMEOUT):
             if self.request_payload is None:
                 self._final_reply = self.network_access_manager.get(self.request)
             else:
@@ -145,250 +205,133 @@ class GeonodeCswAuthenticatedNetworkFetcher(MyNetworkFetcherTask):
                     self.request,
                     QtCore.QByteArray(self.request_payload.encode("utf-8")),
                 )
-        parsed_reply = parse_network_reply(self._final_reply)
-        reply_content = self._final_reply.readAll()
-        return parsed_reply, reply_content
+        return self._final_reply.error() == QtNetwork.QNetworkReply.NoError
 
-    def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
-        log("inside _request_done")
-        log(f"requested_url: {qgis_reply.request().url().toString()}")
-        this_request_id = qgis_reply.requestId()
-        self.parsed_reply = parse_network_reply(qgis_reply)
-        log(f"http_status_code: {self.parsed_reply.http_status_code}")
-        log(f"qt_error: {self.parsed_reply.qt_error}")
-        log(f"this_request_id: {this_request_id}")
-        prop_name = "requestId"
-        log(f"_first_login_reply is None: {self._first_login_reply is None}")
-        log(f"_second_login_reply is None: {self._second_login_reply is None}")
-        log(f"_final_reply is None: {self._final_reply is None}")
-        found_matched_reply = False
-        if self._first_login_reply is not None:
-            first_request_id = int(self._first_login_reply.property(prop_name))
-            log(f"first_request_id: {first_request_id}")
-            if first_request_id == this_request_id:
-                found_matched_reply = True
-                self.first_login_parsed.emit()
-        if self._second_login_reply is not None:
-            second_request_id = int(self._second_login_reply.property(prop_name))
-            log(f"second_request_id: {second_request_id}")
-            if second_request_id == this_request_id:
-                found_matched_reply = True
-                self.second_login_parsed.emit()
-        if self._final_reply is not None:
-            third_request_id = int(self._final_reply.property(prop_name))
-            log(f"third_request_id: {third_request_id}")
-            if third_request_id == this_request_id:
-                found_matched_reply = True
-                self.request_parsed.emit()
-        if not found_matched_reply:
-            raise RuntimeError("Could not match this reply with a previous one")
-
-    def old_run(self):
-        self._first_login_reply = self.network_access_manager.get(
-            QtNetwork.QNetworkRequest(self.login_url)
-        )
-        event_loop = QtCore.QEventLoop()
-        self.request_parsed.connect(event_loop.quit)
-        QtCore.QTimer.singleShot(10000, event_loop.quit)
-        log(f"About to start the custom event loop...")
-        event_loop.exec_()
-        log(f"Custom event loop ended, resuming...")
-        self.request_finished.emit()
-        return self.parsed_reply.qt_error is None
-
-    def _old_request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
-        """
-        Find out if this is the last request or not and act accordingly.
-
-        - If this is the last request
-        - If this is not the last request but the next one will be, then we need to
-          make sure to perform the original request provided by the client
-        - If this is not the last and the next one is also not the last, then we need
-          to perform a GET request with the next request to be performed
-
-        """
-
-        log(f"requested_url: {qgis_reply.request().url().toString()}")
-        this_request_id = qgis_reply.requestId()
-        self.parsed_reply = parse_network_reply(qgis_reply)
-        log(f"http_status_code: {self.parsed_reply.http_status_code}")
-        log(f"qt_error: {self.parsed_reply.qt_error}")
-
-        log(f"first_login_reply is None: {self._first_login_reply is None}")
-        log(f"second_login_reply is None: {self._second_login_reply is None}")
-        log(f"final_reply is None: {self._final_reply is None}")
-        handler = None
-        reply = None
-        prop_name = "requestId"
-        if self._first_login_reply is not None:
-            if self._first_login_reply.property(prop_name) == this_request_id:
-                reply = self._first_login_reply
-                handler = self._handle_first_login_reply
-        if self._second_login_reply is not None:
-            if self._second_login_reply.property(prop_name) == this_request_id:
-                reply = self._second_login_reply
-                handler = self._handle_second_login_reply
-        if self._final_reply is not None:
-            if self._final_reply.property(prop_name) == this_request_id:
-                reply = self._final_reply
-                handler = self._handle_final_reply
-        if reply is not None:
-            if reply.error() == QtNetwork.QNetworkReply.NoError:
-                result = handler()
-            else:
-                # TODO: improve error handling here
-                log(
-                    f"login reply: {self.parsed_reply.qt_error} - "
-                    f"{self.parsed_reply.http_status_code}"
-                )
-                raise RuntimeError("Some error happened")
-        else:
-            raise RuntimeError("Could not match this reply with a previous one")
-        return result
-
-    def _handle_first_login_reply(self):
-        log("inside _handle_first_login_reply")
+    def _blocking_logout(self) -> bool:
         csrf_token = self._get_csrf_token()
         log(f"csrf_token: {csrf_token}")
         if csrf_token is not None:
             form_data = QtCore.QUrlQuery()
-            form_data.addQueryItem("login", self.username)
-            form_data.addQueryItem("password", self.password)
             form_data.addQueryItem("csrfmiddlewaretoken", csrf_token)
             data_ = form_data.query().encode("utf-8")
-            request = QtNetwork.QNetworkRequest(self.login_url)
-            request.setRawHeader(b"Referer", self.login_url.toString().encode("utf-8"))
-            # self.request.setHeader(
-            #     QtNetwork.QNetworkRequest.ContentTypeHeader,
-            #     "application/x-www-form-urlencoded",
-            # )
-            reply = self.network_access_manager.post(request, data_)
-            self._second_login_reply = reply
-            # self._first_login_reply.deleteLater()
-            log("About to leave from _handle_first_login_reply...")
+            request = QtNetwork.QNetworkRequest(self.logout_url)
+            request.setRawHeader(b"Referer", self.logout_url.toString().encode("utf-8"))
+            with base.wait_for_signal(self.logout_parsed, self.TIMEOUT):
+                self._logout_reply = self.network_access_manager.post(request, data_)
+            result = self._logout_reply.error() == QtNetwork.QNetworkReply.NoError
         else:
-            raise RuntimeError("Could not retrieve CSRF token")
-
-    def _get_csrf_token(self) -> typing.Optional[str]:
-        jar = self.network_access_manager.cookieJar()
-        for cookie in jar.cookiesForUrl(QtCore.QUrl(self.base_url)):
-            if cookie.name() == "csrftoken":
-                result = str(cookie.value(), encoding="utf-8")
-                break
-        else:
-            result = None
-            log("Unable to retrieve csrf_token from cookies")
+            log("Could not retrieve CSRF token")
+            result = False
         return result
 
-    def _handle_second_login_reply(self):
-        log("inside _handle_second_login_reply")
-        if self.request_payload is None:
-            reply = self.network_access_manager.get(self.request)
-        else:
-            reply = self.network_access_manager.post(
-                self.request, QtCore.QByteArray(self.request_payload.encode("utf-8"))
-            )
-        self._final_reply = reply
-        # self._second_login_reply.deleteLater()
 
-    def _handle_final_reply(self):
-        log("inside _handle_final_reply")
-        self.reply_content = self._final_reply.readAll()
-        # self._final_reply.deleteLater()
-        self.request_parsed.emit()
+class GeoNodeLegacyLayerDetailFetcherTask(GeonodeCswAuthenticatedNetworkFetcher):
+    _layer_title: typing.Optional[str]
+    _layer_detail_api_v1: typing.Optional[typing.Dict]
 
+    _layer_detail_api_v1_reply: typing.Optional[QtNetwork.QNetworkReply]
+    _layer_style_reply: typing.Optional[QtNetwork.QNetworkReply]
 
-class CswNetworkFetcherTask(NetworkFetcherTask):
-    base_url: str
-    username: typing.Optional[str]
-    password: typing.Optional[str]
+    layer_detail_api_v1_parsed = QtCore.pyqtSignal()
+    layer_style_parsed = QtCore.pyqtSignal()
 
-    def __init__(
-        self,
-        base_url: str,
-        *args,
-        username: typing.Optional[str] = None,
-        password: typing.Optional[str] = None,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
+        """Fetch a layer's detail when using the GeoNode legacy API
+
+        Using the GeoNode legacy API for fetching a layer's details involves making
+        more than one network request, since we need to:
+
+        - login
+        - GetRecordById with the CSW API
+        - /api/layer/id with the pre-v1 API
+        - get the style detail
+        - logout
+
+        """
         super().__init__(*args, **kwargs)
-        self.base_url = base_url
-        self.username = username
-        self.password = password
-
-    @property
-    def login_url(self):
-        return f"{self.base_url}/account/login/"
+        self._layer_title = None
 
     def run(self):
-        if self.username is not None:
-            logged_in = self._login()
-            log(f"logged_in: {logged_in}")
-            if logged_in:
-                self.setProgress(30)
-                result = super().run()
+        if self._blocking_get_csrf_token():
+            if self._blocking_login():
+                if self._blocking_get_authenticated_reply():
+                    if self._blocking_get_layer_detail_v1_api():
+                        raw_layer_detail = self._layer_detail_api_v1_reply.readAll()
+                        layer_detail_api_v1 = json.load(raw_layer_detail)
+                        self.reply_content.append(layer_detail_api_v1)
+                        style_uri = layer_detail_api_v1["default_style"]
+                        if self._blocking_get_style_detail(style_uri):
+                            raw_style_detail = self._layer_style_reply.readAll()
+                            style_detail = json.load(raw_style_detail)
+                            sld_path = urllib.parse.urlparse(
+                                style_detail["sld_url"]
+                            ).path
+                            brief_style = models.BriefGeonodeStyle(
+                                name=style_detail["name"],
+                                sld_url=f"{self.base_url}{sld_path}",
+                            )
+                            self.reply_content.append(brief_style)
+                self._blocking_logout()
+                self.network_access_manager.finished.disconnect(self._request_done)
+                self.request_finished.emit()
+                result = self.parsed_reply.qt_error is None
             else:
                 result = False
-        else:
-            result = super().run()
-        return result
-
-    def _login(self) -> bool:
-        csrf_token = self._get_csrf_token(self.login_url)
-        log(f"login_url: {self.login_url}")
-        log(f"csrf_token: {csrf_token}")
-        if csrf_token is not None:
-            form_data = QtCore.QUrlQuery()
-            form_data.addQueryItem("login", self.username)
-            form_data.addQueryItem("password", self.password)
-            form_data.addQueryItem("csrfmiddlewaretoken", csrf_token)
-            data_ = form_data.query().encode("utf-8")
-            log(f"data_: {data_}")
-
-            url = QtCore.QUrl(self.login_url)
-            # query = QtCore.QUrlQuery()
-            # query.addQueryItem("next", "/")
-            # url.setQuery(query)
-            request = QtNetwork.QNetworkRequest(url)
-            request.setRawHeader(b"Referer", self.login_url.encode("utf-8"))
-            # self.request.setHeader(
-            #     QtNetwork.QNetworkRequest.ContentTypeHeader,
-            #     "application/x-www-form-urlencoded",
-            # )
-            network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-            old_redirect_policy = network_access_manager.redirectPolicy()
-            log(f"old redirect policy: {old_redirect_policy}")
-            network_access_manager.setRedirectPolicy(
-                QtNetwork.QNetworkRequest.SameOriginRedirectPolicy
-            )
-            log(f"new redirect policy: {network_access_manager.redirectPolicy()}")
-            reply = network_access_manager.blockingPost(request, data_)
-            parsed_reply = parse_network_reply(reply)
-            log(
-                f"login reply: {parsed_reply.qt_error} - "
-                f"{parsed_reply.http_status_code} - {reply.content()}"
-            )
-            result = parsed_reply.qt_error is None
+            # self._first_login_reply.deleteLater()
+            # self._second_login_reply.deleteLater()
+            # self._first_login_reply.deleteLater()
         else:
             result = False
         return result
 
-    def _get_csrf_token(self, url: str) -> typing.Optional[str]:
-        network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        request = QtNetwork.QNetworkRequest(QtCore.QUrl(url))
-        reply = network_access_manager.blockingGet(request)
-        result = None
-        if reply.error() == QtNetwork.QNetworkReply.NoError:
-            jar = network_access_manager.cookieJar()
-            for cookie in jar.cookiesForUrl(QtCore.QUrl(self.base_url)):
-                if cookie.name() == "csrftoken":
-                    result = str(cookie.value(), encoding="utf-8")
-                    break
-            else:
-                log("Unable to retrieve csrf_token from cookies")
-        else:
-            log("Unable to reach login_url")
+    def _request_done(self):
+        pass
+
+    def _blocking_get_authenticated_reply(
+        self,
+    ) -> bool:
+        result = super()._blocking_get_authenticated_reply()
+        self.parsed_reply = parse_network_reply(self._final_reply)
+        if result:
+            decoded = self._final_reply.readAll().data().encode()
+            decoded_element = ET.fromstring(decoded)
+            record = decoded_element.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
+            layer_title = record.find(
+                f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+                f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+                f"{{{Csw202Namespace.GMD.value}}}citation/"
+                f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+                f"{{{Csw202Namespace.GMD.value}}}title/"
+                f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+            ).text
+            self.reply_content = [record]
+            self._layer_title = layer_title
         return result
+
+    def _blocking_get_layer_detail_v1_api(self) -> bool:
+        layer_detail_url = "?".join(
+            (
+                f"{self.base_url}/api/layers/",
+                urllib.parse.urlencode({"title": self._layer_title}),
+            )
+        )
+        with base.wait_for_signal(self.layer_detail_api_v1_parsed, self.TIMEOUT):
+            self._layer_detail_api_v1_reply = self.network_access_manager.get(
+                QtNetwork.QNetworkRequest(QtCore.QUrl(layer_detail_url))
+            )
+        return (
+            self._layer_detail_api_v1_reply.error() == QtNetwork.QNetworkReply.NoError
+        )
+
+    def _blocking_get_style_detail(self, style_uri: str) -> bool:
+        with base.wait_for_signal(self.layer_style_parsed, self.TIMEOUT):
+            self._layer_style_reply = self.network_access_manager.get(
+                QtNetwork.QNetworkRequest(QtCore.QUrl(f"{self.base_url}{style_uri}"))
+            )
+        return self._layer_style_reply.error() == QtNetwork.QNetworkReply.NoError
+
+    def _parse_final(self):
+        pass
 
 
 class Csw202Namespace(enum.Enum):
@@ -403,7 +346,7 @@ class Csw202Namespace(enum.Enum):
     APISO = "http://www.opengis.net/cat/csw/apiso/1.0"
 
 
-class GeonodeCswClient(BaseGeonodeClient):
+class GeonodeCswClient(base.BaseGeonodeClient):
     """Asynchronous GeoNode API client for pre-v2 API"""
 
     SERVICE = "CSW"
@@ -541,10 +484,11 @@ class GeonodeCswClient(BaseGeonodeClient):
         buffer = io.StringIO()
         tree.write(buffer, xml_declaration=True, encoding="unicode")
         result = buffer.getvalue()
-        # with open(
-        #     "/home/ricardo/SCRATCH/test_request_payload.xml", "w", encoding="utf-8"
-        # ) as fh:
-        #     fh.write(result)
+        # TODO: delete this!
+        with open(
+            "/home/ricardo/SCRATCH/test_request_payload.xml", "w", encoding="utf-8"
+        ) as fh:
+            fh.write(result)
         buffer.close()
         log(f"result: {result}")
         return result
@@ -594,63 +538,11 @@ class GeonodeCswClient(BaseGeonodeClient):
             result = None
         return result
 
-    def old_get_layers(
-        self,
-        search_params: typing.Optional[models.GeonodeApiSearchParameters] = None,
-    ):
-        """Get layers from the CSW endpoint
-
-        Unfortunately the GeoNode CSW endpoint does not use OAuth2 authentication,
-        instead it relies on the same session-based authentication used by the main
-        GeoNode GUI. Therefore we need to login, then retrieve a list of layers,
-        and finally logout. To complicate things a bit more, the login process requires
-        an additional GET request to retrieve the csrf token. Oh, and we need to
-        provide the username and password for being able to login, which means we
-        cannot use QGIS auth infrastructure.
-
-        """
-
-        # if self.username is not None:
-        #     logged_in = self.blocking_login()
-        #     if logged_in:
-        #         session_cookie = QtNetwork.QNetworkCookie(
-        #             name="sessionid".encode("utf-8"),
-        #             value=self.python_cookie_jar._cookies[self.host]["/"][
-        #                 "sessionid"
-        #             ].value.encode("utf-8"),
-        #         )
-        #         session_cookie.setDomain(self.host)
-        #         session_cookie.setPath("/")
-        #         network_manager = qgis.core.QgsNetworkAccessManager.instance()
-        #         qt_cookie_jar: QtNetwork.QNetworkCookieJar = network_manager.cookieJar()
-        #         qt_cookie_jar.insertCookie(session_cookie)
-        #     else:
-        #         raise RuntimeError("Unable to login")
-        # super().get_layers(search_params)
-        url = self.get_layers_url_endpoint(search_params)
-        params = (
-            search_params if search_params is not None else GeonodeApiSearchParameters()
-        )
-        request_payload = self.get_layers_request_payload(params)
-        log(f"URL: {url.toString()}")
-        self.network_fetcher_task = CswNetworkFetcherTask(
-            request=QtNetwork.QNetworkRequest(url),
-            reply_handler=partial(self.handle_layer_list, params),
-            request_payload=request_payload,
-            authcfg=self.auth_config,
-            base_url=self.base_url,
-            username=self.username,
-            password=self.password,
-        )
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
     def get_layers(
-        self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
+        self, search_params: typing.Optional[models.GeonodeApiSearchParameters] = None
     ):
         url = self.get_layers_url_endpoint(search_params)
-        params = (
-            search_params if search_params is not None else GeonodeApiSearchParameters()
-        )
+        params = search_params or models.GeonodeApiSearchParameters()
         request_payload = self.get_layers_request_payload(params)
         log(f"URL: {url.toString()}")
         request = QtNetwork.QNetworkRequest(url)
@@ -665,7 +557,7 @@ class GeonodeCswClient(BaseGeonodeClient):
                 redirect_policy=QtNetwork.QNetworkRequest.ManualRedirectPolicy,
             )
         else:
-            self.network_fetcher_task = MyNetworkFetcherTask(
+            self.network_fetcher_task = base.MyNetworkFetcherTask(
                 request, request_payload=request_payload, authcfg=self.auth_config
             )
         self.network_fetcher_task.request_finished.connect(
@@ -673,63 +565,25 @@ class GeonodeCswClient(BaseGeonodeClient):
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
+    def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
+        self.network_fetcher_task = GeoNodeLegacyLayerDetailFetcherTask(
+            QtNetwork.QNetworkRequest(self.get_layer_detail_url_endpoint(id_)),
+            authcfg=self.auth_config,
+        )
+        self.network_fetcher_task.request_finished.connect(
+            partial(self.handle_layer_detail)
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> ET.Element:
         decoded_contents: str = contents.data().decode()
         return ET.fromstring(decoded_contents)
 
-    def old_layer_list(
-        self,
-        original_search_params: GeonodeApiSearchParameters,
-        raw_reply_contents: QtCore.QByteArray,
-    ):
-        deserialized = self.deserialize_response_contents(raw_reply_contents)
-        layers = []
-        search_results = deserialized.find(
-            f"{{{Csw202Namespace.CSW.value}}}SearchResults"
-        )
-        if search_results is not None:
-            total = int(search_results.attrib["numberOfRecordsMatched"])
-            next_record = int(search_results.attrib["nextRecord"])
-            if next_record == 0:  # reached the last page
-                current_page = max(
-                    int(math.ceil(total / original_search_params.page_size)), 1
-                )
-            else:
-                current_page = max(
-                    int((next_record - 1) / original_search_params.page_size), 1
-                )
-            items = search_results.findall(
-                f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"
-            )
-            for item in items:
-                try:
-                    brief_resource = get_brief_geonode_resource(
-                        item, self.base_url, self.auth_config
-                    )
-                except (AttributeError, ValueError):
-                    log(f"Could not parse {item!r} into a valid item")
-                else:
-                    layers.append(brief_resource)
-            pagination_info = models.GeoNodePaginationInfo(
-                total_records=total,
-                current_page=current_page,
-                page_size=original_search_params.page_size,
-            )
-            self.layer_list_received.emit(layers, pagination_info)
-        else:
-            self.layer_list_received.emit(
-                layers,
-                models.GeoNodePaginationInfo(
-                    total_records=0,
-                    current_page=1,
-                    page_size=original_search_params.page_size,
-                ),
-            )
-
     def handle_layer_list(
         self,
-        original_search_params: GeonodeApiSearchParameters,
+        original_search_params: models.GeonodeApiSearchParameters,
     ):
+        log(f"inside handle_layer_list")
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content
         )
@@ -776,7 +630,7 @@ class GeonodeCswClient(BaseGeonodeClient):
                 ),
             )
 
-    def handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
+    def handle_layer_detail(self):
         """Parse the input payload into a GeonodeResource instance
 
         This method performs additional blocking HTTP requests.
@@ -795,7 +649,9 @@ class GeonodeCswClient(BaseGeonodeClient):
 
         """
 
-        deserialized = self.deserialize_response_contents(raw_reply_contents)
+        deserialized = self.deserialize_response_contents(
+            self.network_fetcher_task.reply_content
+        )
         record = deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
         layer_title = record.find(
             f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
@@ -818,6 +674,49 @@ class GeonodeCswClient(BaseGeonodeClient):
                 default_style=brief_style,
             )
             self.layer_detail_received.emit(layer)
+
+    # def old_handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
+    #     """Parse the input payload into a GeonodeResource instance
+    #
+    #     This method performs additional blocking HTTP requests.
+    #
+    #     A required property of ``GeonodeResource`` instances is their respective
+    #     default style. Since the GeoNode CSW endpoint does not provide information on a
+    #     layer's style, we need to make additional HTTP requests in order to get this
+    #     from the API v1 endpoints.
+    #
+    #     With this in mind, this method proceeds to:
+    #
+    #     1. Make a GET request to API v1 to get the layer detail page
+    #     2. Parse the layer detail, retrieve the style uri and build a full URL for it
+    #     3. Make a GET request to API v1 to get the style detail page
+    #     4. Parse the style detail, retrieve the style URL and name
+    #
+    #     """
+    #
+    #     deserialized = self.deserialize_response_contents(raw_reply_contents)
+    #     record = deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
+    #     layer_title = record.find(
+    #         f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+    #         f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+    #         f"{{{Csw202Namespace.GMD.value}}}citation/"
+    #         f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+    #         f"{{{Csw202Namespace.GMD.value}}}title/"
+    #         f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    #     ).text
+    #     try:
+    #         layer_detail = self.blocking_get_layer_detail(layer_title)
+    #         brief_style = self.blocking_get_style_detail(layer_detail["default_style"])
+    #     except IOError:
+    #         raise
+    #     else:
+    #         layer = get_geonode_resource(
+    #             deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
+    #             self.base_url,
+    #             self.auth_config,
+    #             default_style=brief_style,
+    #         )
+    #         self.layer_detail_received.emit(layer)
 
     def blocking_get_layer_detail(self, layer_title: str) -> typing.Dict:
         if self.username is not None:
@@ -957,6 +856,20 @@ def _get_common_model_fields(
         }
     else:
         service_urls = None
+    reported_thumbnail_url = record.find(
+        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+        f"{{{Csw202Namespace.GMD.value}}}graphicOverview/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_BrowseGraphic/"
+        f"{{{Csw202Namespace.GMD.value}}}fileName/"
+        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    ).text
+    if reported_thumbnail_url.startswith(geonode_base_url):
+        thumbnail_url = reported_thumbnail_url
+    else:
+        # Sometimes GeoNode returns the full thumbnail URL, others it returns a
+        # relative URI
+        thumbnail_url = f"{geonode_base_url}{reported_thumbnail_url}"
     return {
         "uuid": uuid.UUID(
             record.find(
@@ -992,14 +905,7 @@ def _get_common_model_fields(
             )
         ),
         "crs": crs,
-        "thumbnail_url": record.find(
-            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-            f"{{{Csw202Namespace.GMD.value}}}graphicOverview/"
-            f"{{{Csw202Namespace.GMD.value}}}MD_BrowseGraphic/"
-            f"{{{Csw202Namespace.GMD.value}}}fileName/"
-            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-        ).text,
+        "thumbnail_url": thumbnail_url,
         # FIXME: this XPATH is not unique
         "gui_url": record.find(
             f"{{{Csw202Namespace.GMD.value}}}distributionInfo/"
