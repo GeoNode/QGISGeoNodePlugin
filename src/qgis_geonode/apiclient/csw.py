@@ -1,3 +1,4 @@
+import dataclasses
 import datetime as dt
 import enum
 import io
@@ -26,7 +27,14 @@ from ..utils import (
 )
 
 
-class GeonodeCswAuthenticatedNetworkFetcher(base.MyNetworkFetcherTask):
+@dataclasses.dataclass()
+class GeoNodeCswLayerDetail:
+    parsed_csw_record: typing.Optional[ET.Element]
+    parsed_layer_detail: typing.Optional[typing.Dict]
+    brief_style: typing.Optional[models.BriefGeonodeStyle]
+
+
+class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.MyNetworkFetcherTask):
     TIMEOUT: int = 10000
     username: str
     password: str
@@ -225,9 +233,10 @@ class GeonodeCswAuthenticatedNetworkFetcher(base.MyNetworkFetcherTask):
         return result
 
 
-class GeoNodeLegacyLayerDetailFetcherTask(GeonodeCswAuthenticatedNetworkFetcher):
-    _layer_title: typing.Optional[str]
-    _layer_detail_api_v1: typing.Optional[typing.Dict]
+class GeoNodeLegacyAuthenticatedLayerDetailFetcherTask(
+    GeoNodeLegacyAuthenticatedRecordSearcherTask
+):
+    reply_content: GeoNodeCswLayerDetail
 
     _layer_detail_api_v1_reply: typing.Optional[QtNetwork.QNetworkReply]
     _layer_style_reply: typing.Optional[QtNetwork.QNetworkReply]
@@ -249,89 +258,139 @@ class GeoNodeLegacyLayerDetailFetcherTask(GeonodeCswAuthenticatedNetworkFetcher)
 
         """
         super().__init__(*args, **kwargs)
+        self.reply_content = GeoNodeCswLayerDetail(None, None, None)
         self._layer_title = None
 
     def run(self):
         if self._blocking_get_csrf_token():
             if self._blocking_login():
-                if self._blocking_get_authenticated_reply():
-                    if self._blocking_get_layer_detail_v1_api():
-                        raw_layer_detail = self._layer_detail_api_v1_reply.readAll()
-                        layer_detail_api_v1 = json.load(raw_layer_detail)
-                        self.reply_content.append(layer_detail_api_v1)
-                        style_uri = layer_detail_api_v1["default_style"]
-                        if self._blocking_get_style_detail(style_uri):
-                            raw_style_detail = self._layer_style_reply.readAll()
-                            style_detail = json.load(raw_style_detail)
-                            sld_path = urllib.parse.urlparse(
-                                style_detail["sld_url"]
-                            ).path
-                            brief_style = models.BriefGeonodeStyle(
-                                name=style_detail["name"],
-                                sld_url=f"{self.base_url}{sld_path}",
-                            )
-                            self.reply_content.append(brief_style)
+                record = self._blocking_get_authenticated_reply()
+                if record is not None:
+                    self.reply_content.parsed_csw_record = record
+                    layer_title = _extract_layer_title(record)
+                    layer_detail = self._blocking_get_layer_detail_v1_api(layer_title)
+                    if layer_detail is not None:
+                        self.reply_content.parsed_layer_detail = layer_detail
+                        style_uri = layer_detail["default_style"]
+                        brief_style = self._blocking_get_style_detail(style_uri)
+                        if brief_style is not None:
+                            self.reply_content.brief_style = brief_style
                 self._blocking_logout()
                 self.network_access_manager.finished.disconnect(self._request_done)
                 self.request_finished.emit()
+                # TODO: Define self.parsed_reply
+                self.parsed_reply = parse_network_reply(self._final_reply)
                 result = self.parsed_reply.qt_error is None
             else:
                 result = False
             # self._first_login_reply.deleteLater()
             # self._second_login_reply.deleteLater()
             # self._first_login_reply.deleteLater()
+            # self._final_reply.deleteLater()
+            # self._layer_detail_api_v1_reply.deleteLater()
+            # self._layer_style_reply.deleteLater()
         else:
             result = False
         return result
 
-    def _request_done(self):
-        pass
+    def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
+        """Handle finished network requests
+
+        This slot is cannected to the network access manager and is used as a handler
+        for all HTTP requests.
+
+        The logic defined herein is something like:
+
+        - test whether the request that has just finished is known to us
+        - if it is, emit a signal that causes the relevant event loop to quit. This is
+        part of the strategy that this class adopts, which is to block the current
+        thread until a network request finishes
+
+        """
+
+        parsed_reply = parse_network_reply(qgis_reply)
+        log(f"requested_url: {qgis_reply.request().url().toString()}")
+        log(f"http_status_code: {parsed_reply.http_status_code}")
+        log(f"qt_error: {parsed_reply.qt_error}")
+        found_matched_reply = False
+        if self._first_login_reply is not None:
+            if base.reply_matches(qgis_reply, self._first_login_reply):
+                found_matched_reply = True
+                self.first_login_parsed.emit()
+        if self._second_login_reply is not None:
+            if base.reply_matches(qgis_reply, self._second_login_reply):
+                found_matched_reply = True
+                self.second_login_parsed.emit()
+        if self._final_reply is not None:
+            if base.reply_matches(qgis_reply, self._final_reply):
+                found_matched_reply = True
+                self.request_parsed.emit()
+        if self._layer_detail_api_v1_reply is not None:
+            if base.reply_matches(qgis_reply, self._layer_detail_api_v1_reply):
+                found_matched_reply = True
+                self.layer_detail_api_v1_parsed.emit()
+        if self._layer_style_reply is not None:
+            if base.reply_matches(qgis_reply, self._layer_style_reply):
+                found_matched_reply = True
+                self.layer_style_parsed.emit()
+        if self._logout_reply is not None:
+            if base.reply_matches(qgis_reply, self._logout_reply):
+                found_matched_reply = True
+                self.logout_parsed.emit()
+        if not found_matched_reply:
+            log("Could not match this reply with a previous one, ignoring...")
 
     def _blocking_get_authenticated_reply(
         self,
-    ) -> bool:
+    ) -> typing.Optional[ET.Element]:
         result = super()._blocking_get_authenticated_reply()
         self.parsed_reply = parse_network_reply(self._final_reply)
         if result:
-            decoded = self._final_reply.readAll().data().encode()
+            decoded = self._final_reply.readAll().data().decode("utf-8")
             decoded_element = ET.fromstring(decoded)
             record = decoded_element.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
-            layer_title = record.find(
-                f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-                f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-                f"{{{Csw202Namespace.GMD.value}}}citation/"
-                f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
-                f"{{{Csw202Namespace.GMD.value}}}title/"
-                f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-            ).text
-            self.reply_content = [record]
-            self._layer_title = layer_title
-        return result
+        else:
+            record = None
+        return record
 
-    def _blocking_get_layer_detail_v1_api(self) -> bool:
+    def _blocking_get_layer_detail_v1_api(
+        self, layer_title: str
+    ) -> typing.Optional[typing.Dict]:
         layer_detail_url = "?".join(
             (
                 f"{self.base_url}/api/layers/",
-                urllib.parse.urlencode({"title": self._layer_title}),
+                urllib.parse.urlencode({"title": layer_title}),
             )
         )
         with base.wait_for_signal(self.layer_detail_api_v1_parsed, self.TIMEOUT):
             self._layer_detail_api_v1_reply = self.network_access_manager.get(
                 QtNetwork.QNetworkRequest(QtCore.QUrl(layer_detail_url))
             )
-        return (
-            self._layer_detail_api_v1_reply.error() == QtNetwork.QNetworkReply.NoError
-        )
+        if self._layer_detail_api_v1_reply.error() == QtNetwork.QNetworkReply.NoError:
+            raw_layer_detail = self._layer_detail_api_v1_reply.readAll()
+            result = json.load(raw_layer_detail)
+        else:
+            result = None
+        return result
 
-    def _blocking_get_style_detail(self, style_uri: str) -> bool:
+    def _blocking_get_style_detail(
+        self, style_uri: str
+    ) -> typing.Optional[models.BriefGeonodeStyle]:
         with base.wait_for_signal(self.layer_style_parsed, self.TIMEOUT):
             self._layer_style_reply = self.network_access_manager.get(
                 QtNetwork.QNetworkRequest(QtCore.QUrl(f"{self.base_url}{style_uri}"))
             )
-        return self._layer_style_reply.error() == QtNetwork.QNetworkReply.NoError
-
-    def _parse_final(self):
-        pass
+        if self._layer_style_reply.error() == QtNetwork.QNetworkReply.NoError:
+            raw_style_detail = self._layer_style_reply.readAll()
+            style_detail = json.load(raw_style_detail)
+            sld_path = urllib.parse.urlparse(style_detail["sld_url"]).path
+            result = models.BriefGeonodeStyle(
+                name=style_detail["name"],
+                sld_url=f"{self.base_url}{sld_path}",
+            )
+        else:
+            result = None
+        return result
 
 
 class Csw202Namespace(enum.Enum):
@@ -484,11 +543,6 @@ class GeonodeCswClient(base.BaseGeonodeClient):
         buffer = io.StringIO()
         tree.write(buffer, xml_declaration=True, encoding="unicode")
         result = buffer.getvalue()
-        # TODO: delete this!
-        with open(
-            "/home/ricardo/SCRATCH/test_request_payload.xml", "w", encoding="utf-8"
-        ) as fh:
-            fh.write(result)
         buffer.close()
         log(f"result: {result}")
         return result
@@ -547,7 +601,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
         log(f"URL: {url.toString()}")
         request = QtNetwork.QNetworkRequest(url)
         if self.username is not None:
-            self.network_fetcher_task = GeonodeCswAuthenticatedNetworkFetcher(
+            self.network_fetcher_task = GeoNodeLegacyAuthenticatedRecordSearcherTask(
                 self.base_url,
                 self.username,
                 self.password,
@@ -566,7 +620,10 @@ class GeonodeCswClient(base.BaseGeonodeClient):
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
-        self.network_fetcher_task = GeoNodeLegacyLayerDetailFetcherTask(
+        self.network_fetcher_task = GeoNodeLegacyAuthenticatedLayerDetailFetcherTask(
+            self.base_url,
+            self.username,
+            self.password,
             QtNetwork.QNetworkRequest(self.get_layer_detail_url_endpoint(id_)),
             authcfg=self.auth_config,
         )
@@ -649,31 +706,14 @@ class GeonodeCswClient(base.BaseGeonodeClient):
 
         """
 
-        deserialized = self.deserialize_response_contents(
-            self.network_fetcher_task.reply_content
+        self.network_fetcher_task: GeoNodeLegacyAuthenticatedLayerDetailFetcherTask
+        layer = get_geonode_resource(
+            self.network_fetcher_task.reply_content.parsed_csw_record,
+            self.base_url,
+            self.auth_config,
+            default_style=self.network_fetcher_task.reply_content.brief_style,
         )
-        record = deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata")
-        layer_title = record.find(
-            f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-            f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-            f"{{{Csw202Namespace.GMD.value}}}citation/"
-            f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
-            f"{{{Csw202Namespace.GMD.value}}}title/"
-            f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-        ).text
-        try:
-            layer_detail = self.blocking_get_layer_detail(layer_title)
-            brief_style = self.blocking_get_style_detail(layer_detail["default_style"])
-        except IOError:
-            raise
-        else:
-            layer = get_geonode_resource(
-                deserialized.find(f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"),
-                self.base_url,
-                self.auth_config,
-                default_style=brief_style,
-            )
-            self.layer_detail_received.emit(layer)
+        self.layer_detail_received.emit(layer)
 
     # def old_handle_layer_detail(self, raw_reply_contents: QtCore.QByteArray):
     #     """Parse the input payload into a GeonodeResource instance
@@ -1261,3 +1301,14 @@ def _add_bbox_operator(parent: ET.Element, spatial_extent: qgis.core.QgsRectangl
         envelope_el, ET.QName(Csw202Namespace.GML.value, "upperCorner")
     )
     upper_corner_el.text = f"{spatial_extent.yMaximum()} {spatial_extent.xMaximum()}"
+
+
+def _extract_layer_title(record: ET.Element):
+    return record.find(
+        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+        f"{{{Csw202Namespace.GMD.value}}}citation/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+        f"{{{Csw202Namespace.GMD.value}}}title/"
+        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    ).text
