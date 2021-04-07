@@ -134,7 +134,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
         log(f"thumbnail URL: {self.brief_resource.thumbnail_url}")
         self.thumbnail_fetcher_task = base.NetworkFetcherTask(
-            QtNetwork.QNetworkRequest(QtCore.QUrl(self.brief_resource.thumbnail_url))
+            self.api_client,
+            QtNetwork.QNetworkRequest(QtCore.QUrl(self.brief_resource.thumbnail_url)),
         )
         self.thumbnail_fetcher_task.request_finished.connect(
             self.handle_thumbnail_response
