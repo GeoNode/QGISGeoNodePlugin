@@ -5,9 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Allow filtering CSW searches by spatial extent
+- All HTTP requests are now done in a background thread to avoid blocking QGIS UI
 - Allow filtering searches by temporal extent and publication date
-- Load layers asynchronously
+- Load layers in a background thread in order to avoid blocking QGIS UI
 - Add ordering of search results
 - Improve feedback shown when searching and loading layers
 - Fix incorrect visibility of the Search/Next/Previous search buttons

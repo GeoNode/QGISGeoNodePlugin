@@ -11,7 +11,6 @@ import uuid
 from functools import partial
 from xml.etree import ElementTree as ET
 
-
 import qgis.core
 from qgis.PyQt import (
     QtCore,
