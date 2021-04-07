@@ -461,7 +461,7 @@
         </size>
        </property>
        <property name="toolTip">
-        <string>Load connections from file</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for resources from the GeoNode instance&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
         <string>Search Geonode</string>
