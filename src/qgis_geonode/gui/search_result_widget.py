@@ -8,8 +8,7 @@ import qgis.core
 import qgis.gui
 
 
-from ..apiclient import get_geonode_client
-from ..apiclient.base import BaseGeonodeClient
+from ..apiclient import base
 from ..apiclient.models import (
     BriefGeonodeResource,
     GeonodeResource,
@@ -18,7 +17,6 @@ from ..apiclient.models import (
 )
 from ..resources import *
 from ..utils import log, tr
-from ..conf import connections_manager
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/search_result_widget.ui")
@@ -35,12 +33,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     thumbnail_la: QtWidgets.QLabel
 
     layer_loader_task: typing.Optional[qgis.core.QgsTask]
+    thumbnail_fetcher_task: typing.Optional[base.NetworkFetcherTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
     load_layer_ended = QtCore.pyqtSignal()
 
-    api_client: BaseGeonodeClient
+    api_client: base.BaseGeonodeClient
     brief_resource: BriefGeonodeResource
     full_resource: typing.Optional[GeonodeResource]
     layer: typing.Optional["QgsMapLayer"]
@@ -48,13 +47,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def __init__(
         self,
         brief_resource: BriefGeonodeResource,
-        api_client: BaseGeonodeClient,
+        api_client: base.BaseGeonodeClient,
         parent=None,
     ):
         super().__init__(parent)
         self.setupUi(self)
         self.project = qgis.core.QgsProject.instance()
         self.thumbnail_loader_task = None
+        self.thumbnail_fetcher_task = None
         self.layer_loader_task = None
         self.layer = None
         self.brief_resource = brief_resource
@@ -126,25 +126,28 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
         # TODO: do we need to provide auth config here?
-        task = qgis.core.QgsNetworkContentFetcherTask(
-            QtCore.QUrl(self.brief_resource.thumbnail_url)
-        )
-        task.fetched.connect(partial(self.handle_thumbnail_response, task))
-        task.run()
+        # task = qgis.core.QgsNetworkContentFetcherTask(
+        #     QtCore.QUrl(self.brief_resource.thumbnail_url)
+        # )
+        # task.fetched.connect(partial(self.handle_thumbnail_response, task))
+        # task.run()
 
-    def handle_thumbnail_response(self, task: qgis.core.QgsNetworkContentFetcherTask):
-        reply: QtNetwork.QNetworkReply = task.reply()
-        error = reply.error()
-        if error == QtNetwork.QNetworkReply.NoError:
-            contents: QtCore.QByteArray = reply.readAll()
-            self.thumbnail_loader_task = ThumbnailLoader(
-                contents,
-                self.thumbnail_la,
-                self.brief_resource.title,
-            )
-            qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_loader_task)
-        else:
-            log(f"Error retrieving thumbnail for {self.brief_resource.title}")
+        log(f"thumbnail URL: {self.brief_resource.thumbnail_url}")
+        self.thumbnail_fetcher_task = base.NetworkFetcherTask(
+            QtNetwork.QNetworkRequest(QtCore.QUrl(self.brief_resource.thumbnail_url))
+        )
+        self.thumbnail_fetcher_task.request_finished.connect(
+            self.handle_thumbnail_response
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_fetcher_task)
+
+    def handle_thumbnail_response(self):
+        self.thumbnail_loader_task = ThumbnailLoader(
+            self.thumbnail_fetcher_task.reply_content,
+            self.thumbnail_la,
+            self.brief_resource.title,
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_loader_task)
 
     def _get_datasource_widget(self):
         return self.parent().parent().parent().parent()
@@ -196,20 +199,22 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.api_client.get_layer_detail_from_brief_resource(self.brief_resource)
 
     def handle_layer_detail(self, resource: GeonodeResource):
-        """Populate the loaded layer with metadata from the retrived GeoNode resource
+        """Populate the loaded layer with metadata from the retrieved GeoNode resource
 
-        Then either retrieve the layer's SLD or add it to QGIS project
+        Then either retrieve the layer's SLD or add it to QGIS project.
 
         """
 
         self.full_resource = resource
-        log("handle_layer_detail called")
         self.api_client.layer_detail_received.disconnect(self.handle_layer_detail)
         metadata = populate_metadata(self.layer.metadata(), resource)
         self.layer.setMetadata(metadata)
         if self.layer.type() == qgis.core.QgsMapLayer.VectorLayer:
             self.api_client.style_detail_received.connect(self.handle_sld_received)
-            self.api_client.get_layer_style(self.full_resource)
+            if self.full_resource.default_style is not None:
+                self.api_client.get_layer_style(self.full_resource)
+            else:
+                self.add_layer_to_project()
         else:  # TODO: add support for loading SLDs for raster layers too
             self.add_layer_to_project()
 
@@ -227,7 +232,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def add_layer_to_project(self):
         self.api_client.error_received.disconnect(self.handle_loading_error)
         self.project.addMapLayer(self.layer)
-        # log("Pretend to add layer to QGIS")
         self.handle_layer_load_end()
 
 
@@ -238,6 +242,17 @@ class ThumbnailLoader(qgis.core.QgsTask):
         label: QtWidgets.QLabel,
         resource_title: str,
     ):
+        """Load thumbnail data
+
+        This task reads the thumbnail gotten over the network into a QImage object in a
+        separate thread and then loads it up onto the main GUI in its `finished()`
+        method - `finished` runs in the main thread. This is done because this plugin's
+        GUI wants to load multiple thumbnails concurrently. If we were to read the raw
+        thumbnail bytes into a pixmap in the main thread it would not be possible to
+        load them in parallel because QPixmap does blocking IO.
+
+        """
+
         super().__init__()
         self.raw_thumbnail = raw_thumbnail
         self.label = label
@@ -260,7 +275,7 @@ class ThumbnailLoader(qgis.core.QgsTask):
 class LayerLoaderTask(qgis.core.QgsTask):
     brief_resource: BriefGeonodeResource
     service_type: GeonodeService
-    api_client: "BaseGeonodeClient"
+    api_client: base.BaseGeonodeClient
     layer_handler: typing.Callable
     error_handler: typing.Callable
     layer: typing.Optional["QgsMapLayer"]
@@ -270,10 +285,17 @@ class LayerLoaderTask(qgis.core.QgsTask):
         uri: str,
         layer_title: str,
         service_type: GeonodeService,
-        api_client: "BaseGeonodeClient",
+        api_client: base.BaseGeonodeClient,
         layer_handler: typing.Callable,
         error_handler: typing.Callable,
     ):
+        """Load a QGIS layer
+
+        This is done in a QgsTask in order to allow the loading of a layer from the
+        network to be done in a background thread and not block the main QGIS UI.
+
+        """
+
         super().__init__()
         self.uri = uri
         self.layer_title = layer_title
