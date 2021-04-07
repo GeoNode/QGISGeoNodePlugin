@@ -6,6 +6,7 @@ from qgis_geonode.apiclient import (
     apiv2,
     models,
 )
+from qgis_geonode.apiclient.base import GeonodeApiSearchParameters
 
 SIGNAL_TIMEOUT = 5  # seconds
 
@@ -22,7 +23,7 @@ class ResponseCollector:
         self.received_response = None
 
     def collect_response(self, *response_args):
-        print(f"received_response: {response_args}")
+        print(f"received_response in collect_response: {response_args}")
         self.received_response = response_args
 
 
@@ -32,7 +33,7 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
     client = apiv2.GeonodeApiV2Client(base_url="http://localhost:9000")
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_layers(page=page)
+        client.get_layers(GeonodeApiSearchParameters(page=page))
     layers, pagination_info = app.received_response
     pagination_info: models.GeoNodePaginationInfo
 
@@ -51,7 +52,9 @@ def test_layer_list_filtering(qtbot, qgis_application, mock_geonode_server, page
     client = apiv2.GeonodeApiV2Client(base_url="http://localhost:9000")
     client.layer_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_layers(page=page, title="TEMPERATURASMINENERO2030")
+        client.get_layers(
+            GeonodeApiSearchParameters(page=page, title="TEMPERATURASMINENERO2030")
+        )
     layers, pagination_info = app.received_response
     print(f"layer ids: {[la.pk for la in layers]}")
     assert len(layers) == 1
@@ -76,7 +79,8 @@ def test_layer_styles(qtbot, qgis_application, mock_geonode_server, id_):
     client.layer_styles_received.connect(app.collect_response)
     with qtbot.waitSignal(client.layer_styles_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layer_styles(layer_id=id_)
-        styles = app.received_response[0]
+    print(f"received_response: {app.received_response}")
+    styles = app.received_response[0]
     assert len(styles) == 1
 
 
@@ -86,7 +90,7 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
     client = apiv2.GeonodeApiV2Client(base_url="http://localhost:9000")
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_maps(page=page)
+        client.get_maps(GeonodeApiSearchParameters(page=page))
     maps, pagination_info = app.received_response
     pagination_info: models.GeoNodePaginationInfo
     assert pagination_info.page_size == 2
@@ -99,7 +103,7 @@ def test_map_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
     client = apiv2.GeonodeApiV2Client(base_url="http://localhost:9000")
     client.map_list_received.connect(app.collect_response)
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
-        client.get_maps(page=page, title="AIRPORT")
+        client.get_maps(GeonodeApiSearchParameters(page=page, title="AIRPORT"))
     maps, pagination_info = app.received_response
     pagination_info: models.GeoNodePaginationInfo
 
