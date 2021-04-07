@@ -323,5 +323,7 @@ class BaseGeonodeClient(QtCore.QObject):
             request_payload=request_payload,
             authcfg=self.auth_config,
         )
-        self.network_fetcher_task.request_finished.connect(self.handle_map_list)
+        self.network_fetcher_task.request_finished.connect(
+            partial(self.handle_map_list, search_params)
+        )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
