@@ -31,7 +31,7 @@ def test_get_brief_geonode_resource():
     assert result.crs.postgisSrid() == 4326
     assert (
         result.thumbnail_url
-        == "https://master.demo.geonode.org/static/thumbs/layer-5db808ae-6671-11eb-91f3-0242ac150008-thumb.5cc326a7beec.png?v=c1509f76"
+        == "https://dummy/static/thumbs/layer-5db808ae-6671-11eb-91f3-0242ac150008-thumb.5cc326a7beec.png?v=c1509f76"
     )
     assert (
         result.gui_url
