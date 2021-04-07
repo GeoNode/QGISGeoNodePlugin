@@ -98,8 +98,6 @@ class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
                     self.parsed_reply = parse_network_reply(self._final_reply)
                     self.reply_content = self._final_reply.readAll()
                 self._blocking_logout()
-                # self.network_access_manager.finished.disconnect(self._request_done)
-                # self.request_finished.emit()
                 result = self.parsed_reply.qt_error is None
             else:
                 result = False
@@ -442,32 +440,12 @@ class GeoNodeLegacyAuthenticatedLayerDetailFetcherTask(
                         except RuntimeError as exc:
                             log(str(exc))
                 self._blocking_logout()
-                # self.network_access_manager.finished.disconnect(self._request_done)
-                # self.request_finished.emit()
-                # self.parsed_reply = parse_network_reply(self._final_reply)
                 result = self.parsed_reply.qt_error is None
             else:
                 result = False
-            # self._first_login_reply.deleteLater()
-            # self._second_login_reply.deleteLater()
-            # self._first_login_reply.deleteLater()
-            # self._final_reply.deleteLater()
-            # self._layer_detail_api_v1_reply.deleteLater()
-            # self._layer_style_reply.deleteLater()
         else:
             result = False
         return result
-
-    # def finished(self, result: bool):
-    #     self.network_access_manager.finished.disconnect(self._request_done)
-    #     self.parsed_reply = parse_network_reply(self._final_reply)
-    #     if not result:
-    #         self.api_client.error_received.emit(
-    #             self.parsed_reply.qt_error,
-    #             self.parsed_reply.http_status_code,
-    #             self.parsed_reply.http_status_reason
-    #         )
-    #     self.request_finished.emit()
 
     def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
         """Handle finished network requests
@@ -527,55 +505,6 @@ class GeoNodeLegacyAuthenticatedLayerDetailFetcherTask(
         else:
             record = None
         return record
-
-    # def _blocking_get_layer_detail_v1_api(
-    #     self, layer_title: str
-    # ) -> typing.Optional[typing.Dict]:
-    #     layer_detail_url = "?".join(
-    #         (
-    #             f"{self.base_url}/api/layers/",
-    #             urllib.parse.urlencode({"title": layer_title}),
-    #         )
-    #     )
-    #     request = QtNetwork.QNetworkRequest(QtCore.QUrl(layer_detail_url))
-    #     auth_manager = qgis.core.QgsApplication.authManager()
-    #     auth_manager.updateNetworkRequest(request, self.authcfg)
-    #     with base.wait_for_signal(self.layer_detail_api_v1_parsed, self.TIMEOUT):
-    #         self._layer_detail_api_v1_reply = self.network_access_manager.get(request)
-    #     if self._layer_detail_api_v1_reply.error() == QtNetwork.QNetworkReply.NoError:
-    #         raw_layer_detail = self._layer_detail_api_v1_reply.readAll()
-    #         layer_detail_response = json.loads(raw_layer_detail.data().decode())
-    #         try:
-    #             result = layer_detail_response["objects"][0]
-    #         except (KeyError, IndexError):
-    #             raise IOError(f"Received unexpected API response for {layer_title!r}")
-    #     else:
-    #         result = None
-    #     return result
-
-    # def _blocking_get_style_detail(self, style_uri: str) -> models.BriefGeonodeStyle:
-    #     request = QtNetwork.QNetworkRequest(QtCore.QUrl(f"{self.base_url}{style_uri}"))
-    #     auth_manager = qgis.core.QgsApplication.authManager()
-    #     auth_manager.updateNetworkRequest(request, self.authcfg)
-    #     with base.wait_for_signal(self.layer_style_parsed, self.TIMEOUT):
-    #         self._layer_style_reply = self.network_access_manager.get(request)
-    #     if self._layer_style_reply.error() == QtNetwork.QNetworkReply.NoError:
-    #         raw_style_detail = self._layer_style_reply.readAll()
-    #         style_detail = json.loads(raw_style_detail.data().decode())
-    #         sld_path = urllib.parse.urlparse(style_detail["sld_url"]).path
-    #         result = models.BriefGeonodeStyle(
-    #             name=style_detail["name"],
-    #             sld_url=f"{self.base_url}{sld_path}",
-    #         )
-    #     else:
-    #         parsed_reply = parse_network_reply(self._layer_style_reply)
-    #         msg = (
-    #             f"Received an error retrieving style detail: {parsed_reply.qt_error} - "
-    #             f"{parsed_reply.http_status_code} - {parsed_reply.http_status_reason} "
-    #             f"- {self._layer_style_reply.readAll()}"
-    #         )
-    #         raise RuntimeError(msg)
-    #     return result
 
 
 class Csw202Namespace(enum.Enum):

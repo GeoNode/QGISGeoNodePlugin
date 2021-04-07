@@ -3,7 +3,6 @@ import typing
 import uuid
 from contextlib import contextmanager
 from functools import partial
-from types import SimpleNamespace
 
 import qgis.core
 from qgis.PyQt import (
@@ -279,8 +278,6 @@ class NetworkFetcherTask(qgis.core.QgsTask):
             self._reply = None
         except AttributeError:
             result = False
-        # self.network_access_manager.finished.disconnect(self._request_done)
-        # self.request_finished.emit()
         return result
 
     def finished(self, result: bool):
