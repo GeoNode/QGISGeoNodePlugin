@@ -452,7 +452,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
     capabilities = [
         models.ApiClientCapability.FILTER_BY_NAME,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
-        models.ApiClientCapability.FILTER_BY_SPATIAL_EXTENT,
+        # models.ApiClientCapability.FILTER_BY_SPATIAL_EXTENT,
     ]
     host: str
     username: typing.Optional[str]
@@ -1103,6 +1103,7 @@ def _add_constraints(
     filter_params = (
         search_params.title,
         search_params.abstract,
+        # search_params.spatial_extent,
     )
     if any(filter_params):
         constraint_el = ET.SubElement(
@@ -1142,8 +1143,8 @@ def _add_constraints(
         #     pass
         # if search_params.publication_date_end is not None:
         #     pass
-        if search_params.spatial_extent is not None:
-            _add_bbox_operator(filter_root_el, search_params.spatial_extent)
+        # if search_params.spatial_extent is not None:
+        #     _add_bbox_operator(filter_root_el, search_params.spatial_extent)
 
 
 def _add_ordering(parent: ET.Element, ordering_field: str, reverse: bool):
