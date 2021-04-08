@@ -57,7 +57,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
         )
-        self.layout().insertWidget(0, self.bar)
+        self.layout().addWidget(self.bar, 0, 0, alignment=QtCore.Qt.AlignTop)
+
         self.api_version_cmb.currentTextChanged.connect(
             self.toggle_api_version_specific_widgets
         )
@@ -95,7 +96,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
                 box_name, title=f"{api_version.name} version specific settings"
             )
             layout: QtWidgets.QBoxLayout = self.layout()
-            layout.insertWidget(4, group_box)
+            layout.addWidget(group_box, 3, 0, alignment=QtCore.Qt.AlignTop)
 
     def load_connection_settings(self, connection_settings: ConnectionSettings):
         self.name_le.setText(connection_settings.name)
