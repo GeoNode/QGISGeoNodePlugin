@@ -100,6 +100,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             )
             layout: QtWidgets.QBoxLayout = self.layout()
             layout.addWidget(group_box, 3, 0, alignment=QtCore.Qt.AlignTop)
+            self._widgets_to_toggle_during_connection_test.append(group_box)
 
     def load_connection_settings(self, connection_settings: ConnectionSettings):
         self.name_le.setText(connection_settings.name)
