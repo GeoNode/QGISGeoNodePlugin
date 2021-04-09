@@ -7,54 +7,27 @@
     <x>0</x>
     <y>0</y>
     <width>596</width>
-    <height>311</height>
+    <height>313</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>GeoNode Connection Configuration</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_4">
-   <item row="0" column="0">
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="0" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Name</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="name_le"/>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>GeoNode URL</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="url_le"/>
-     </item>
-    </layout>
-   </item>
-   <item row="1" column="0">
-    <widget class="QgsAuthConfigSelect" name="authcfg_acs">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
+   <item row="5" column="0">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
      </property>
-     <property name="minimumSize">
+     <property name="sizeHint" stdset="0">
       <size>
-       <width>0</width>
-       <height>30</height>
+       <width>20</width>
+       <height>13</height>
       </size>
      </property>
-    </widget>
+    </spacer>
    </item>
-   <item row="6" column="0">
+   <item row="7" column="0">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -71,7 +44,7 @@
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
-       <layout class="QGridLayout" name="gridLayout_2">
+       <layout class="QGridLayout" name="grid_layout_2">
         <item row="0" column="0">
          <widget class="QLabel" name="label_3">
           <property name="text">
@@ -140,6 +113,46 @@
      </layout>
     </widget>
    </item>
+   <item row="0" column="0">
+    <layout class="QGridLayout" name="grid_layout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="name_label">
+       <property name="text">
+        <string>Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="name_le"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="url_label">
+       <property name="text">
+        <string>GeoNode URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="url_le"/>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="0">
+    <widget class="QgsAuthConfigSelect" name="authcfg_acs">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>30</height>
+      </size>
+     </property>
+    </widget>
+   </item>
    <item row="4" column="0">
     <widget class="QPushButton" name="test_connection_btn">
      <property name="sizePolicy">
@@ -152,19 +165,6 @@
       <string>Test Connection</string>
      </property>
     </widget>
-   </item>
-   <item row="3" column="0">
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>13</height>
-      </size>
-     </property>
-    </spacer>
    </item>
   </layout>
  </widget>

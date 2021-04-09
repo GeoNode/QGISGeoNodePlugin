@@ -57,7 +57,19 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
         )
-        self.layout().addWidget(self.bar, 0, 0, alignment=QtCore.Qt.AlignTop)
+        self.grid_layout.addWidget(self.bar, 0, 0, 1, 2, alignment=QtCore.Qt.AlignTop)
+        self.grid_layout.addWidget(
+            self.name_label, 1, 0, 1, 1, alignment=QtCore.Qt.AlignTop
+        )
+        self.grid_layout.addWidget(
+            self.name_le, 1, 1, 1, 1, alignment=QtCore.Qt.AlignTop
+        )
+        self.grid_layout.addWidget(
+            self.url_label, 2, 0, 1, 1, alignment=QtCore.Qt.AlignTop
+        )
+        self.grid_layout.addWidget(
+            self.url_le, 2, 1, 1, 1, alignment=QtCore.Qt.AlignTop
+        )
 
         self.api_version_cmb.currentTextChanged.connect(
             self.toggle_api_version_specific_widgets
