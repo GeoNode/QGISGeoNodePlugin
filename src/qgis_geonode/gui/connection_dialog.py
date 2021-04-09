@@ -52,6 +52,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self._widgets_to_toggle_during_connection_test = [
             self.test_connection_btn,
             self.buttonBox,
+            self.authcfg_acs,
+            self.options_gb,
+            self.connection_details,
         ]
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(
