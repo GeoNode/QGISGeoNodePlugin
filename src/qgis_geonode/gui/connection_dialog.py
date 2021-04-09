@@ -130,7 +130,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     def test_connection(self):
         for widget in self._widgets_to_toggle_during_connection_test:
-            widget.setEnabled(False)
+            try:
+                widget.setEnabled(False)
+            except RuntimeError:
+                pass
         client = get_geonode_client(self.get_connection_settings())
         client.layer_list_received.connect(self.handle_connection_test_success)
         client.error_received.connect(self.handle_connection_test_error)
@@ -149,7 +152,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     def enable_post_test_connection_buttons(self):
         for widget in self._widgets_to_toggle_during_connection_test:
-            widget.setEnabled(True)
+            try:
+                widget.setEnabled(True)
+            except RuntimeError:
+                pass
         self.update_ok_buttons()
 
     def initiate_api_version_detection(self):
