@@ -260,12 +260,12 @@ class GeonodeLayerDetailFetcherMixin:
     layer_style_parsed: QtCore.pyqtSignal
 
     def _blocking_get_layer_detail_v1_api(
-        self, layer_title: str
+        self, layer_name: str
     ) -> typing.Optional[typing.Dict]:
         layer_detail_url = "?".join(
             (
                 f"{self.base_url}/api/layers/",
-                urllib.parse.urlencode({"title": layer_title}),
+                urllib.parse.urlencode({"alternate": layer_name}),
             )
         )
         request = QtNetwork.QNetworkRequest(QtCore.QUrl(layer_detail_url))
@@ -279,7 +279,7 @@ class GeonodeLayerDetailFetcherMixin:
             try:
                 result = layer_detail_response["objects"][0]
             except (KeyError, IndexError):
-                raise IOError(f"Received unexpected API response for {layer_title!r}")
+                raise IOError(f"Received unexpected API response for {layer_name!r}")
         else:
             result = None
         return result
@@ -334,7 +334,8 @@ class GeoNodeLegacyLayerDetailFetcher(
         if record is not None:
             self.reply_content.parsed_csw_record = record
             layer_title = _extract_layer_title(record)
-            layer_detail = self._blocking_get_layer_detail_v1_api(layer_title)
+            layer_name = _extract_layer_name(record)
+            layer_detail = self._blocking_get_layer_detail_v1_api(layer_name)
             if layer_detail is not None:
                 self.reply_content.parsed_layer_detail = layer_detail
                 style_uri = layer_detail["default_style"]
@@ -1305,5 +1306,16 @@ def _extract_layer_title(record: ET.Element):
         f"{{{Csw202Namespace.GMD.value}}}citation/"
         f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
         f"{{{Csw202Namespace.GMD.value}}}title/"
+        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
+    ).text
+
+
+def _extract_layer_name(record: ET.Element):
+    return record.find(
+        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
+        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
+        f"{{{Csw202Namespace.GMD.value}}}citation/"
+        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
+        f"{{{Csw202Namespace.GMD.value}}}name/"
         f"{{{Csw202Namespace.GCO.value}}}CharacterString"
     ).text
