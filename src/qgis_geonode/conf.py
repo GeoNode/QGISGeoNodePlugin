@@ -8,10 +8,12 @@ from qgis.PyQt import (
     QtCore,
     QtWidgets,
 )
-from qgis.core import QgsSettings
+from qgis.core import QgsRectangle, QgsSettings
 from qgis.gui import QgsPasswordLineEdit
 
 from .apiclient import GeonodeApiVersion
+from .apiclient import models
+from .utils import IsoTopicCategory
 
 logger = logging.getLogger(__name__)
 
@@ -251,5 +253,208 @@ class ConnectionManager(QtCore.QObject):
     def _get_connection_settings_base(self, identifier: typing.Union[str, uuid.UUID]):
         return f"{self.BASE_GROUP_NAME}/connections/{str(identifier)}"
 
+
+@dataclasses.dataclass
+class SearchSettings:
+    """Helper class to manage settings for search parameters"""
+
+    title: str
+    abstract: str
+    keyword: str
+    topic_category: str
+    resource_types: typing.List[models.GeonodeResourceType]
+    temporal_extent_start: QtCore.QDateTime
+    temporal_extent_end: QtCore.QDateTime
+    publication_date_start: QtCore.QDateTime
+    publication_date_end: QtCore.QDateTime
+    spatial_extent: QgsRectangle
+    sort_by_field: str
+    reverse_sort_order: bool
+
+    def __init__(
+        self,
+        title: str,
+        abstract: str,
+        keyword: str,
+        topic_category: str,
+        resource_types: typing.List[models.GeonodeResourceType],
+        temporal_extent_start: QtCore.QDateTime,
+        temporal_extent_end: QtCore.QDateTime,
+        publication_date_start: QtCore.QDateTime,
+        publication_date_end: QtCore.QDateTime,
+        spatial_extent: QgsRectangle,
+        sort_by_field: str = models.OrderingType.NAME.value,
+        reverse_sort_order: bool = False,
+    ):
+        self.title = title
+        self.abstract = abstract
+        self.keyword = keyword
+        self.topic_category = topic_category
+        self.resource_types = resource_types
+        self.temporal_extent_start = temporal_extent_start
+        self.temporal_extent_end = temporal_extent_end
+        self.publication_date_start = publication_date_start
+        self.publication_date_end = publication_date_end
+        self.spatial_extent = spatial_extent
+        self.sort_by_field = sort_by_field
+        self.reverse_sort_order = reverse_sort_order
+
+    @classmethod
+    def from_qgs_settings(cls):
+        with qgis_settings("qgis_geonode/search/current") as settings:
+            resources_types = []
+            temporal_extent_start = None
+            temporal_extent_end = None
+            publication_date_start = None
+            publication_date_end = None
+            spatial_extent = None
+
+            if settings.value("resource-types/vector", False) == "true":
+                resources_types.append(models.GeonodeResourceType.VECTOR_LAYER)
+            if settings.value("resource-types/raster", False) == "true":
+                resources_types.append(models.GeonodeResourceType.RASTER_LAYER)
+            if settings.value("resource-types/maps", False) == "true":
+                resources_types.append(models.GeonodeResourceType.MAP)
+            if (
+                settings.value("temporal-extent/start", None) is not None
+                and settings.value("temporal-extent/start", None) is not ""
+            ):
+                temporal_extent_start = QtCore.QDateTime.fromString(
+                    settings.value("temporal-extent/start"), QtCore.Qt.ISODate
+                )
+            if (
+                settings.value("temporal-extent/end", None) is not None
+                and settings.value("temporal-extent/end", None) is not ""
+            ):
+                temporal_extent_end = QtCore.QDateTime.fromString(
+                    settings.value("temporal-extent/end"), QtCore.Qt.ISODate
+                )
+            if (
+                settings.value("publication-date/start", None) is not None
+                and settings.value("publication-date/start", None) is not ""
+            ):
+                publication_date_start = QtCore.QDateTime.fromString(
+                    settings.value("publication-date/start"), QtCore.Qt.ISODate
+                )
+            if (
+                settings.value("publication-date/end", None) is not None
+                and settings.value("publication-date/end", None) is not ""
+            ):
+                publication_date_end = QtCore.QDateTime.fromString(
+                    settings.value("publication-date/end"), QtCore.Qt.ISODate
+                )
+            if (
+                settings.value("spatial-extent/north", 0) != 0
+                and settings.value("spatial-extent/south", 0) != 0
+                and settings.value("spatial-extent/east", 0) != 0
+                and settings.value("spatial-extent/west", 0) != 0
+            ):
+                spatial_extent = QgsRectangle(
+                    float(settings.value("spatial-extent/east")),
+                    float(settings.value("spatial-extent/south")),
+                    float(settings.value("spatial-extent/west")),
+                    float(settings.value("spatial-extent/north")),
+                )
+
+                reverse_sort_order = (
+                    settings.value("reverse-sort-order", False) == "true"
+                )
+
+            return cls(
+                title=settings.value("title", None),
+                abstract=settings.value("abstract", None),
+                keyword=settings.value("keyword", None),
+                topic_category=settings.value("topic-category", None),
+                resource_types=resources_types,
+                temporal_extent_start=temporal_extent_start,
+                temporal_extent_end=temporal_extent_end,
+                publication_date_start=publication_date_start,
+                publication_date_end=publication_date_end,
+                spatial_extent=spatial_extent,
+                sort_by_field=settings.value(
+                    "sort-by-field", models.OrderingType.NAME.value
+                ),
+                reverse_sort_order=reverse_sort_order,
+            )
+
+
+class SettingsManager(QtCore.QObject):
+    BASE_GROUP = "qgis_geonode"
+    SEARCH_GROUP = "search"
+
+    def save_search_settings(self, search_settings: SearchSettings):
+        with qgis_settings(
+            f"{self.BASE_GROUP}/{self.SEARCH_GROUP}/current"
+        ) as settings:
+            settings.setValue("title", search_settings.title)
+            settings.setValue("abstract", search_settings.abstract)
+            settings.setValue("keyword", search_settings.keyword)
+            settings.setValue("topic-category", search_settings.topic_category)
+            if search_settings.resource_types is not None:
+                settings.setValue(
+                    "resource-types/vector",
+                    (
+                        models.GeonodeResourceType.VECTOR_LAYER
+                        in search_settings.resource_types
+                    ),
+                )
+                settings.setValue(
+                    "resource-types/raster",
+                    (
+                        models.GeonodeResourceType.RASTER_LAYER
+                        in search_settings.resource_types
+                    ),
+                )
+                settings.setValue(
+                    "resource-types/map",
+                    (models.GeonodeResourceType.MAP in search_settings.resource_types),
+                )
+            if search_settings.temporal_extent_start is not None:
+                settings.setValue(
+                    "temporal-extent/start",
+                    search_settings.temporal_extent_start.toString(QtCore.Qt.ISODate),
+                )
+            else:
+                settings.setValue("temporal-extent/start", None)
+            if search_settings.temporal_extent_end is not None:
+                settings.setValue(
+                    "temporal-extent/end",
+                    search_settings.temporal_extent_end.toString(QtCore.Qt.ISODate),
+                )
+            else:
+                settings.setValue("temporal-extent/end", None)
+
+            if search_settings.publication_date_start is not None:
+                settings.setValue(
+                    "publication-date/start",
+                    search_settings.publication_date_start.toString(QtCore.Qt.ISODate),
+                )
+            else:
+                settings.setValue("publication-date/start", None)
+            if search_settings.publication_date_end is not None:
+                settings.setValue(
+                    "publication-date/end",
+                    search_settings.publication_date_end.toString(QtCore.Qt.ISODate),
+                )
+            else:
+                settings.setValue("publication-date/end", None)
+            if search_settings.spatial_extent is not None:
+                settings.setValue(
+                    "spatial-extent/north", search_settings.spatial_extent.yMaximum()
+                )
+                settings.setValue(
+                    "spatial-extent/south", search_settings.spatial_extent.yMinimum()
+                )
+                settings.setValue(
+                    "spatial-extent/east", search_settings.spatial_extent.xMaximum()
+                )
+                settings.setValue(
+                    "spatial-extent/west", search_settings.spatial_extent.xMinimum()
+                )
+            settings.setValue("sort-field", search_settings.sort_by_field)
+            settings.setValue("reverse-sort-order", search_settings.reverse_sort_order)
+
+
+settings_manager = SettingsManager()
 
 connections_manager = ConnectionManager()

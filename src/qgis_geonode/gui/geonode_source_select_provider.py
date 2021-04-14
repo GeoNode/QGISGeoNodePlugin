@@ -18,7 +18,8 @@ from ..apiclient import (
     get_geonode_client,
     models,
 )
-from ..conf import connections_manager
+from ..conf import connections_manager, settings_manager
+from ..conf import SearchSettings
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
 from ..utils import (
@@ -102,6 +103,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     _search_filters = typing.List[QtWidgets.QWidget]
     _usable_search_filters = typing.List[QtWidgets.QWidget]
     _unusable_search_filters = typing.List[QtWidgets.QWidget]
+
+    settings = qgis.core.QgsSettings
 
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
@@ -209,6 +212,19 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.spatial_extent_box.setCurrentExtent(current_crs.bounds(), current_crs)
         self.spatial_extent_box.setOutputExtentFromCurrent()
         self.spatial_extent_box.setMapCanvas(map_canvas)
+
+        self.restore_settings()
+
+        self.title_le.textChanged.connect(self.save_settings)
+        self.abstract_le.textChanged.connect(self.save_settings)
+        self.keyword_cmb.currentIndexChanged.connect(self.save_settings)
+        self.category_cmb.currentIndexChanged.connect(self.save_settings)
+        self.resource_types_btngrp.buttonToggled.connect(self.save_settings)
+        self.temporal_extent_start_dte.valueChanged.connect(self.save_settings)
+        self.temporal_extent_end_dte.valueChanged.connect(self.save_settings)
+        self.publication_start_dte.valueChanged.connect(self.save_settings)
+        self.publication_end_dte.valueChanged.connect(self.save_settings)
+        self.spatial_extent_box.extentChanged.connect(self.save_settings)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -546,3 +562,85 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.keyword_cmb.addItem("")
             self.keyword_cmb.addItems(keywords)
         self.message_bar.clearWidgets()
+
+    def restore_settings(self):
+        search_settings = SearchSettings.from_qgs_settings()
+        if search_settings.title is not None:
+            self.title_le.setText(search_settings.title)
+        if search_settings.abstract is not None:
+            self.abstract_le.setText(search_settings.abstract)
+        if search_settings.keyword is not None:
+            self.keyword_cmb.currentText(search_settings.keyword)
+        if search_settings.topic_category is not None:
+            index = self.category_cmb.findText(search_settings.topic_category)
+            self.category_cmb.setCurrentIndex(index)
+        if search_settings.temporal_extent_start is not None:
+            self.temporal_extent_start_dte.setDateTime(
+                search_settings.temporal_extent_start
+            )
+        if search_settings.temporal_extent_end is not None:
+            self.temporal_extent_end_dte.setDateTime(
+                search_settings.temporal_extent_end
+            )
+        if search_settings.publication_date_start is not None:
+            self.publication_start_dte.setDateTime(
+                search_settings.publication_date_start
+            )
+        if search_settings.publication_date_end is not None:
+            self.publication_end_dte.setDateTime(search_settings.publication_date_end)
+        if search_settings.spatial_extent is not None:
+            self.spatial_extent_box.setCurrentExtent(
+                search_settings.spatial_extent,
+                qgis.core.QgsCoordinateReferenceSystem("EPSG:4326"),
+            )
+        self.vector_chb.setChecked(
+            (models.GeonodeResourceType.VECTOR_LAYER in search_settings.resource_types)
+        )
+        self.raster_chb.setChecked(
+            (models.GeonodeResourceType.RASTER_LAYER in search_settings.resource_types)
+        )
+        self.map_chb.setChecked(
+            (models.GeonodeResourceType.MAP in search_settings.resource_types)
+        )
+        sort_index = self.sort_field_cmb.findText(search_settings.sort_by_field)
+        self.sort_field_cmb.setCurrentIndex(sort_index)
+
+        self.reverse_order_chb.setChecked(search_settings.reverse_sort_order)
+
+    def save_settings(self):
+        resource_types = []
+        search_vector = self.vector_chb.isChecked()
+        search_raster = self.raster_chb.isChecked()
+        search_map = self.map_chb.isChecked()
+        spatial_extent = self.spatial_extent_box.outputExtent()
+        if any((search_vector, search_raster, search_map)):
+            if search_vector:
+                resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
+            if search_raster:
+                resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
+            if search_map:
+                resource_types.append(models.GeonodeResourceType.MAP)
+        temp_extent_start = self.temporal_extent_start_dte.dateTime()
+        temp_extent_end = self.temporal_extent_end_dte.dateTime()
+        pub_start = self.publication_start_dte.dateTime()
+        pub_end = self.publication_end_dte.dateTime()
+
+        search_settings = SearchSettings(
+            title=self.title_le.text() or None,
+            abstract=self.abstract_le.text() or None,
+            keyword=self.keyword_cmb.currentText() or None,
+            topic_category=self.category_cmb.currentText() or None,
+            resource_types=resource_types,
+            sort_by_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
+            reverse_sort_order=self.reverse_order_chb.isChecked(),
+            temporal_extent_start=(
+                temp_extent_start if not temp_extent_start.isNull() else None
+            ),
+            temporal_extent_end=(
+                temp_extent_end if not temp_extent_end.isNull() else None
+            ),
+            publication_date_start=pub_start if not pub_start.isNull() else None,
+            publication_date_end=pub_end if not pub_end.isNull() else None,
+            spatial_extent=spatial_extent,
+        )
+        settings_manager.save_search_settings(search_settings)
