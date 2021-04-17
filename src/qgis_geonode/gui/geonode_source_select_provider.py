@@ -542,3 +542,4 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         if keywords:
             self.keyword_cmb.addItem("")
             self.keyword_cmb.addItems(keywords)
+        self.message_bar.clearWidgets()
