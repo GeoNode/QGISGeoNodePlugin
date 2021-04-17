@@ -313,7 +313,7 @@ class SearchSettings:
                 resources_types.append(models.GeonodeResourceType.VECTOR_LAYER)
             if settings.value("resource-types/raster", False) == "true":
                 resources_types.append(models.GeonodeResourceType.RASTER_LAYER)
-            if settings.value("resource-types/maps", False) == "true":
+            if settings.value("resource-types/map", False) == "true":
                 resources_types.append(models.GeonodeResourceType.MAP)
             if (
                 settings.value("temporal-extent/start", None) is not None

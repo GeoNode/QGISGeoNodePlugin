@@ -596,7 +596,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         if search_settings.publication_date_end is not None:
             self.publication_end_dte.setDateTime(search_settings.publication_date_end)
         if search_settings.spatial_extent is not None:
-            self.spatial_extent_box.setCurrentExtent(
+            self.spatial_extent_box.setOutputExtentFromUser(
                 search_settings.spatial_extent,
                 qgis.core.QgsCoordinateReferenceSystem("EPSG:4326"),
             )
@@ -619,7 +619,15 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         search_vector = self.vector_chb.isChecked()
         search_raster = self.raster_chb.isChecked()
         search_map = self.map_chb.isChecked()
+        # Make sure spatial extent is saved using EPSG:4326 crs
+        crs_epsg_4326 = qgis.core.QgsCoordinateReferenceSystem("EPSG:4326")
+        origin_crs = self.spatial_extent_box.currentCrs()
+
         spatial_extent = self.spatial_extent_box.outputExtent()
+        if origin_crs.authid() != crs_epsg_4326.authid():
+            transform = qgis.core.QgsCoordinateTransform(origin_crs, crs_epsg_4326)
+            spatial_extent = transform.transformBoundingBox(spatial_extent)
+
         if any((search_vector, search_raster, search_map)):
             if search_vector:
                 resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
