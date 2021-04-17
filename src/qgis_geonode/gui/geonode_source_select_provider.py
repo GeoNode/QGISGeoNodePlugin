@@ -561,16 +561,23 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         if keywords:
             self.keyword_cmb.addItem("")
             self.keyword_cmb.addItems(keywords)
+            settings_manager.set_search_setting("keywords-list", keywords)
         self.message_bar.clearWidgets()
 
     def restore_settings(self):
         search_settings = SearchSettings.from_qgs_settings()
+        # if keywords list exist populate the keywords list first
+        keywords = settings_manager.get_search_setting("keywords-list")
+        if keywords is not None:
+            self.keyword_cmb.addItem("")
+            self.keyword_cmb.addItems(keywords)
         if search_settings.title is not None:
             self.title_le.setText(search_settings.title)
         if search_settings.abstract is not None:
             self.abstract_le.setText(search_settings.abstract)
         if search_settings.keyword is not None:
-            self.keyword_cmb.currentText(search_settings.keyword)
+            index = self.keyword_cmb.findText(search_settings.keyword)
+            self.keyword_cmb.setCurrentIndex(index)
         if search_settings.topic_category is not None:
             index = self.category_cmb.findText(search_settings.topic_category)
             self.category_cmb.setCurrentIndex(index)

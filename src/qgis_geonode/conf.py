@@ -454,6 +454,18 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("sort-field", search_settings.sort_by_field)
             settings.setValue("reverse-sort-order", search_settings.reverse_sort_order)
 
+    def set_search_setting(self, name, value):
+        with qgis_settings(
+            f"{self.BASE_GROUP}/{self.SEARCH_GROUP}/current"
+        ) as settings:
+            settings.setValue(name, value)
+
+    def get_search_setting(self, name):
+        with qgis_settings(
+            f"{self.BASE_GROUP}/{self.SEARCH_GROUP}/current"
+        ) as settings:
+            return settings.value(name, None)
+
 
 settings_manager = SettingsManager()
 
