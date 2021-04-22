@@ -167,7 +167,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self._get_datasource_widget().message_bar.clearWidgets()
 
     def handle_loading_error(
-        self, qt_error: str, http_status_code: int, http_status_reason: str
+        self, qt_error: str, http_status_code: int = 0, http_status_reason: str = None
     ):
         if http_status_code != 0:
             http_status = f"{http_status_code} - {http_status_reason}"
@@ -330,7 +330,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
             cloned_layer = self.layer.clone()
             self.layer_handler(cloned_layer)
         else:
-            message = f"Error loading layer {self.layer_uri!r}"
+            message = f"Error loading layer {self.uri!r}"
             log(message)
             self.error_handler(message)
 
