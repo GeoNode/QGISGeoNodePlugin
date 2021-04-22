@@ -333,7 +333,6 @@ class GeoNodeLegacyLayerDetailFetcher(
         record = self._blocking_get_reply()
         if record is not None:
             self.reply_content.parsed_csw_record = record
-            layer_title = _extract_layer_title(record)
             layer_name = _extract_layer_name(record)
             layer_detail = self._blocking_get_layer_detail_v1_api(layer_name)
             if layer_detail is not None:
@@ -430,8 +429,8 @@ class GeoNodeLegacyAuthenticatedLayerDetailFetcherTask(
                 record = self._blocking_get_authenticated_reply()
                 if record is not None:
                     self.reply_content.parsed_csw_record = record
-                    layer_title = _extract_layer_title(record)
-                    layer_detail = self._blocking_get_layer_detail_v1_api(layer_title)
+                    layer_name = _extract_layer_name(record)
+                    layer_detail = self._blocking_get_layer_detail_v1_api(layer_name)
                     if layer_detail is not None:
                         self.reply_content.parsed_layer_detail = layer_detail
                         style_uri = layer_detail["default_style"]
@@ -1297,17 +1296,6 @@ def _add_bbox_operator(parent: ET.Element, spatial_extent: qgis.core.QgsRectangl
         envelope_el, ET.QName(Csw202Namespace.GML.value, "upperCorner")
     )
     upper_corner_el.text = f"{spatial_extent.yMaximum()} {spatial_extent.xMaximum()}"
-
-
-def _extract_layer_title(record: ET.Element):
-    return record.find(
-        f"{{{Csw202Namespace.GMD.value}}}identificationInfo/"
-        f"{{{Csw202Namespace.GMD.value}}}MD_DataIdentification/"
-        f"{{{Csw202Namespace.GMD.value}}}citation/"
-        f"{{{Csw202Namespace.GMD.value}}}CI_Citation/"
-        f"{{{Csw202Namespace.GMD.value}}}title/"
-        f"{{{Csw202Namespace.GCO.value}}}CharacterString"
-    ).text
 
 
 def _extract_layer_name(record: ET.Element):
