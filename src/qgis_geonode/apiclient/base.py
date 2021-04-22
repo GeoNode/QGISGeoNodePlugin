@@ -31,6 +31,7 @@ class BaseGeonodeClient(QtCore.QObject):
     style_detail_received = QtCore.pyqtSignal(QtXml.QDomElement)
     layer_styles_received = QtCore.pyqtSignal(list)
     map_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
+    keyword_list_received = QtCore.pyqtSignal(list)
     error_received = QtCore.pyqtSignal(str, int, str)
 
     def __init__(
@@ -88,6 +89,10 @@ class BaseGeonodeClient(QtCore.QObject):
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
+    def get_keywords_url_endpoint(self) -> QtCore.QUrl:
+        url = QtCore.QUrl(f"{self.base_url}/h_keywords_api")
+        return url
+
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> typing.Any:
         raise NotImplementedError
 
@@ -124,6 +129,15 @@ class BaseGeonodeClient(QtCore.QObject):
 
     def handle_map_list(self, original_search_params: GeonodeApiSearchParameters):
         raise NotImplementedError
+
+    def handle_keyword_list(self):
+        deserialized = self.deserialize_response_contents(
+            self.network_fetcher_task.reply_content
+        )
+        keywords = []
+        for item in deserialized:
+            keywords.append(item["text"])
+        self.keyword_list_received.emit(keywords)
 
     def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
@@ -197,6 +211,16 @@ class BaseGeonodeClient(QtCore.QObject):
         self.network_fetcher_task.request_finished.connect(
             partial(self.handle_map_list, search_params)
         )
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+
+    def get_keywords(self):
+        url = self.get_keywords_url_endpoint()
+        self.network_fetcher_task = NetworkFetcherTask(
+            self,
+            QtNetwork.QNetworkRequest(url),
+            authcfg=self.auth_config,
+        )
+        self.network_fetcher_task.request_finished.connect(self.handle_keyword_list)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
 
