@@ -24,7 +24,7 @@ from ..conf import (
     connections_manager,
     get_api_version_settings_handler,
 )
-from ..utils import log
+from ..utils import log, tr
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
@@ -52,12 +52,16 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self._widgets_to_toggle_during_connection_test = [
             self.test_connection_btn,
             self.buttonBox,
+            self.authcfg_acs,
+            self.options_gb,
+            self.connection_details,
         ]
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
         )
-        self.layout().insertWidget(0, self.bar)
+        self.layout().addWidget(self.bar, 0, 0, alignment=QtCore.Qt.AlignTop)
+
         self.api_version_cmb.currentTextChanged.connect(
             self.toggle_api_version_specific_widgets
         )
@@ -95,7 +99,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
                 box_name, title=f"{api_version.name} version specific settings"
             )
             layout: QtWidgets.QBoxLayout = self.layout()
-            layout.insertWidget(4, group_box)
+            layout.addWidget(group_box, 3, 0, alignment=QtCore.Qt.AlignTop)
+            self._widgets_to_toggle_during_connection_test.append(group_box)
 
     def load_connection_settings(self, connection_settings: ConnectionSettings):
         self.name_le.setText(connection_settings.name)
@@ -125,23 +130,32 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     def test_connection(self):
         for widget in self._widgets_to_toggle_during_connection_test:
-            widget.setEnabled(False)
+            try:
+                widget.setEnabled(False)
+            except RuntimeError:
+                pass
         client = get_geonode_client(self.get_connection_settings())
         client.layer_list_received.connect(self.handle_connection_test_success)
         client.error_received.connect(self.handle_connection_test_error)
         client.layer_list_received.connect(self.enable_post_test_connection_buttons)
         client.error_received.connect(self.enable_post_test_connection_buttons)
+        self.show_progress(tr("Testing connection..."))
         client.get_layers()
 
     def handle_connection_test_success(self, payload: typing.Union[typing.Dict, int]):
+        self.bar.clearWidgets()
         self.bar.pushMessage("Connection is valid", level=Qgis.Info)
 
     def handle_connection_test_error(self, payload: typing.Union[typing.Dict, int]):
+        self.bar.clearWidgets()
         self.bar.pushMessage("Connection is not valid", level=Qgis.Critical)
 
     def enable_post_test_connection_buttons(self):
         for widget in self._widgets_to_toggle_during_connection_test:
-            widget.setEnabled(True)
+            try:
+                widget.setEnabled(True)
+            except RuntimeError:
+                pass
         self.update_ok_buttons()
 
     def initiate_api_version_detection(self):
@@ -197,6 +211,15 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(enabled_state)
         self.test_connection_btn.setEnabled(enabled_state)
+
+    def show_progress(self, message):
+        message_bar_item = self.bar.createMessage(message)
+        progress_bar = QtWidgets.QProgressBar()
+        progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(0)
+        message_bar_item.layout().addWidget(progress_bar)
+        self.bar.pushWidget(message_bar_item, Qgis.Info)
 
 
 def _clear_layout(layout: QtWidgets.QLayout):
