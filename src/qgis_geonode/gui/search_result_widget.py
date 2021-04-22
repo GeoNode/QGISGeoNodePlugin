@@ -330,7 +330,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
             cloned_layer = self.layer.clone()
             self.layer_handler(cloned_layer)
         else:
-            message = f"Error loading layer {self.layer_uri!r}"
+            message = f"Error loading layer {self.uri!r}"
             log(message)
             self.error_handler(message)
 
