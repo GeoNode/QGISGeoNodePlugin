@@ -32,7 +32,7 @@ class BaseGeonodeClient(QtCore.QObject):
     layer_styles_received = QtCore.pyqtSignal(list)
     map_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
     keyword_list_received = QtCore.pyqtSignal(list)
-    error_received = QtCore.pyqtSignal(str, int, str)
+    error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(
         self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
@@ -133,7 +133,9 @@ class BaseGeonodeClient(QtCore.QObject):
     def handle_keyword_list(self):
         if self.network_fetcher_task.reply_content is None:
             log(f"Couldn't find any keywords in {self.base_url}")
-            self.error_received.emit(f"Couldn't find any keywords in {self.base_url}")
+            self.error_received[str].emit(
+                f"Couldn't find any keywords in {self.base_url}"
+            )
             return
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content
