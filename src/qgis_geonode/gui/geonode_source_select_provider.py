@@ -454,7 +454,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.toggle_search_buttons()
 
     def show_search_error(
-        self, qt_error_message: str, http_status_code: int, http_status_reason: str
+        self,
+        qt_error_message: str,
+        http_status_code: int = 0,
+        http_status_reason: str = None,
     ):
         if http_status_code != 0:
             http_error = f"{http_status_code!r} - {http_status_reason!r}"
