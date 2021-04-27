@@ -7,7 +7,7 @@ To add a GeoNode instance follow the below steps.
 
 1. Open the QGIS _Data Source Manager_ (Ctrl+L), go to _GeoNode Plugin Provider_ section
    
-     ![GeoNode Plugin Provider](images/user_guide/data_source_manager-qgis_geonode.png)
+     ![GeoNode Plugin Provider](images/user_guide/data_source_manager.png)
   
 2. Inside "Connection" group box, click "New" button, a connection dialog will be shown.
 3. Enter the GeoNode instance details "Name" and "URL", if the instance supports authentication, you can
