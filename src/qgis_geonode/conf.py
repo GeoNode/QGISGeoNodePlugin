@@ -263,71 +263,71 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("title", current_filters.title)
             settings.setValue("abstract", current_filters.abstract)
             settings.setValue("keyword", current_filters.keyword)
-            settings.setValue("keywords-list", current_filters.keywords)
-            settings.setValue("topic-category", current_filters.topic_category)
+            settings.setValue("keywords_list", current_filters.keywords)
+            settings.setValue("topic_category", current_filters.topic_category)
             if current_filters.layer_types is not None:
                 settings.setValue(
-                    "resource-types/vector",
+                    "resource_types_vector",
                     (
                         models.GeonodeResourceType.VECTOR_LAYER
                         in current_filters.layer_types
                     ),
                 )
                 settings.setValue(
-                    "resource-types/raster",
+                    "resource_types_raster",
                     (
                         models.GeonodeResourceType.RASTER_LAYER
                         in current_filters.layer_types
                     ),
                 )
                 settings.setValue(
-                    "resource-types/map",
+                    "resource_types_map",
                     (models.GeonodeResourceType.MAP in current_filters.layer_types),
                 )
             if current_filters.temporal_extent_start is not None:
                 settings.setValue(
-                    "temporal-extent/start",
+                    "temporal_extent_start",
                     current_filters.temporal_extent_start.toString(QtCore.Qt.ISODate),
                 )
             else:
-                settings.setValue("temporal-extent/start", None)
+                settings.setValue("temporal_extent_start", None)
             if current_filters.temporal_extent_end is not None:
                 settings.setValue(
-                    "temporal-extent/end",
+                    "temporal_extent_end",
                     current_filters.temporal_extent_end.toString(QtCore.Qt.ISODate),
                 )
             else:
-                settings.setValue("temporal-extent/end", None)
+                settings.setValue("temporal_extent_end", None)
 
             if current_filters.publication_date_start is not None:
                 settings.setValue(
-                    "publication-date/start",
+                    "publication_date_start",
                     current_filters.publication_date_start.toString(QtCore.Qt.ISODate),
                 )
             else:
-                settings.setValue("publication-date/start", None)
+                settings.setValue("publication_date_start", None)
             if current_filters.publication_date_end is not None:
                 settings.setValue(
-                    "publication-date/end",
+                    "publication_date_end",
                     current_filters.publication_date_end.toString(QtCore.Qt.ISODate),
                 )
             else:
-                settings.setValue("publication-date/end", None)
+                settings.setValue("publication_date_end", None)
             if current_filters.spatial_extent is not None:
                 settings.setValue(
-                    "spatial-extent/north", current_filters.spatial_extent.yMaximum()
+                    "spatial_extent_north", current_filters.spatial_extent.yMaximum()
                 )
                 settings.setValue(
-                    "spatial-extent/south", current_filters.spatial_extent.yMinimum()
+                    "spatial_extent_south", current_filters.spatial_extent.yMinimum()
                 )
                 settings.setValue(
-                    "spatial-extent/east", current_filters.spatial_extent.xMaximum()
+                    "spatial_extent_east", current_filters.spatial_extent.xMaximum()
                 )
                 settings.setValue(
-                    "spatial-extent/west", current_filters.spatial_extent.xMinimum()
+                    "spatial_extent_west", current_filters.spatial_extent.xMinimum()
                 )
-            settings.setValue("sort-field", current_filters.ordering_field)
-            settings.setValue("reverse-sort-order", current_filters.reverse_ordering)
+            settings.setValue("sort_by_field", current_filters.ordering_field.value)
+            settings.setValue("reverse_sort_order", current_filters.reverse_ordering)
 
     def get_current_search_filters(self) -> models.GeonodeApiSearchParameters:
         with qgis_settings(
@@ -340,70 +340,58 @@ class SettingsManager(QtCore.QObject):
             publication_date_end = None
             spatial_extent = None
 
-            if settings.value("resource-types/vector", False) == "true":
+            if settings.value("resource_types_vector", False, type=bool):
                 resources_types.append(models.GeonodeResourceType.VECTOR_LAYER)
-            if settings.value("resource-types/raster", False) == "true":
+            if settings.value("resource_types_raster", False, type=bool):
                 resources_types.append(models.GeonodeResourceType.RASTER_LAYER)
-            if settings.value("resource-types/map", False) == "true":
+            if settings.value("resource_types_map", False, type=bool):
                 resources_types.append(models.GeonodeResourceType.MAP)
-            if (
-                settings.value("temporal-extent/start", None) is not None
-                and settings.value("temporal-extent/start", None) is not ""
-            ):
+            if settings.value("temporal_extent_start"):
                 temporal_extent_start = QtCore.QDateTime.fromString(
-                    settings.value("temporal-extent/start"), QtCore.Qt.ISODate
+                    settings.value("temporal_extent_start"), QtCore.Qt.ISODate
                 )
-            if (
-                settings.value("temporal-extent/end", None) is not None
-                and settings.value("temporal-extent/end", None) is not ""
-            ):
+            if settings.value("temporal_extent_end"):
                 temporal_extent_end = QtCore.QDateTime.fromString(
-                    settings.value("temporal-extent/end"), QtCore.Qt.ISODate
+                    settings.value("temporal_extent_end"), QtCore.Qt.ISODate
                 )
-            if (
-                settings.value("publication-date/start", None) is not None
-                and settings.value("publication-date/start", None) is not ""
-            ):
+            if settings.value("publication_date_start"):
                 publication_date_start = QtCore.QDateTime.fromString(
-                    settings.value("publication-date/start"), QtCore.Qt.ISODate
+                    settings.value("publication_date_start"), QtCore.Qt.ISODate
                 )
-            if (
-                settings.value("publication-date/end", None) is not None
-                and settings.value("publication-date/end", None) is not ""
-            ):
+            if settings.value("publication_date_end"):
                 publication_date_end = QtCore.QDateTime.fromString(
-                    settings.value("publication-date/end"), QtCore.Qt.ISODate
+                    settings.value("publication_date_end"), QtCore.Qt.ISODate
                 )
             if (
-                settings.value("spatial-extent/north", 0) != 0
-                and settings.value("spatial-extent/south", 0) != 0
-                and settings.value("spatial-extent/east", 0) != 0
-                and settings.value("spatial-extent/west", 0) != 0
+                settings.value("spatial_extent_north")
+                and settings.value("spatial_extent_south")
+                and settings.value("spatial_extent_east")
+                and settings.value("spatial_extent_west")
             ):
                 spatial_extent = QgsRectangle(
-                    float(settings.value("spatial-extent/east")),
-                    float(settings.value("spatial-extent/south")),
-                    float(settings.value("spatial-extent/west")),
-                    float(settings.value("spatial-extent/north")),
+                    float(settings.value("spatial_extent_east")),
+                    float(settings.value("spatial_extent_south")),
+                    float(settings.value("spatial_extent_west")),
+                    float(settings.value("spatial_extent_north")),
                 )
-
-            reverse_sort_order = settings.value("reverse-sort-order", False) == "true"
+            ordering_field = models.OrderingType(
+                settings.value("sort_by_field", models.OrderingType.NAME.value)
+            )
+            reverse_sort_order = settings.value("reverse_sort_order", False, type=bool)
 
             return models.GeonodeApiSearchParameters(
                 title=settings.value("title", None),
                 abstract=settings.value("abstract", None),
                 keyword=settings.value("keyword", None),
-                keywords=settings.value("keywords-list", None),
-                topic_category=settings.value("topic-category", None),
+                keywords=settings.value("keywords_list", None),
+                topic_category=settings.value("topic_category", None),
                 layer_types=resources_types,
                 temporal_extent_start=temporal_extent_start,
                 temporal_extent_end=temporal_extent_end,
                 publication_date_start=publication_date_start,
                 publication_date_end=publication_date_end,
                 spatial_extent=spatial_extent,
-                ordering_field=settings.value(
-                    "sort-by-field", models.OrderingType.NAME.value
-                ),
+                ordering_field=ordering_field,
                 reverse_ordering=reverse_sort_order,
             )
 

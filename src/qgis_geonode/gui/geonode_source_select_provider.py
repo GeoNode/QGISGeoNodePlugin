@@ -103,8 +103,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     _usable_search_filters = typing.List[QtWidgets.QWidget]
     _unusable_search_filters = typing.List[QtWidgets.QWidget]
 
-    settings = qgis.core.QgsSettings
-
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
@@ -224,6 +222,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.publication_start_dte.valueChanged.connect(self.save_settings)
         self.publication_end_dte.valueChanged.connect(self.save_settings)
         self.spatial_extent_box.extentChanged.connect(self.save_settings)
+        self.sort_field_cmb.currentIndexChanged.connect(self.save_settings)
+        self.reverse_order_chb.toggled.connect(self.save_settings)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -617,7 +617,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.map_chb.setChecked(
             (models.GeonodeResourceType.MAP in current_search_filters.layer_types)
         )
-        sort_index = self.sort_field_cmb.findText(current_search_filters.ordering_field)
+        # trigger actions when resource types buttons have been toggled
+        self.resource_types_btngrp.buttonClicked.emit(None)
+        sort_index = self.sort_field_cmb.findData(current_search_filters.ordering_field)
         self.sort_field_cmb.setCurrentIndex(sort_index)
 
         self.reverse_order_chb.setChecked(current_search_filters.reverse_ordering)
@@ -627,22 +629,13 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         search_vector = self.vector_chb.isChecked()
         search_raster = self.raster_chb.isChecked()
         search_map = self.map_chb.isChecked()
-        # Make sure spatial extent is saved using EPSG:4326 crs
-        crs_epsg_4326 = qgis.core.QgsCoordinateReferenceSystem("EPSG:4326")
-        origin_crs = self.spatial_extent_box.currentCrs()
-
         spatial_extent = self.spatial_extent_box.outputExtent()
-        if origin_crs.authid() != crs_epsg_4326.authid():
-            transform = qgis.core.QgsCoordinateTransform(origin_crs, crs_epsg_4326)
-            spatial_extent = transform.transformBoundingBox(spatial_extent)
-
-        if any((search_vector, search_raster, search_map)):
-            if search_vector:
-                resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
-            if search_raster:
-                resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
-            if search_map:
-                resource_types.append(models.GeonodeResourceType.MAP)
+        if search_vector:
+            resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
+        if search_raster:
+            resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
+        if search_map:
+            resource_types.append(models.GeonodeResourceType.MAP)
         temp_extent_start = self.temporal_extent_start_dte.dateTime()
         temp_extent_end = self.temporal_extent_end_dte.dateTime()
         pub_start = self.publication_start_dte.dateTime()

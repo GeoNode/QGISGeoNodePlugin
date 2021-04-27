@@ -315,11 +315,14 @@ class NetworkFetcherTask(qgis.core.QgsTask):
         log(f"Inside finished. Result: {result}")
         self.request_finished.emit()
         if not result:
-            self.api_client.error_received.emit(
-                self.parsed_reply.qt_error,
-                self.parsed_reply.http_status_code,
-                self.parsed_reply.http_status_reason,
-            )
+            if self.parsed_reply is not None:
+                self.api_client.error_received.emit(
+                    self.parsed_reply.qt_error,
+                    self.parsed_reply.http_status_code,
+                    self.parsed_reply.http_status_reason,
+                )
+            else:
+                self.api_client.error_received.emit("Problem parsing network reply")
 
     def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
         log(f"requested_url: {qgis_reply.request().url().toString()}")
