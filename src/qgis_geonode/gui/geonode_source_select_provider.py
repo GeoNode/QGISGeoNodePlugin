@@ -171,6 +171,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.previous_btn.setIcon(
             QtGui.QIcon(":/images/themes/default/mActionAtlasPrev.svg")
         )
+        self.keyword_tool_btn.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionRefresh.svg")
+        )
         self.search_btn.clicked.connect(
             partial(self.search_geonode, reset_pagination=True)
         )
