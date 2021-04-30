@@ -154,7 +154,6 @@ class SettingsManager(QtCore.QObject):
 
     BASE_GROUP_NAME: str = "qgis_geonode"
     SELECTED_CONNECTION_KEY: str = "selected_connection"
-    SEARCH_GROUP = "search"
 
     current_connection_changed = QtCore.pyqtSignal(str)
 
@@ -258,7 +257,7 @@ class SettingsManager(QtCore.QObject):
         self, current_filters: models.GeonodeApiSearchParameters
     ):
         with qgis_settings(
-            f"{self.BASE_GROUP_NAME}/{self.SEARCH_GROUP}/current_search_filters"
+            f"{self.BASE_GROUP_NAME}/current_search_filters"
         ) as settings:
             settings.setValue("title", current_filters.title)
             settings.setValue("abstract", current_filters.abstract)
@@ -331,7 +330,7 @@ class SettingsManager(QtCore.QObject):
 
     def get_current_search_filters(self) -> models.GeonodeApiSearchParameters:
         with qgis_settings(
-            f"{self.BASE_GROUP_NAME}/{self.SEARCH_GROUP}/current_search_filters"
+            f"{self.BASE_GROUP_NAME}/current_search_filters"
         ) as settings:
             resources_types = []
             temporal_extent_start = None

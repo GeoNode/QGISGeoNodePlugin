@@ -210,20 +210,20 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.spatial_extent_box.setOutputExtentFromCurrent()
         self.spatial_extent_box.setMapCanvas(map_canvas)
 
-        self.restore_settings()
+        self.restore_search_filters()
 
-        self.title_le.textChanged.connect(self.save_settings)
-        self.abstract_le.textChanged.connect(self.save_settings)
-        self.keyword_cmb.currentIndexChanged.connect(self.save_settings)
-        self.category_cmb.currentIndexChanged.connect(self.save_settings)
-        self.resource_types_btngrp.buttonToggled.connect(self.save_settings)
-        self.temporal_extent_start_dte.valueChanged.connect(self.save_settings)
-        self.temporal_extent_end_dte.valueChanged.connect(self.save_settings)
-        self.publication_start_dte.valueChanged.connect(self.save_settings)
-        self.publication_end_dte.valueChanged.connect(self.save_settings)
-        self.spatial_extent_box.extentChanged.connect(self.save_settings)
-        self.sort_field_cmb.currentIndexChanged.connect(self.save_settings)
-        self.reverse_order_chb.toggled.connect(self.save_settings)
+        self.title_le.textChanged.connect(self.save_search_filters)
+        self.abstract_le.textChanged.connect(self.save_search_filters)
+        self.keyword_cmb.currentIndexChanged.connect(self.save_search_filters)
+        self.category_cmb.currentIndexChanged.connect(self.save_search_filters)
+        self.resource_types_btngrp.buttonToggled.connect(self.save_search_filters)
+        self.temporal_extent_start_dte.valueChanged.connect(self.save_search_filters)
+        self.temporal_extent_end_dte.valueChanged.connect(self.save_search_filters)
+        self.publication_start_dte.valueChanged.connect(self.save_search_filters)
+        self.publication_end_dte.valueChanged.connect(self.save_search_filters)
+        self.spatial_extent_box.extentChanged.connect(self.save_search_filters)
+        self.sort_field_cmb.currentIndexChanged.connect(self.save_search_filters)
+        self.reverse_order_chb.toggled.connect(self.save_search_filters)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -561,10 +561,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         if keywords:
             self.keyword_cmb.addItem("")
             self.keyword_cmb.addItems(keywords)
-            self.save_settings()
+            self.save_search_filters()
         self.message_bar.clearWidgets()
 
-    def restore_settings(self):
+    def restore_search_filters(self):
         current_search_filters = settings_manager.get_current_search_filters()
         # if keywords list exist populate the keywords list first
         keywords = current_search_filters.keywords
@@ -624,7 +624,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
         self.reverse_order_chb.setChecked(current_search_filters.reverse_ordering)
 
-    def save_settings(self):
+    def save_search_filters(self):
         resource_types = []
         search_vector = self.vector_chb.isChecked()
         search_raster = self.raster_chb.isChecked()
