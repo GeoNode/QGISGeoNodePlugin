@@ -131,19 +131,19 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def handle_keyword_list(self):
-        if self.network_fetcher_task.reply_content is None:
+        if self.network_fetcher_task.reply_content is not None:
+            deserialized = self.deserialize_response_contents(
+                self.network_fetcher_task.reply_content
+            )
+            keywords = []
+            for item in deserialized:
+                keywords.append(item["text"])
+            self.keyword_list_received.emit(keywords)
+        else:
             log(f"Couldn't find any keywords in {self.base_url}")
             self.error_received[str].emit(
                 f"Couldn't find any keywords in {self.base_url}"
             )
-            return
-        deserialized = self.deserialize_response_contents(
-            self.network_fetcher_task.reply_content
-        )
-        keywords = []
-        for item in deserialized:
-            keywords.append(item["text"])
-        self.keyword_list_received.emit(keywords)
 
     def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
