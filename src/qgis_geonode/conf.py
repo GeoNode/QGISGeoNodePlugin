@@ -261,8 +261,8 @@ class SettingsManager(QtCore.QObject):
         ) as settings:
             settings.setValue("title", current_filters.title)
             settings.setValue("abstract", current_filters.abstract)
-            settings.setValue("keyword", current_filters.keyword)
-            settings.setValue("keywords_list", current_filters.keywords)
+            settings.setValue("selected_keyword", current_filters.selected_keyword)
+            settings.setValue("keywords", current_filters.keywords)
             settings.setValue("topic_category", current_filters.topic_category)
             if current_filters.layer_types is not None:
                 settings.setValue(
@@ -381,8 +381,8 @@ class SettingsManager(QtCore.QObject):
             return models.GeonodeApiSearchParameters(
                 title=settings.value("title", None),
                 abstract=settings.value("abstract", None),
-                keyword=settings.value("keyword", None),
-                keywords=settings.value("keywords_list", None),
+                selected_keyword=settings.value("selected_keyword", None),
+                keywords=settings.value("keywords", None),
                 topic_category=settings.value("topic_category", None),
                 layer_types=resources_types,
                 temporal_extent_start=temporal_extent_start,

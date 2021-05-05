@@ -416,7 +416,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                     page_size=connection_settings.page_size,
                     title=self.title_le.text() or None,
                     abstract=self.abstract_le.text() or None,
-                    keyword=self.keyword_cmb.currentText() or None,
+                    selected_keyword=self.keyword_cmb.currentText() or None,
                     topic_category=self.category_cmb.currentText().lower() or None,
                     layer_types=resource_types,
                     ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
@@ -575,8 +575,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.title_le.setText(current_search_filters.title)
         if current_search_filters.abstract is not None:
             self.abstract_le.setText(current_search_filters.abstract)
-        if current_search_filters.keyword is not None:
-            index = self.keyword_cmb.findText(current_search_filters.keyword)
+        if current_search_filters.selected_keyword is not None:
+            index = self.keyword_cmb.findText(current_search_filters.selected_keyword)
             self.keyword_cmb.setCurrentIndex(index)
         if current_search_filters.topic_category is not None:
             index = self.category_cmb.findText(current_search_filters.topic_category)
@@ -644,7 +644,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         current_search_filters = models.GeonodeApiSearchParameters(
             title=self.title_le.text() or None,
             abstract=self.abstract_le.text() or None,
-            keyword=self.keyword_cmb.currentText() or None,
+            selected_keyword=self.keyword_cmb.currentText() or None,
             keywords=[
                 self.keyword_cmb.itemText(i) for i in range(self.keyword_cmb.count())
             ]

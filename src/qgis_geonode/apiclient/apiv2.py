@@ -68,8 +68,10 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             query.addQueryItem("filter{title.icontains}", search_params.title)
         if search_params.abstract is not None:
             query.addQueryItem("filter{abstract.icontains}", search_params.abstract)
-        if search_params.keyword is not None:
-            query.addQueryItem("filter{keywords.name.icontains}", search_params.keyword)
+        if search_params.selected_keyword is not None:
+            query.addQueryItem(
+                "filter{keywords.name.icontains}", search_params.selected_keyword
+            )
         if search_params.topic_category is not None:
             query.addQueryItem(
                 "filter{category.identifier}", search_params.topic_category
