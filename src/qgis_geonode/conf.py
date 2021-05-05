@@ -339,11 +339,11 @@ class SettingsManager(QtCore.QObject):
             publication_date_end = None
             spatial_extent = None
 
-            if settings.value("resource_types_vector", False, type=bool):
+            if settings.value("resource_types_vector", True, type=bool):
                 resources_types.append(models.GeonodeResourceType.VECTOR_LAYER)
-            if settings.value("resource_types_raster", False, type=bool):
+            if settings.value("resource_types_raster", True, type=bool):
                 resources_types.append(models.GeonodeResourceType.RASTER_LAYER)
-            if settings.value("resource_types_map", False, type=bool):
+            if settings.value("resource_types_map", True, type=bool):
                 resources_types.append(models.GeonodeResourceType.MAP)
             if settings.value("temporal_extent_start"):
                 temporal_extent_start = QtCore.QDateTime.fromString(
@@ -361,12 +361,7 @@ class SettingsManager(QtCore.QObject):
                 publication_date_end = QtCore.QDateTime.fromString(
                     settings.value("publication_date_end"), QtCore.Qt.ISODate
                 )
-            if (
-                settings.value("spatial_extent_north")
-                and settings.value("spatial_extent_south")
-                and settings.value("spatial_extent_east")
-                and settings.value("spatial_extent_west")
-            ):
+            if settings.value("spatial_extent_north") is not None:
                 spatial_extent = QgsRectangle(
                     float(settings.value("spatial_extent_east")),
                     float(settings.value("spatial_extent_south")),
