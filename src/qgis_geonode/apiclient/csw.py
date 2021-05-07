@@ -1224,7 +1224,7 @@ def _add_constraints(
             _add_property_is_like_element(
                 filter_root_el, "dc:abstract", search_params.abstract
             )
-        # if search_params.keyword is not None:
+        # if search_params.selected_keyword is not None:
         #     pass
         # if search_params.topic_category is not None:
         #     pass

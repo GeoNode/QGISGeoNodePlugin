@@ -21,7 +21,7 @@ from ..apiclient import (
 from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
-    connections_manager,
+    settings_manager,
     get_api_version_settings_handler,
 )
 from ..utils import log, tr
@@ -194,7 +194,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             f"^{connection_settings.name}$|^{connection_settings.name}(\(\d+\))$"
         )
         duplicate_names = []
-        for connection_conf in connections_manager.list_connections():
+        for connection_conf in settings_manager.list_connections():
             if connection_conf.id == connection_settings.id:
                 continue  # we don't want to compare against ourselves
             if name_pattern.search(connection_conf.name) is not None:
@@ -203,8 +203,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             connection_settings.name = (
                 f"{connection_settings.name}({len(duplicate_names)})"
             )
-        connections_manager.save_connection_settings(connection_settings)
-        connections_manager.set_current_connection(connection_settings.id)
+        settings_manager.save_connection_settings(connection_settings)
+        settings_manager.set_current_connection(connection_settings.id)
         super().accept()
 
     def update_ok_buttons(self):
