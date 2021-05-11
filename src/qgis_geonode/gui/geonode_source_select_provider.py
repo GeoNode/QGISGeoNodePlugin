@@ -273,6 +273,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             if current_connection is not None:
                 current_index = self.connections_cmb.findText(current_connection.name)
                 self.connections_cmb.setCurrentIndex(current_index)
+                self.update_api_client(current_connection)
             else:
                 self.connections_cmb.setCurrentIndex(0)
 
@@ -305,14 +306,20 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.toggle_search_buttons()
 
     def update_current_connection(self, current_index: int):
-        current_text = self.connections_cmb.itemText(current_index)
-        current_connection = settings_manager.find_connection_by_name(current_text)
-        settings_manager.set_current_connection(current_connection.id)
-        log(f"setting self.api_client to {current_connection.name!r}...")
-        self.api_client = get_geonode_client(current_connection)
+        if current_index >= 0:
+            current_text = self.connections_cmb.itemText(current_index)
+            current_connection = settings_manager.find_connection_by_name(
+                current_text
+            )
+            settings_manager.set_current_connection(current_connection.id)
+            log(f"setting self.api_client to {current_connection.name!r}...")
+            self.update_api_client(current_connection)
+            self.update_usable_search_filters()
+
+    def update_api_client(self, connection):
+        self.api_client = get_geonode_client(connection)
         self.api_client.layer_list_received.connect(self.handle_layer_list)
         self.api_client.error_received.connect(self.show_search_error)
-        self.update_usable_search_filters()
 
     def update_usable_search_filters(self):
         """Toggle search filter widgets based on API client supporting them or not"""
