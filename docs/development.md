@@ -111,7 +111,7 @@ In order to have a new version of the plugin release:
 - Be sure to have updated the `CHANGELOG.md`
   
 - Be sure to have updated the version on the `pyproject.toml` file. You can either 
-  manually modify the `tool.poetry.version` key or you can run the 
+  manually modify the `tool.poetry.version` key, or you can run the 
   `poetry version {version specifier}` command
   
 - Create a new git annotated tag and push it to the repository. The tag name must 

@@ -32,7 +32,7 @@ class BaseGeonodeClient(QtCore.QObject):
     layer_styles_received = QtCore.pyqtSignal(list)
     map_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
     keyword_list_received = QtCore.pyqtSignal(list)
-    error_received = QtCore.pyqtSignal(str, int, str)
+    error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(
         self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
@@ -131,13 +131,19 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def handle_keyword_list(self):
-        deserialized = self.deserialize_response_contents(
-            self.network_fetcher_task.reply_content
-        )
-        keywords = []
-        for item in deserialized:
-            keywords.append(item["text"])
-        self.keyword_list_received.emit(keywords)
+        if self.network_fetcher_task.reply_content is not None:
+            deserialized = self.deserialize_response_contents(
+                self.network_fetcher_task.reply_content
+            )
+            keywords = []
+            for item in deserialized:
+                keywords.append(item["text"])
+            self.keyword_list_received.emit(keywords)
+        else:
+            log(f"Couldn't find any keywords in {self.base_url}")
+            self.error_received[str].emit(
+                f"Couldn't find any keywords in {self.base_url}"
+            )
 
     def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
@@ -309,11 +315,14 @@ class NetworkFetcherTask(qgis.core.QgsTask):
         log(f"Inside finished. Result: {result}")
         self.request_finished.emit()
         if not result:
-            self.api_client.error_received.emit(
-                self.parsed_reply.qt_error,
-                self.parsed_reply.http_status_code,
-                self.parsed_reply.http_status_reason,
-            )
+            if self.parsed_reply is not None:
+                self.api_client.error_received.emit(
+                    self.parsed_reply.qt_error,
+                    self.parsed_reply.http_status_code,
+                    self.parsed_reply.http_status_reason,
+                )
+            else:
+                self.api_client.error_received.emit("Problem parsing network reply")
 
     def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
         log(f"requested_url: {qgis_reply.request().url().toString()}")

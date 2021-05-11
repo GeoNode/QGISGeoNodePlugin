@@ -200,6 +200,9 @@
            </item>
            <item>
             <widget class="QToolButton" name="keyword_tool_btn">
+             <property name="toolTip">
+              <string>Click to fetch available keywords from the GeoNode instance</string>
+             </property>
              <property name="text">
               <string>...</string>
              </property>

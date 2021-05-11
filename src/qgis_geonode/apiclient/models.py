@@ -156,7 +156,8 @@ class GeonodeApiSearchParameters:
     page_size: typing.Optional[int] = 10
     title: typing.Optional[str] = None
     abstract: typing.Optional[str] = None
-    keyword: typing.Optional[str] = None
+    selected_keyword: typing.Optional[str] = None
+    keywords: typing.Optional[list] = None
     topic_category: typing.Optional[str] = None
     layer_types: typing.Optional[typing.List[GeonodeResourceType]] = None
     ordering_field: typing.Optional[OrderingType] = None
