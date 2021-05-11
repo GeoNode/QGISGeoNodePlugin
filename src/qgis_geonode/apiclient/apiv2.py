@@ -29,6 +29,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
         models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
         models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        models.ApiClientCapability.FILTER_BY_SPATIAL_EXTENT,
     ]
 
     @property
@@ -96,13 +97,17 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
                 "filter{date.lte}",
                 search_params.publication_date_end.toString(QtCore.Qt.ISODate),
             )
-        # TODO revisit once the support for spatial extent is available on
-        # GeoNode API V2
-        if (
-            search_params.spatial_extent is not None
-            and not search_params.spatial_extent.isNull()
-        ):
-            pass
+
+        if search_params.spatial_extent is not None:
+            spatial_extent_value = (
+                f"{search_params.spatial_extent.xMinimum()},"
+                f"{search_params.spatial_extent.yMinimum()},"
+                f"{search_params.spatial_extent.xMaximum()},"
+                f"{search_params.spatial_extent.yMaximum()}"
+            )
+
+            query.addQueryItem("extent", spatial_extent_value)
+
         if search_params.layer_types is None:
             types = [
                 models.GeonodeResourceType.VECTOR_LAYER,
