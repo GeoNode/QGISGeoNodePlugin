@@ -10,20 +10,19 @@ To add a GeoNode instance follow the below steps.
      ![GeoNode Plugin Provider](images/user_guide/data_source_manager.png)
   
 2. Add a new GeoNode instance connection, click a button with a label "New" which is inside the "Connections" group box,
-   then a dialog for filling in connection details will be shown.
+   a dialog for filling in connection details will be shown.
 3. Enter the GeoNode instance details "Name" and "URL", the "URL" is for the GeoNode URL, if the instance supports 
-   authentication, you can choose the authentication configurations for the instance using the QGIS authentication 
+   authentication, you can add the authentication configurations for the instance using the QGIS authentication 
    configuration selector widget available on the connection dialog.
      
      To add new authentication configuration, click a button with ![add symbol](images/user_guide/add_symbol.svg) symbol
      which is beside the authentication configurations list combo box, the following dialog will be shown.
      ![Adding authentication configuration](images/user_guide/add_authentication.png)
-   `Basic Authentication` will be selected by default the first time the dialog is loaded, other authentication types are 
-   available including OAuth2 authentication.
+   `Basic authentication` will be selected by default the first time the dialog is opened.
    
-    For API V2 we recommend to use OAuth2 with the Authorization code flow, for the legacy API use OAuth2 with 
-   authorization code flow and also provide the username and password on the additional UI controls that are shown on 
-   connection configuration dialog.
+    For API V2 we recommend to use `OAuth2 authentication` with the `Authorization code` grant type, for the CSW API, 
+   OAuth2 with authorization code flow is recommend to be used with additional username and password provided on the 
+   connection configuration dialog UI.
    
     The below image shows usage of a OAuth2 configuration with a `Authorization code` grant type and 
     sample `Token URL`, `Client ID`, `Client Secret`, all these details
@@ -35,23 +34,23 @@ To add a GeoNode instance follow the below steps.
     conforms to the [OpenAPI](https://swagger.io/specification/) specification which is a descriptive format for REST APIs.
     
     When creating connections that are using this API, select V2 from the API version list. 
-    The API V2 support using OAuth2 usage, to add or use OAuth2 configurations, 
-    follow instructions described on step no 2 of the previous section.
+    The API V2 support authentication via OAuth2 with no additional configurations, to add or use OAuth2 authentication, 
+    follow instructions described on the previous section.
     
     ### GeoNode API CSW
     The CSW API exposes GeoNode resources via a CSW( Catalogue Service-Web) which is a web specification
     for accessing geo-spatial data using [XML](https://en.wikipedia.org/wiki/XML). All GeoNode instances support this API.
     
-    This API doesn't support OAuth2 authentication instead it supports basic authentication,
-    when connecting to GeoNode instance that uses CSW API users will be required to supply username and password, 
-    in order to access private resources on the GeoNode instance.
+    This API doesn't fully support OAuth2 authentication,
+    when connecting to GeoNode instance that uses CSW API, OAuth2 configuration and additional username and password are 
+   required in order to configure authentication for the corresponding GeoNode instance.
 
    
 4. Through the "API version" list choose the API that the connection should be connected to with. They
 are two options at the moment, CSW API and the API version 2 the latter is available from GeoNode instances that use the
    master version. Click the "auto detect" button, to automatically detect and select the API version for the GeoNode instance.
    
-5. Search results page size can be set inside the page size input. By default, the size is 10.
+5. Search results page size can be set inside the `Page size` field. By default, the `Page size` is set to 10.
    
 6. Click the "Test Connection" button to verify if the connection works.
    
@@ -68,7 +67,7 @@ are two options at the moment, CSW API and the API version 2 the latter is avail
 Select the intended connection from the connections list, then click the "Search Geonode" button, 
 after searching is complete a list of search results will be populated in a scroll area below the search buttons.
 
-Buttons "Previous" and "Next" are used to navigate search results when the results have been paginated.
+Buttons "Previous" and "Next" can be used to navigate search results when the results have been paginated.
 
 Below image shows search results after search on the GeoNode demo server
 ![search results](images/user_guide/search_results.png)
@@ -95,13 +94,13 @@ The following search filters are supported
 
 - `Resources types`
   
-    Resource type filter, selects resources based on the selected resource types, the resource type filtering is 
+    Filters resources based on the selected resource types, the resource types selection is 
     mutually inclusive, if more than one type is selected, the search results will include all resources 
     that have been the selected.
 
 - `Temporal extent` 
   
-    Temporal extent filter is used to filter resources based on the stored temporal extent. Two fields 
+    This filter used to select resources based on the stored temporal extent. Two fields 
     `start` and `end` are used to represent the beginning and end of the extent respectively, during filtering
     both fields values are excluded.
     
@@ -145,7 +144,8 @@ After searching layers is complete, the search results items provide options for
 corresponding resources inside QGIS. 
 
 Each search item has buttons that load layers via QGIS OGC providers e.g.  WMS for loading maps, WFS for loading 
-vector layers and WCS for loading raster layers.
+vector layers and WCS for loading raster layers. Each of these buttons will have an icon that represents the respective
+OGC service and a tooltip that explains about the button action.
 
 The WFS button is used load the vector layers, WCS button for raster layers and WMS button is always
 available for all resources that support it, if there is a problem with the resource URI the OGC buttons will not 
