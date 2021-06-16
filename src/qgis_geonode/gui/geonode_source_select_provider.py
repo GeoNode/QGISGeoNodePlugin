@@ -306,6 +306,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def update_current_connection(self, current_index: int):
         current_text = self.connections_cmb.itemText(current_index)
+        if current_text == "": return
         current_connection = settings_manager.find_connection_by_name(current_text)
         settings_manager.set_current_connection(current_connection.id)
         log(f"setting self.api_client to {current_connection.name!r}...")
