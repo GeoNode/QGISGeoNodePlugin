@@ -161,7 +161,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.update_connections_combobox()
         self.toggle_connection_management_buttons()
         self.connections_cmb.activated.connect(self.update_current_connection)
-        self.update_current_connection(self.connections_cmb.currentIndex())
+
+        if self.connections_cmb.currentIndex() != -1:
+            self.update_current_connection(self.connections_cmb.currentIndex())
         self.current_page = 1
         self.total_pages = 1
         self.search_btn.setIcon(QtGui.QIcon(":/images/themes/default/search.svg"))
@@ -306,13 +308,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.toggle_search_buttons()
 
     def update_current_connection(self, current_index: int):
-        if current_index >= 0:
-            current_text = self.connections_cmb.itemText(current_index)
-            current_connection = settings_manager.find_connection_by_name(current_text)
-            settings_manager.set_current_connection(current_connection.id)
-            log(f"setting self.api_client to {current_connection.name!r}...")
-            self.update_api_client(current_connection)
-            self.update_usable_search_filters()
+        current_text = self.connections_cmb.itemText(current_index)
+        current_connection = settings_manager.find_connection_by_name(current_text)
+        settings_manager.set_current_connection(current_connection.id)
+        log(f"setting self.api_client to {current_connection.name!r}...")
+        self.update_api_client(current_connection)
+        self.update_usable_search_filters()
 
     def update_api_client(self, connection):
         self.api_client = get_geonode_client(connection)
