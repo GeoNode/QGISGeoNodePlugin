@@ -202,6 +202,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         # ATTENTION: the order of initialization of the self.spatial_extent_box widget
         # is crucial here. Only call self.spatial_extent_box.setMapCanvas() after
         # having called self.spatial_extent_box.setOutputExtentFromCurrent()
+        self.spatial_extent_box.setTitleBase(tr("Spatial Extent"))
         epsg_4326 = qgis.core.QgsCoordinateReferenceSystem("EPSG:4326")
         self.spatial_extent_box.setOutputCrs(epsg_4326)
         map_canvas = iface.mapCanvas()
