@@ -432,7 +432,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                     if not pub_start.isNull()
                     else None,
                     publication_date_end=pub_end if not pub_end.isNull() else None,
-                    spatial_extent=spatial_extent_epsg4326,
+                    spatial_extent=spatial_extent_epsg4326
+                    if self.spatial_extent_box.isChecked()
+                    else None,
                 )
             )
 
