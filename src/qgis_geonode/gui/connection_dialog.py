@@ -91,7 +91,6 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         handler = get_api_version_settings_handler(api_version)
         box_name = "api_specific_gb"
         previous_box = self.findChild(QtWidgets.QGroupBox, name=box_name)
-        log(f"previous_box: {previous_box}")
         if previous_box is not None:
             previous_box.deleteLater()
         if handler is not None:

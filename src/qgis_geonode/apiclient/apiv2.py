@@ -22,6 +22,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
     _api_path: str = "/api/v2"
 
     capabilities = [
+        models.ApiClientCapability.SEARCH_DATASETS,
         models.ApiClientCapability.FILTER_BY_NAME,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         models.ApiClientCapability.FILTER_BY_KEYWORD,
@@ -29,6 +30,8 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
         models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
         models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
     ]
 
     @property

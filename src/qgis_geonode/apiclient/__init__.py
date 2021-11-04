@@ -10,6 +10,8 @@ from . import (
 class GeonodeApiVersion(enum.IntEnum):
     OGC_CSW = 1
     V2 = 2
+    PRE_V2 = 3
+    POST_V2 = 4
 
 
 def get_geonode_client(

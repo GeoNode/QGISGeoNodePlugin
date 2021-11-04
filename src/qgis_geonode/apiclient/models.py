@@ -25,6 +25,11 @@ class ApiClientCapability(enum.Enum):
     FILTER_BY_SPATIAL_EXTENT = enum.auto()
     MODIFY_LAYER_METADATA = enum.auto()
     MODIFY_LAYER_STYLE = enum.auto()
+    SEARCH_DATASETS = enum.auto()
+    LOAD_VECTOR_DATASET_VIA_WMS = enum.auto()
+    LOAD_VECTOR_DATASET_VIA_WFS = enum.auto()
+    LOAD_RASTER_DATASET_VIA_WMS = enum.auto()
+    LOAD_RASTER_DATASET_VIA_WCS = enum.auto()
 
 
 class GeonodeService(enum.Enum):

@@ -145,9 +145,11 @@ class BaseGeonodeClient(QtCore.QObject):
                 f"Couldn't find any keywords in {self.base_url}"
             )
 
+    # TODO: rename this to get_datasets
     def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
     ):
+        """Initiate a search for remote GeoNode datasets"""
         params = (
             search_params if search_params is not None else GeonodeApiSearchParameters()
         )

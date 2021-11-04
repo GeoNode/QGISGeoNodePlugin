@@ -1,5 +1,6 @@
 import contextlib
 import dataclasses
+import json
 import logging
 import typing
 import uuid
@@ -148,6 +149,19 @@ class ConnectionSettings:
             auth_config=reported_auth_cfg,
         )
 
+    def to_json(self):
+        return json.dumps(
+            {
+                "id": str(self.id),
+                "name": self.name,
+                "base_url": self.base_url,
+                "api_version": self.api_version,
+                "api_version_settings": self.api_version_settings.to_qgs_settings(),
+                "page_size": self.page_size,
+                "auth_config": self.auth_config,
+            }
+        )
+
 
 class SettingsManager(QtCore.QObject):
     """Manage saving/loading settings for the plugin in QgsSettings"""
@@ -224,7 +238,7 @@ class SettingsManager(QtCore.QObject):
         with qgis_settings(f"{self.BASE_GROUP_NAME}/connections") as settings:
             settings.remove(str(connection_id))
 
-    def get_current_connection(self) -> typing.Optional[ConnectionSettings]:
+    def get_current_connection_settings(self) -> typing.Optional[ConnectionSettings]:
         with qgis_settings(self.BASE_GROUP_NAME) as settings:
             current = settings.value(self.SELECTED_CONNECTION_KEY)
         if current is not None:
@@ -247,7 +261,7 @@ class SettingsManager(QtCore.QObject):
         self.current_connection_changed.emit("")
 
     def is_current_connection(self, connection_id: uuid.UUID):
-        current = self.get_current_connection()
+        current = self.get_current_connection_settings()
         return False if current is None else current.id == connection_id
 
     def _get_connection_settings_base(self, identifier: typing.Union[str, uuid.UUID]):
