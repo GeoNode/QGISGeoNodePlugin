@@ -1,30 +1,31 @@
-import qgis.core
+import typing
+from functools import partial
+from pathlib import Path
+
 import qgis.gui
-from qgis.PyQt import QtGui
+from qgis.PyQt import (
+    QtCore,
+    QtGui,
+    QtWidgets,
+)
+from qgis.PyQt.uic import loadUiType
+from qgis.utils import iface
 
-from ..utils import tr
+from ..apiclient import (
+    base,
+    get_geonode_client,
+    models,
+)
+from ..conf import settings_manager
+from ..gui.connection_dialog import ConnectionDialog
+from ..gui.search_result_widget import SearchResultWidget
+from ..utils import (
+    IsoTopicCategory,
+    log,
+    tr,
+)
 
-from .geonode_data_source_widget import GeonodeDataSourceWidget
-
-
-class GeonodeSourceSelectProvider(qgis.gui.QgsSourceSelectProvider):
-    def createDataSourceWidget(self, parent, fl, widgetMode):
-        return GeonodeDataSourceWidget(parent, fl, widgetMode)
-
-    def providerKey(self):
-        return "geonodeprovider"
-
-    def icon(self):
-        return QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
-
-    def text(self):
-        return tr("GeoNode Plugin Provider")
-
-    def toolTip(self):
-        return tr("Add Geonode Layer")
-
-    def ordering(self):
-        return qgis.gui.QgsSourceSelectProvider.OrderOtherProvider
+WidgetUi, _ = loadUiType(Path(__file__).parent / "../ui/geonode_datasource_widget.ui")
 
 
 class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
@@ -81,7 +82,30 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
+        self.search_btn.setIcon(QtGui.QIcon(":/images/themes/default/search.svg"))
+        self.next_btn.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionAtlasNext.svg")
+        )
+        self.previous_btn.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionAtlasPrev.svg")
+        )
+        self.keyword_tool_btn.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionRefresh.svg")
+        )
+        self.grid_layout = QtWidgets.QGridLayout()
+        self.message_bar = qgis.gui.QgsMessageBar()
+        self.message_bar.setSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
+        self.grid_layout.addWidget(self.scroll_area, 0, 0, 1, 1)
+        self.grid_layout.addWidget(
+            self.message_bar, 0, 0, 1, 1, alignment=QtCore.Qt.AlignTop
+        )
+        self.layout().insertLayout(4, self.grid_layout)
+
         self.project = qgis.core.QgsProject.instance()
+        self.current_page = 1
+        self.total_pages = 1
         # we use these to control enabling/disabling UI controls during searches
         self._connection_controls = [
             self.connections_cmb,
@@ -126,69 +150,30 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.new_connection_btn.clicked.connect(self.add_connection)
         self.edit_connection_btn.clicked.connect(self.edit_connection)
         self.delete_connection_btn.clicked.connect(self.delete_connection)
-        self.connections_cmb.currentIndexChanged.connect(
-            self.toggle_connection_management_buttons
-        )
+        self.connections_cmb.currentIndexChanged.connect(self.activate_connection)
         self.search_started.connect(self.handle_search_start)
         self.search_finished.connect(self.handle_search_end)
 
-        self.connections_cmb.currentIndexChanged.connect(self.reset_search_controls)
-        self.update_connections_combobox()
-        self.toggle_connection_management_buttons()
-        self.connections_cmb.activated.connect(self.update_current_connection)
-
-        if self.connections_cmb.currentIndex() != -1:
-            self.update_current_connection(self.connections_cmb.currentIndex())
-        self.current_page = 1
-        self.total_pages = 1
-        self.search_btn.setIcon(QtGui.QIcon(":/images/themes/default/search.svg"))
-        self.next_btn.setIcon(
-            QtGui.QIcon(":/images/themes/default/mActionAtlasNext.svg")
-        )
-        self.previous_btn.setIcon(
-            QtGui.QIcon(":/images/themes/default/mActionAtlasPrev.svg")
-        )
-        self.keyword_tool_btn.setIcon(
-            QtGui.QIcon(":/images/themes/default/mActionRefresh.svg")
-        )
+        # TODO: these signals should only be connected/disconnected when we update the
+        #  GUI with the capabilities of the API client
         self.search_btn.clicked.connect(
             partial(self.search_geonode, reset_pagination=True)
         )
         self.next_btn.clicked.connect(self.request_next_page)
         self.previous_btn.clicked.connect(self.request_previous_page)
-        self.grid_layout = QtWidgets.QGridLayout()
-        self.message_bar = qgis.gui.QgsMessageBar()
-        self.message_bar.setSizePolicy(
-            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
-        )
-        self.grid_layout.addWidget(self.scroll_area, 0, 0, 1, 1)
-        self.grid_layout.addWidget(
-            self.message_bar, 0, 0, 1, 1, alignment=QtCore.Qt.AlignTop
-        )
-        self.layout().insertLayout(4, self.grid_layout)
-
         self.keyword_tool_btn.clicked.connect(self.search_keywords)
-        self.toggle_search_buttons()
         self.temporal_extent_start_dte.clear()
         self.temporal_extent_end_dte.clear()
         self.publication_start_dte.clear()
         self.publication_end_dte.clear()
+        # this method will call connections_cmb.setCurrentIndex(), which in turn shall emit
+        # connections_cmb.currentIndexChanged, which will cause self.activate_connection to run
+        self.update_connections_combobox()
+        # self.activate_connection(self.connections_cmb.currentIndex())
+        self.toggle_search_buttons()
         self.load_categories()
         self.load_sorting_fields(selected_by_default=models.OrderingType.NAME)
-
-        # ATTENTION: the order of initialization of the self.spatial_extent_box widget
-        # is crucial here. Only call self.spatial_extent_box.setMapCanvas() after
-        # having called self.spatial_extent_box.setOutputExtentFromCurrent()
-        epsg_4326 = qgis.core.QgsCoordinateReferenceSystem("EPSG:4326")
-        self.spatial_extent_box.setOutputCrs(epsg_4326)
-        map_canvas = iface.mapCanvas()
-        current_crs = map_canvas.mapSettings().destinationCrs()
-        self.spatial_extent_box.setCurrentExtent(current_crs.bounds(), current_crs)
-        self.spatial_extent_box.setOutputExtentFromCurrent()
-        self.spatial_extent_box.setMapCanvas(map_canvas)
-
-        self.restore_search_filters()
-
+        self._initialize_spatial_extent_box()
         self.title_le.textChanged.connect(self.save_search_filters)
         self.abstract_le.textChanged.connect(self.save_search_filters)
         self.keyword_cmb.currentIndexChanged.connect(self.save_search_filters)
@@ -201,6 +186,19 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.spatial_extent_box.extentChanged.connect(self.save_search_filters)
         self.sort_field_cmb.currentIndexChanged.connect(self.save_search_filters)
         self.reverse_order_chb.toggled.connect(self.save_search_filters)
+        self.restore_search_filters()
+
+    def _initialize_spatial_extent_box(self):
+        # ATTENTION: the order of initialization of the self.spatial_extent_box widget
+        # is crucial here. Only call self.spatial_extent_box.setMapCanvas() after
+        # having called self.spatial_extent_box.setOutputExtentFromCurrent()
+        epsg_4326 = qgis.core.QgsCoordinateReferenceSystem("EPSG:4326")
+        self.spatial_extent_box.setOutputCrs(epsg_4326)
+        map_canvas = iface.mapCanvas()
+        current_crs = map_canvas.mapSettings().destinationCrs()
+        self.spatial_extent_box.setCurrentExtent(current_crs.bounds(), current_crs)
+        self.spatial_extent_box.setOutputExtentFromCurrent()
+        self.spatial_extent_box.setMapCanvas(map_canvas)
 
     def add_connection(self):
         connection_dialog = ConnectionDialog()
@@ -208,8 +206,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.update_connections_combobox()
 
     def edit_connection(self):
-        selected_name = self.connections_cmb.currentText()
-        connection_settings = settings_manager.find_connection_by_name(selected_name)
+        connection_settings = settings_manager.get_current_connection_settings()
+        # selected_name = self.connections_cmb.currentText()
+        # connection_settings = settings_manager.find_connection_by_name(selected_name)
         connection_dialog = ConnectionDialog(connection_settings=connection_settings)
         connection_dialog.exec_()
         self.update_connections_combobox()
@@ -242,17 +241,46 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.update_connections_combobox()
 
     def update_connections_combobox(self):
-        existing_connections = settings_manager.list_connections()
+        """Populate the connections combobox with existing connection configurations
+
+        Also, set the currently selected combobox item accordingly.
+
+        """
+
         self.connections_cmb.clear()
+        existing_connections = settings_manager.list_connections()
         if len(existing_connections) > 0:
+            # NOTE: self.connections_cmb.addItems() emits the currentIndexChanged
+            # signal with the index of the first element that gets added. This causes
+            # the self.activate_connection() method to run and eventually messes the
+            # current connection settings up. As such, we store the id of the current
+            # connection before adding items to the combo box and then, after having
+            # added them, manually set the current connection back to the original value
+            current_id = settings_manager.get_current_connection_settings().id
             self.connections_cmb.addItems(conn.name for conn in existing_connections)
-            current_connection = settings_manager.get_current_connection()
+            settings_manager.set_current_connection(current_id)
+            current_connection = settings_manager.get_current_connection_settings()
             if current_connection is not None:
                 current_index = self.connections_cmb.findText(current_connection.name)
-                self.connections_cmb.setCurrentIndex(current_index)
-                self.update_api_client(current_connection)
             else:
-                self.connections_cmb.setCurrentIndex(0)
+                current_index = 0
+            self.connections_cmb.setCurrentIndex(current_index)
+
+    def activate_connection(self, index: int):
+        current_text = self.connections_cmb.itemText(index)
+        try:
+            current_connection = settings_manager.find_connection_by_name(current_text)
+        except ValueError:
+            pass
+        else:
+            settings_manager.set_current_connection(current_connection.id)
+            self.api_client = get_geonode_client(current_connection)
+            self.api_client.layer_list_received.connect(self.handle_layer_list)
+            self.api_client.error_received.connect(self.show_search_error)
+            self.update_gui()
+
+        self.toggle_connection_management_buttons()
+        self.reset_search_controls()
 
     def toggle_search_buttons(self, enable: typing.Optional[bool] = None):
         enable_search = False
@@ -266,17 +294,24 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                         enable_previous = self.current_page > 1
                         enable_next = self.current_page < self.total_pages
                         break
-        self.search_btn.setEnabled(enable_search)
+        client_supports_search = (
+            models.ApiClientCapability.SEARCH_DATASETS in self.api_client.capabilities
+            if self.api_client is not None
+            else []
+        )
+        self.search_btn.setEnabled(enable_search and client_supports_search)
         self.previous_btn.setEnabled(enable_previous)
         self.next_btn.setEnabled(enable_next)
 
     def toggle_connection_management_buttons(self):
+        """Enable/disable connection edit and delete buttons."""
         current_name = self.connections_cmb.currentText()
         enabled = current_name != ""
         self.edit_connection_btn.setEnabled(enabled)
         self.delete_connection_btn.setEnabled(enabled)
 
     def reset_search_controls(self):
+        """Reset a previous GeoNode dataset's search results and pagination"""
         self.clear_search_results()
         self.current_page = 1
         self.total_pages = 1
@@ -284,27 +319,52 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def update_current_connection(self, current_index: int):
         current_text = self.connections_cmb.itemText(current_index)
-        current_connection = settings_manager.find_connection_by_name(current_text)
-        settings_manager.set_current_connection(current_connection.id)
-        log(f"setting self.api_client to {current_connection.name!r}...")
-        self.update_api_client(current_connection)
-        self.update_usable_search_filters()
+        try:
+            current_connection = settings_manager.find_connection_by_name(current_text)
+        except ValueError:
+            pass
+        else:
+            settings_manager.set_current_connection(current_connection.id)
+            self.api_client = get_geonode_client(current_connection)
+            self.api_client.layer_list_received.connect(self.handle_layer_list)
+            self.api_client.error_received.connect(self.show_search_error)
+            self.update_gui()
 
-    def update_api_client(self, connection):
-        self.api_client = get_geonode_client(connection)
-        self.api_client.layer_list_received.connect(self.handle_layer_list)
-        self.api_client.error_received.connect(self.show_search_error)
+    def update_gui(self):
+        """Update our UI based on the capabilities of the current API client"""
+        usable_search_controls = self._get_usable_search_controls()
+        unusable_search_controls = [
+            i for i in self._search_controls if i not in usable_search_controls
+        ]
+        for search_widget in usable_search_controls:
+            search_widget.setEnabled(True)
+        for search_widget in unusable_search_controls:
+            search_widget.setEnabled(False)
+        self._usable_search_filters = self._get_usable_search_filters()
+        self._unusable_search_filters = [
+            i for i in self._search_filters if i not in self._usable_search_filters
+        ]
+        for usable_search_widget in self._usable_search_filters:
+            usable_search_widget.setEnabled(True)
+        for unusable_search_widget in self._unusable_search_filters:
+            unusable_search_widget.setEnabled(False)
 
-    def update_usable_search_filters(self):
-        """Toggle search filter widgets based on API client supporting them or not"""
+    def _get_usable_search_controls(self) -> typing.List:
         capabilities = self.api_client.capabilities if self.api_client else []
-        self._usable_search_filters = []
+        result = []
+        if models.ApiClientCapability.SEARCH_DATASETS in capabilities:
+            result = self._search_controls[:]
+        return result
+
+    def _get_usable_search_filters(self) -> typing.List:
+        capabilities = self.api_client.capabilities if self.api_client else []
+        result = []
         if models.ApiClientCapability.FILTER_BY_NAME in capabilities:
-            self._usable_search_filters.extend((self.title_la, self.title_le))
+            result.extend((self.title_la, self.title_le))
         if models.ApiClientCapability.FILTER_BY_ABSTRACT in capabilities:
-            self._usable_search_filters.extend((self.abstract_la, self.abstract_le))
+            result.extend((self.abstract_la, self.abstract_le))
         if models.ApiClientCapability.FILTER_BY_KEYWORD in capabilities:
-            self._usable_search_filters.extend(
+            result.extend(
                 (
                     self.keyword_la,
                     self.keyword_cmb,
@@ -312,9 +372,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 )
             )
         if models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY in capabilities:
-            self._usable_search_filters.extend((self.category_la, self.category_cmb))
+            result.extend((self.category_la, self.category_cmb))
         if models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES in capabilities:
-            self._usable_search_filters.extend(
+            result.extend(
                 (
                     self.resource_types_la,
                     self.vector_chb,
@@ -323,18 +383,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 )
             )
         if models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT in capabilities:
-            self._usable_search_filters.append(self.temporal_extent_box)
+            result.append(self.temporal_extent_box)
         if models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE in capabilities:
-            self._usable_search_filters.append(self.publication_date_box)
+            result.append(self.publication_date_box)
         if models.ApiClientCapability.FILTER_BY_SPATIAL_EXTENT in capabilities:
-            self._usable_search_filters.append(self.spatial_extent_box)
-        self._unusable_search_filters = [
-            i for i in self._search_filters if i not in self._usable_search_filters
-        ]
-        for usable_search_widget in self._usable_search_filters:
-            usable_search_widget.setEnabled(True)
-        for unusable_search_widget in self._unusable_search_filters:
-            unusable_search_widget.setEnabled(False)
+            result.append(self.spatial_extent_box)
+        return result
 
     def _confirm_deletion(self, connection_name: str):
         message = tr('Remove the following connection "{}"?').format(connection_name)
@@ -373,17 +427,13 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         connection_name = self.connections_cmb.currentText()
         connection_settings = settings_manager.find_connection_by_name(connection_name)
         resource_types = []
-        search_vector = self.vector_chb.isChecked()
-        search_raster = self.raster_chb.isChecked()
-        search_map = self.map_chb.isChecked()
-        spatial_extent_epsg4326 = self.spatial_extent_box.outputExtent()
-        if any((search_vector, search_raster, search_map)):
-            if search_vector:
-                resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
-            if search_raster:
-                resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
-            if search_map:
-                resource_types.append(models.GeonodeResourceType.MAP)
+        if self.vector_chb.isChecked():
+            resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
+        if self.raster_chb.isChecked():
+            resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
+        if self.map_chb.isChecked():
+            resource_types.append(models.GeonodeResourceType.MAP)
+        if len(resource_types) > 0:
             if reset_pagination:
                 self.current_page = 1
                 self.total_pages = 1
@@ -392,7 +442,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             pub_start = self.publication_start_dte.dateTime()
             pub_end = self.publication_end_dte.dateTime()
             self.api_client.get_layers(
-                qgis_geonode.apiclient.models.GeonodeApiSearchParameters(
+                models.GeonodeApiSearchParameters(
                     page=self.current_page,
                     page_size=connection_settings.page_size,
                     title=self.title_le.text() or None,
@@ -412,7 +462,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                     if not pub_start.isNull()
                     else None,
                     publication_date_end=pub_end if not pub_end.isNull() else None,
-                    spatial_extent=spatial_extent_epsg4326,
+                    spatial_extent=self.spatial_extent_box.outputExtent(),
                 )
             )
 
@@ -452,6 +502,14 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         layer_list: typing.List[models.BriefGeonodeResource],
         pagination_info: models.GeoNodePaginationInfo,
     ):
+        """Handle incoming dataset list
+
+        This method is called when the api client emits the `layer_list_received`
+        signal. It expects to receive a list of brief dataset descriptions, as found
+        on the remote GeoNode server.
+
+        """
+
         self.handle_pagination(pagination_info)
         if len(layer_list) > 0:
             scroll_container = QtWidgets.QWidget()
