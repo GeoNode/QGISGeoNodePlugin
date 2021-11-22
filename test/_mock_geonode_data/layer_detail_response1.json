@@ -1,11 +1,11 @@
 {
-	"layer": {
+	"dataset": {
 		"pk": "184",
 		"uuid": "818898b8-5c1a-11eb-b604-0242ac150007",
 		"name": "TEMPERATURASMINENERO2030",
 		"workspace": "geonode",
 		"store": "TEMPERATURASMINENERO2030",
-		"storeType": "coverageStore",
+		"subtype": "raster",
 		"charset": "UTF-8",
 		"is_mosaic": false,
 		"has_time": false,
