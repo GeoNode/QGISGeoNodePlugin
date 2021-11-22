@@ -19,7 +19,6 @@ from . import base
 
 
 class GeonodeApiV2Client(base.BaseGeonodeClient):
-    _api_path: str = "/api/v2"
 
     capabilities = [
         models.ApiClientCapability.SEARCH_DATASETS,
@@ -36,7 +35,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     @property
     def api_url(self):
-        return f"{self.base_url}{self._api_path}"
+        return f"{self.base_url}/api/v2"
 
     def get_ordering_filter_name(
         self,

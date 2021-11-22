@@ -73,6 +73,27 @@ class BriefGeonodeStyle:
         self.sld_url = sld_url
 
 
+@dataclasses.dataclass()
+class BriefDataset:
+    pk: int
+    uuid: UUID
+    name: str
+    dataset_sub_type: GeonodeResourceType
+    title: str
+    abstract: str
+    published_date: typing.Optional[dt.datetime]
+    spatial_extent: QgsRectangle
+    temporal_extent: typing.Optional[typing.List[dt.datetime]]
+    srid: QgsCoordinateReferenceSystem
+    thumbnail_url: str
+    link: str
+    detail_url: str
+    keywords: typing.List[str]
+    category: typing.Optional[str]
+    service_urls: typing.Dict[GeonodeService, str]
+
+
+# TODO: Remove this in favor of BriefDataset
 class BriefGeonodeResource:
     pk: typing.Optional[int]
     uuid: UUID
@@ -162,7 +183,6 @@ class GeonodeResource(BriefGeonodeResource):
 @dataclasses.dataclass
 class GeonodeApiSearchParameters:
     page: typing.Optional[int] = 1
-    page_size: typing.Optional[int] = 10
     title: typing.Optional[str] = None
     abstract: typing.Optional[str] = None
     selected_keyword: typing.Optional[str] = None

@@ -1,7 +1,5 @@
-import dataclasses
 import typing
 import uuid
-from contextlib import contextmanager
 from functools import partial
 
 import qgis.core
@@ -12,10 +10,9 @@ from qgis.PyQt import (
 )
 
 from ..utils import (
-    ParsedNetworkReply,
     log,
-    parse_network_reply,
 )
+from .. import network
 from . import models
 from .models import GeonodeApiSearchParameters
 
@@ -23,11 +20,20 @@ from .models import GeonodeApiSearchParameters
 class BaseGeonodeClient(QtCore.QObject):
     auth_config: str
     base_url: str
-    network_fetcher_task: typing.Optional["NetworkFetcherTask"]
+    network_fetcher_task: typing.Optional[network.NetworkFetcherTask]
     capabilities: typing.List[models.ApiClientCapability]
+    page_size: int
 
+    # TODO: remove this signal
     layer_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
+
+    dataset_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
+
+    # TODO: remove this signal
     layer_detail_received = QtCore.pyqtSignal(models.GeonodeResource)
+
+    dataset_detail_received = QtCore.pyqtSignal(models.GeonodeResource)
+
     style_detail_received = QtCore.pyqtSignal(QtXml.QDomElement)
     layer_styles_received = QtCore.pyqtSignal(list)
     map_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
@@ -35,17 +41,22 @@ class BaseGeonodeClient(QtCore.QObject):
     error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(
-        self, base_url: str, *args, auth_config: typing.Optional[str] = None, **kwargs
+        self,
+        base_url: str,
+        page_size: int,
+        auth_config: typing.Optional[str] = None,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__()
         self.auth_config = auth_config or ""
         self.base_url = base_url.rstrip("/")
+        self.page_size = page_size
         self.network_fetcher_task = None
 
     @classmethod
     def from_connection_settings(cls, connection_settings: "ConnectionSettings"):
         return cls(
             base_url=connection_settings.base_url,
+            page_size=connection_settings.page_size,
             auth_config=connection_settings.auth_config,
         )
 
@@ -145,7 +156,10 @@ class BaseGeonodeClient(QtCore.QObject):
                 f"Couldn't find any keywords in {self.base_url}"
             )
 
-    # TODO: rename this to get_datasets
+    def get_datasets(self, search_params: GeonodeApiSearchParameters):
+        raise NotImplementedError
+
+    # TODO: Delete this
     def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
     ):
@@ -153,7 +167,7 @@ class BaseGeonodeClient(QtCore.QObject):
         params = (
             search_params if search_params is not None else GeonodeApiSearchParameters()
         )
-        self.network_fetcher_task = NetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkFetcherTask(
             self,
             QtNetwork.QNetworkRequest(self.get_layers_url_endpoint(params)),
             request_payload=self.get_layers_request_payload(params),
@@ -170,7 +184,7 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
-        self.network_fetcher_task = NetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkFetcherTask(
             self,
             QtNetwork.QNetworkRequest(self.get_layer_detail_url_endpoint(id_)),
             authcfg=self.auth_config,
@@ -182,7 +196,7 @@ class BaseGeonodeClient(QtCore.QObject):
         request = QtNetwork.QNetworkRequest(
             self.get_layer_styles_url_endpoint(layer_id)
         )
-        self.network_fetcher_task = NetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkFetcherTask(
             self, request, authcfg=self.auth_config
         )
         self.network_fetcher_task.request_finished.connect(self.handle_layer_style_list)
@@ -196,7 +210,7 @@ class BaseGeonodeClient(QtCore.QObject):
         else:
             style_details = [i for i in layer.styles if i.name == style_name][0]
             style_url = style_details.sld_url
-        self.network_fetcher_task = NetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkFetcherTask(
             self,
             QtNetwork.QNetworkRequest(QtCore.QUrl(style_url)),
             authcfg=self.auth_config,
@@ -210,7 +224,7 @@ class BaseGeonodeClient(QtCore.QObject):
         url = self.get_maps_url_endpoint(search_params)
         request_payload = self.get_maps_request_payload(search_params)
         log(f"URL: {url.toString()}")
-        self.network_fetcher_task = NetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkFetcherTask(
             self,
             QtNetwork.QNetworkRequest(url),
             request_payload=request_payload,
@@ -223,161 +237,10 @@ class BaseGeonodeClient(QtCore.QObject):
 
     def get_keywords(self):
         url = self.get_keywords_url_endpoint()
-        self.network_fetcher_task = NetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkFetcherTask(
             self,
             QtNetwork.QNetworkRequest(url),
             authcfg=self.auth_config,
         )
         self.network_fetcher_task.request_finished.connect(self.handle_keyword_list)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
-
-class NetworkFetcherTask(qgis.core.QgsTask):
-    api_client: BaseGeonodeClient
-    authcfg: typing.Optional[str]
-    description: str
-    request: QtNetwork.QNetworkRequest
-    request_payload: typing.Optional[str]
-    reply_content: typing.Optional[QtCore.QByteArray]
-    parsed_reply: typing.Optional[ParsedNetworkReply]
-    redirect_policy: QtNetwork.QNetworkRequest.RedirectPolicy
-    _reply: typing.Optional[QtNetwork.QNetworkReply]
-
-    request_finished = QtCore.pyqtSignal()
-    request_parsed = QtCore.pyqtSignal()
-
-    def __init__(
-        self,
-        api_client: BaseGeonodeClient,
-        request: QtNetwork.QNetworkRequest,
-        request_payload: typing.Optional[str] = None,
-        authcfg: typing.Optional[str] = None,
-        description: typing.Optional[str] = "MyNetworkfetcherTask",
-        redirect_policy: typing.Optional[QtNetwork.QNetworkRequest.RedirectPolicy] = (
-            QtNetwork.QNetworkRequest.NoLessSafeRedirectPolicy
-        ),
-    ):
-        """
-        Custom QgsTask that performs network requests
-
-        This class is able to perform both GET and POST HTTP requests.
-
-        It is needed because:
-
-        - QgsNetworkContentFetcherTask only performs GET requests
-        - QgsNetworkAcessManager.blockingPost() does not seem to handle redirects
-          correctly
-
-        Implementation is based on QgsNetworkContentFetcher. The run() method performs
-        a normal async request using QtNetworkAccessManager's get() or post() methods.
-        The resulting QNetworkReply instance has its `finished` signal be connected to
-        a custom handler. The request is executed in scope of a custom Qt event loop,
-        which blocks the current thread while the request is being processed.
-
-        """
-
-        super().__init__(description)
-        self.api_client = api_client
-        self.authcfg = authcfg
-        self.request = request
-        self.request_payload = request_payload
-        self.reply_content = None
-        self.parsed_reply = None
-        self.redirect_policy = redirect_policy
-        self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        self.network_access_manager.setRedirectPolicy(self.redirect_policy)
-        self.network_access_manager.finished.connect(self._request_done)
-        self._reply = None
-
-    def run(self):
-        if self.authcfg is not None:
-            auth_manager = qgis.core.QgsApplication.authManager()
-            auth_manager.updateNetworkRequest(self.request, self.authcfg)
-        with wait_for_signal(self.request_parsed) as loop_result:
-            if self.request_payload is None:
-                self._reply = self.network_access_manager.get(self.request)
-            else:
-                self._reply = self.network_access_manager.post(
-                    self.request,
-                    QtCore.QByteArray(self.request_payload.encode("utf-8")),
-                )
-        try:
-            if loop_result.result:
-                result = self.parsed_reply.qt_error is None
-            else:
-                result = False
-            self._reply.deleteLater()
-            self._reply = None
-        except AttributeError:
-            result = False
-        return result
-
-    def finished(self, result: bool):
-        self.network_access_manager.finished.disconnect(self._request_done)
-        log(f"Inside finished. Result: {result}")
-        self.request_finished.emit()
-        if not result:
-            if self.parsed_reply is not None:
-                self.api_client.error_received[str, int, str].emit(
-                    self.parsed_reply.qt_error,
-                    self.parsed_reply.http_status_code,
-                    self.parsed_reply.http_status_reason,
-                )
-            else:
-                self.api_client.error_received.emit("Problem parsing network reply")
-
-    def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
-        log(f"requested_url: {qgis_reply.request().url().toString()}")
-        if self._reply is None:
-            log(
-                "Some other request was completed, probably authentication, "
-                "ignoring..."
-            )
-        elif reply_matches(qgis_reply, self._reply):
-            self.reply_content = self._reply.readAll()
-            self.parsed_reply = parse_network_reply(qgis_reply)
-            log(f"http_status_code: {self.parsed_reply.http_status_code}")
-            log(f"qt_error: {self.parsed_reply.qt_error}")
-            self.request_parsed.emit()
-        else:
-            log(f"qgis_reply did not match the original reply id, ignoring...")
-
-
-@dataclasses.dataclass()
-class EventLoopResult:
-    result: typing.Optional[bool]
-
-
-@contextmanager
-def wait_for_signal(
-    signal, timeout: int = 10000
-) -> typing.ContextManager[EventLoopResult]:
-    """Fire up a custom event loop and wait for the input signal to be emitted
-
-    This function allows running QT async code in a blocking fashion. It works by
-    spawning a Qt event loop. This custom loop has its `quit()` slot bound to the
-    input `signal`. The event loop is `exec_`'ed, thus blocking the current
-    thread until the the input `signal` is emitted.
-
-    """
-
-    loop = QtCore.QEventLoop()
-    signal.connect(loop.quit)
-    loop_result = EventLoopResult(result=None)
-    yield loop_result
-    QtCore.QTimer.singleShot(timeout, partial(_forcibly_terminate_loop, loop))
-    log(f"About to start custom event loop...")
-    loop_result.result = not bool(loop.exec_())
-    log(f"Custom event loop ended, resuming...")
-
-
-def _forcibly_terminate_loop(loop: QtCore.QEventLoop):
-    log("Forcibly ending event loop...")
-    loop.exit(1)
-
-
-def reply_matches(
-    qgis_reply: qgis.core.QgsNetworkReplyContent, qt_reply: QtNetwork.QNetworkReply
-) -> bool:
-    reply_id = int(qt_reply.property("requestId"))
-    return qgis_reply.requestId() == reply_id

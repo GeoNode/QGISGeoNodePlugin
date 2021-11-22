@@ -22,8 +22,8 @@ from . import base
 from .base import wait_for_signal
 from ..utils import (
     log,
-    parse_network_reply,
 )
+from ..network import parse_network_reply
 
 
 @dataclasses.dataclass()
