@@ -52,7 +52,11 @@ class GeoNodePaginationInfo:
 
     @property
     def total_pages(self):
-        return math.ceil(self.total_records / self.page_size)
+        try:
+            result = math.ceil(self.total_records / self.page_size)
+        except ZeroDivisionError:
+            result = 1
+        return result
 
 
 class BriefGeonodeStyle:

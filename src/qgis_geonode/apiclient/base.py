@@ -316,7 +316,7 @@ class NetworkFetcherTask(qgis.core.QgsTask):
         self.request_finished.emit()
         if not result:
             if self.parsed_reply is not None:
-                self.api_client.error_received.emit(
+                self.api_client.error_received[str, int, str].emit(
                     self.parsed_reply.qt_error,
                     self.parsed_reply.http_status_code,
                     self.parsed_reply.http_status_reason,
