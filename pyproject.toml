@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qgis_geonode"
-version = "0.3.2-dev"
+version = "0.3.3"
 description = "A QGIS plugin for integrating with GeoNode"
 authors = ["Kartoza <info@kartoza.com>"]
 license = "GPL-3.0-or-later"

@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2021-11-22
+
+### Fixed
+
+- This release is functionally equivalent to v0.3.2
+
+
+## [0.3.2] - 2021-11-22 - [YANKED]
+
+### Changed
+- Introduce compatibility with the latest developments of upstream GeoNode API
+
+
 ## [0.3.1] - 2021-05-07
 
 ### Added
@@ -104,7 +117,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.1...main
+[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.3...main
+[0.3.3]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.3...main
+[0.3.2]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.2...main
 [0.3.1]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.1...main
 [0.3.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.0...main
 [0.2.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.2.0...main
