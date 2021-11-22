@@ -13,11 +13,9 @@ geonode_flask_app.logger.removeHandler(flask.logging.default_handler)
 ROOT = Path(__file__).parent / "_mock_geonode_data"
 
 
-@geonode_flask_app.route("/api/v2/layers/")
+@geonode_flask_app.route("/api/v2/datasets/")
 def _mock_layer_list():
-    query_string = urllib.parse.unquote(
-        request.query_string.decode("utf-8")
-    )
+    query_string = urllib.parse.unquote(request.query_string.decode("utf-8"))
     if "filter" in query_string:
         pattern = re.compile("filter(.*)")
         match = pattern.search(query_string)
@@ -34,7 +32,7 @@ def _mock_layer_list():
         return result
 
 
-@geonode_flask_app.route("/api/v2/layers/<pk>/")
+@geonode_flask_app.route("/api/v2/datasets/<pk>/")
 def _mock_layer_details(pk):
     data_path = ROOT / "layer_detail_response1.json"
     with data_path.open() as fh:
@@ -42,7 +40,7 @@ def _mock_layer_details(pk):
         return result
 
 
-@geonode_flask_app.route("/api/v2/layers/<layer_id>/styles/")
+@geonode_flask_app.route("/api/v2/datasets/<layer_id>/styles/")
 def _mock_layer_styles(layer_id):
     data_path = ROOT / "layer_style_list_response1.json"
     with data_path.open() as fh:
@@ -52,9 +50,7 @@ def _mock_layer_styles(layer_id):
 
 @geonode_flask_app.route("/api/v2/maps/")
 def _mock_map_list():
-    query_string = urllib.parse.unquote(
-        request.query_string.decode("utf-8")
-    )
+    query_string = urllib.parse.unquote(request.query_string.decode("utf-8"))
     if "filter" in query_string:
         pattern = re.compile("filter(.*)")
         match = pattern.search(query_string)
