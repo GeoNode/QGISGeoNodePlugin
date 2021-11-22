@@ -53,7 +53,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
     def get_layers_url_endpoint(
         self, search_params: models.GeonodeApiSearchParameters
     ) -> QtCore.QUrl:
-        url = QtCore.QUrl(f"{self.api_url}/layers/")
+        url = QtCore.QUrl(f"{self.api_url}/datasets/")
         query = self._build_search_query(search_params)
         url.setQuery(query.query())
         return url
@@ -117,9 +117,9 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         if is_vector and is_raster:
             pass
         elif is_vector:
-            query.addQueryItem("filter{storeType}", "dataStore")
+            query.addQueryItem("filter{subtype}", "vector")
         elif is_raster:
-            query.addQueryItem("filter{storeType}", "coverageStore")
+            query.addQueryItem("filter{subtype}", "raster")
         else:
             raise NotImplementedError
         if search_params.ordering_field is not None:
@@ -131,10 +131,10 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         return query
 
     def get_layer_detail_url_endpoint(self, id_: int) -> QtCore.QUrl:
-        return QtCore.QUrl(f"{self.api_url}/layers/{id_}/")
+        return QtCore.QUrl(f"{self.api_url}/datasets/{id_}/")
 
     def get_layer_styles_url_endpoint(self, layer_id: int):
-        return QtCore.QUrl(f"{self.api_url}/layers/{layer_id}/styles/")
+        return QtCore.QUrl(f"{self.api_url}/datasets/{layer_id}/styles/")
 
     def get_maps_url_endpoint(
         self,
@@ -150,14 +150,16 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
     ):
         self.get_layer_detail(brief_resource.pk)
 
-    def deserialize_response_contents(self, contents: QtCore.QByteArray) -> typing.Dict:
+    def deserialize_response_contents(
+        self, contents: QtCore.QByteArray
+    ) -> typing.Optional[typing.Union[typing.List, typing.Dict]]:
         decoded_contents: str = contents.data().decode()
         try:
             contents = json.loads(decoded_contents)
         except json.JSONDecodeError as exc:
             log(f"decoded_contents: {decoded_contents}")
             log(exc, debug=False)
-            contents = {}
+            contents = None
         return contents
 
     #
@@ -192,30 +194,36 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             self.network_fetcher_task.reply_content
         )
         layers = []
-        for item in deserialized.get("layers", []):
-            try:
-                brief_resource = get_brief_geonode_resource(
-                    item, self.base_url, self.auth_config
-                )
-            except ValueError:
-                log(f"Could not parse {item!r} into a valid item")
-            else:
-                layers.append(brief_resource)
-        pagination_info = models.GeoNodePaginationInfo(
-            total_records=deserialized.get("total") or 0,
-            current_page=deserialized.get("page") or 1,
-            page_size=deserialized.get("page_size") or 0,
-        )
+        if deserialized is not None:
+            for item in deserialized.get("datasets", []):
+                try:
+                    brief_resource = get_brief_geonode_resource(
+                        item, self.base_url, self.auth_config
+                    )
+                except ValueError:
+                    log(f"Could not parse {item!r} into a valid item")
+                else:
+                    layers.append(brief_resource)
+            pagination_info = models.GeoNodePaginationInfo(
+                total_records=deserialized.get("total") or 0,
+                current_page=deserialized.get("page") or 1,
+                page_size=deserialized.get("page_size") or 0,
+            )
+        else:
+            pagination_info = models.GeoNodePaginationInfo(
+                total_records=0, current_page=1, page_size=0
+            )
         self.layer_list_received.emit(layers, pagination_info)
 
     def handle_layer_detail(self):
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content
         )
-        layer = get_geonode_resource(
-            deserialized["layer"], self.base_url, self.auth_config
-        )
-        self.layer_detail_received.emit(layer)
+        if deserialized is not None:
+            layer = get_geonode_resource(
+                deserialized["dataset"], self.base_url, self.auth_config
+            )
+            self.layer_detail_received.emit(layer)
 
     def handle_layer_style_list(self):
         deserialized = self.deserialize_response_contents(
@@ -321,8 +329,10 @@ def _get_common_model_fields(
         "spatial_extent": _get_spatial_extent(deserialized_resource["bbox_polygon"]),
         "crs": QgsCoordinateReferenceSystem(deserialized_resource["srid"]),
         "thumbnail_url": deserialized_resource["thumbnail_url"],
-        "api_url": (f"{geonode_base_url}/api/v2/layers/{deserialized_resource['pk']}"),
-        "gui_url": f"{geonode_base_url}{deserialized_resource['detail_url']}",
+        "api_url": (
+            f"{geonode_base_url}/api/v2/datasets/{deserialized_resource['pk']}"
+        ),
+        "gui_url": deserialized_resource["detail_url"],
         "published_date": _get_published_date(deserialized_resource),
         "temporal_extent": _get_temporal_extent(deserialized_resource),
         "keywords": [k["name"] for k in deserialized_resource.get("keywords", [])],
@@ -346,14 +356,14 @@ def get_brief_geonode_style(deserialized_style: typing.Dict, geonode_base_url: s
 def _get_resource_type(
     payload: typing.Dict,
 ) -> typing.Optional[models.GeonodeResourceType]:
-    resource_type = payload["resource_type"]
+    resource_type = payload.get("resource_type")
     if resource_type == "map":
         result = models.GeonodeResourceType.MAP
-    elif resource_type == "layer":
+    elif resource_type == "dataset":
         result = {
-            "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
-            "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
-        }.get(payload.get("storeType"))
+            "raster": models.GeonodeResourceType.RASTER_LAYER,
+            "vector": models.GeonodeResourceType.VECTOR_LAYER,
+        }.get(payload.get("subtype"))
     else:
         result = None
     return result
