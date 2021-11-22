@@ -41,9 +41,9 @@ class IsoTopicCategory(enum.Enum):
     IMAGERY_BASE_MAPS_EARTH_COVER = "Imagery Base Maps Earth Cover"
 
 
-def log(message: str, name: str = "qgis_geonode", debug: bool = True):
+def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):
     level = Qgis.Info if debug else Qgis.Warning
-    QgsMessageLog.logMessage(message, name, level=level)
+    QgsMessageLog.logMessage(str(message), name, level=level)
 
 
 def tr(text):

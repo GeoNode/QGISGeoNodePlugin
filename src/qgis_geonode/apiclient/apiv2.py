@@ -152,7 +152,13 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> typing.Dict:
         decoded_contents: str = contents.data().decode()
-        return json.loads(decoded_contents)
+        try:
+            contents = json.loads(decoded_contents)
+        except json.JSONDecodeError as exc:
+            log(f"decoded_contents: {decoded_contents}")
+            log(exc, debug=False)
+            contents = {}
+        return contents
 
     #
     # def old_handle_layer_list(
@@ -196,9 +202,9 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             else:
                 layers.append(brief_resource)
         pagination_info = models.GeoNodePaginationInfo(
-            total_records=deserialized["total"],
-            current_page=deserialized["page"],
-            page_size=deserialized["page_size"],
+            total_records=deserialized.get("total") or 0,
+            current_page=deserialized.get("page") or 1,
+            page_size=deserialized.get("page_size") or 0,
         )
         self.layer_list_received.emit(layers, pagination_info)
 
