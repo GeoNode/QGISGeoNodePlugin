@@ -25,18 +25,18 @@ class BaseGeonodeClient(QtCore.QObject):
     page_size: int
 
     # TODO: remove this signal
-    layer_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
+    layer_list_received = QtCore.pyqtSignal(list, models.GeonodePaginationInfo)
 
-    dataset_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
+    dataset_list_received = QtCore.pyqtSignal(list, models.GeonodePaginationInfo)
 
     # TODO: remove this signal
     layer_detail_received = QtCore.pyqtSignal(models.GeonodeResource)
 
-    dataset_detail_received = QtCore.pyqtSignal(models.GeonodeResource)
+    dataset_detail_received = QtCore.pyqtSignal(object)
 
     style_detail_received = QtCore.pyqtSignal(QtXml.QDomElement)
     layer_styles_received = QtCore.pyqtSignal(list)
-    map_list_received = QtCore.pyqtSignal(list, models.GeoNodePaginationInfo)
+    map_list_received = QtCore.pyqtSignal(list, models.GeonodePaginationInfo)
     keyword_list_received = QtCore.pyqtSignal(list)
     error_received = QtCore.pyqtSignal([str], [str, int, str])
 
@@ -116,9 +116,11 @@ class BaseGeonodeClient(QtCore.QObject):
             raise RuntimeError("Could not load downloaded SLD document")
         return sld_doc
 
+    # TODO: remove this in favor of handle_dataset_list
     def handle_layer_list(self, original_search_params: GeonodeApiSearchParameters):
         raise NotImplementedError
 
+    # TODO: remove this in favor of handle_dataset_detail
     def handle_layer_detail(self):
         raise NotImplementedError
 
@@ -159,7 +161,15 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_datasets(self, search_params: GeonodeApiSearchParameters):
         raise NotImplementedError
 
-    # TODO: Delete this
+    def get_dataset_list(self, search_params: GeonodeApiSearchParameters):
+        self.network_fetcher_task = network.MultipleNetworkFetcherTask(
+            [network.RequestToPerform(url=self.get_dataset_list_url(search_params))],
+            self.auth_config,
+        )
+        self.network_fetcher_task.all_finished.connect(self.handle_dataset_list)
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+
+    # TODO: Delete this in favor of get_dataset_list
     def get_layers(
         self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
     ):
@@ -178,11 +188,13 @@ class BaseGeonodeClient(QtCore.QObject):
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
+    # TODO: delete this in favor of get_dataset_detail
     def get_layer_detail_from_brief_resource(
         self, brief_resource: models.BriefGeonodeResource
     ):
         raise NotImplementedError
 
+    # TODO: delete this in favor of get_dataset_detail
     def get_layer_detail(self, id_: typing.Union[int, uuid.UUID]):
         self.network_fetcher_task = network.NetworkFetcherTask(
             self,
@@ -190,6 +202,22 @@ class BaseGeonodeClient(QtCore.QObject):
             authcfg=self.auth_config,
         )
         self.network_fetcher_task.request_finished.connect(self.handle_layer_detail)
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+
+    def get_dataset_detail(self, brief_dataset: models.BriefDataset):
+        requests_to_perform = [
+            network.RequestToPerform(url=self.get_dataset_detail_url(brief_dataset.pk))
+        ]
+        if brief_dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER:
+            sld_url = QtCore.QUrl(brief_dataset.default_style.sld_url)
+            requests_to_perform.append(network.RequestToPerform(url=sld_url))
+
+        self.network_fetcher_task = network.MultipleNetworkFetcherTask(
+            requests_to_perform, self.auth_config
+        )
+        self.network_fetcher_task.all_finished.connect(
+            partial(self.handle_dataset_detail, brief_dataset)
+        )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def get_layer_styles(self, layer_id: int):

@@ -146,7 +146,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
         self.resource_types_btngrp.buttonClicked.connect(self.toggle_search_buttons)
         self.new_connection_btn.clicked.connect(
-            partial(self.spawn_connection_config_dialog(True))
+            partial(self.spawn_connection_config_dialog, True)
         )
         self.edit_connection_btn.clicked.connect(self.spawn_connection_config_dialog)
         self.delete_connection_btn.clicked.connect(self.delete_connection_configuration)
@@ -491,7 +491,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     def handle_layer_list(
         self,
         layer_list: typing.List[models.BriefGeonodeResource],
-        pagination_info: models.GeoNodePaginationInfo,
+        pagination_info: models.GeonodePaginationInfo,
     ):
         """Handle incoming dataset list
 
@@ -524,7 +524,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def handle_pagination(
         self,
-        pagination_info: models.GeoNodePaginationInfo,
+        pagination_info: models.GeonodePaginationInfo,
     ):
         self.current_page = pagination_info.current_page
         self.total_pages = pagination_info.total_pages

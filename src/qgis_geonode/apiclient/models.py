@@ -6,7 +6,10 @@ import typing
 from uuid import UUID
 
 import qgis.core
-from qgis.PyQt import QtCore
+from qgis.PyQt import (
+    QtCore,
+    QtXml,
+)
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
@@ -50,7 +53,7 @@ class OrderingType(enum.Enum):
 
 
 @dataclasses.dataclass
-class GeoNodePaginationInfo:
+class GeonodePaginationInfo:
     total_records: int
     current_page: int
     page_size: int
@@ -64,13 +67,10 @@ class GeoNodePaginationInfo:
         return result
 
 
+@dataclasses.dataclass()
 class BriefGeonodeStyle:
     name: str
     sld_url: str
-
-    def __init__(self, name: str, sld_url: str):
-        self.name = name
-        self.sld_url = sld_url
 
 
 @dataclasses.dataclass()
@@ -91,6 +91,18 @@ class BriefDataset:
     keywords: typing.List[str]
     category: typing.Optional[str]
     service_urls: typing.Dict[GeonodeService, str]
+    default_style: BriefGeonodeStyle
+
+
+@dataclasses.dataclass()
+class Dataset(BriefDataset):
+    language: str
+    license: str
+    constraints: str
+    owner: typing.Dict[str, str]
+    metadata_author: typing.Dict[str, str]
+    styles: typing.List[BriefGeonodeStyle]
+    default_style: typing.Optional[QtXml.QDomDocument]
 
 
 # TODO: Remove this in favor of BriefDataset

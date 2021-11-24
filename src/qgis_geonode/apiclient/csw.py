@@ -19,7 +19,7 @@ from qgis.PyQt import (
 
 from . import models
 from . import base
-from .base import wait_for_signal
+from .. import network
 from ..utils import (
     log,
 )
@@ -33,7 +33,7 @@ class GeoNodeCswLayerDetail:
     brief_style: typing.Optional[models.BriefGeonodeStyle]
 
 
-class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
+class GeoNodeLegacyAuthenticatedRecordSearcherTask(network.NetworkFetcherTask):
     TIMEOUT: int = 10000
     username: str
     password: str
@@ -112,19 +112,19 @@ class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
         log(f"qt_error: {self.parsed_reply.qt_error}")
         found_matched_reply = False
         if self._first_login_reply is not None:
-            if base.reply_matches(qgis_reply, self._first_login_reply):
+            if network.reply_matches(qgis_reply, self._first_login_reply):
                 found_matched_reply = True
                 self.first_login_parsed.emit()
         if self._second_login_reply is not None:
-            if base.reply_matches(qgis_reply, self._second_login_reply):
+            if network.reply_matches(qgis_reply, self._second_login_reply):
                 found_matched_reply = True
                 self.second_login_parsed.emit()
         if self._final_reply is not None:
-            if base.reply_matches(qgis_reply, self._final_reply):
+            if network.reply_matches(qgis_reply, self._final_reply):
                 found_matched_reply = True
                 self.request_parsed.emit()
         if self._logout_reply is not None:
-            if base.reply_matches(qgis_reply, self._logout_reply):
+            if network.reply_matches(qgis_reply, self._logout_reply):
                 found_matched_reply = True
                 self.logout_parsed.emit()
         if not found_matched_reply:
@@ -140,7 +140,9 @@ class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
 
         """
 
-        with base.wait_for_signal(self.first_login_parsed, self.TIMEOUT) as loop_result:
+        with network.wait_for_signal(
+            self.first_login_parsed, self.TIMEOUT
+        ) as loop_result:
             self._first_login_reply = self.network_access_manager.get(
                 QtNetwork.QNetworkRequest(self.login_url)
             )
@@ -183,7 +185,9 @@ class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
             data_ = form_data.query().encode("utf-8")
             request = QtNetwork.QNetworkRequest(self.login_url)
             request.setRawHeader(b"Referer", self.login_url.toString().encode("utf-8"))
-            with wait_for_signal(self.second_login_parsed, self.TIMEOUT) as loop_result:
+            with network.wait_for_signal(
+                self.second_login_parsed, self.TIMEOUT
+            ) as loop_result:
                 self._second_login_reply = self.network_access_manager.post(
                     request, data_
                 )
@@ -215,7 +219,7 @@ class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
         self,
     ) -> bool:
         """We are now logged in and can perform the final request"""
-        with base.wait_for_signal(self.request_parsed, self.TIMEOUT) as loop_result:
+        with network.wait_for_signal(self.request_parsed, self.TIMEOUT) as loop_result:
             if self.request_payload is None:
                 self._final_reply = self.network_access_manager.get(self.request)
             else:
@@ -238,7 +242,9 @@ class GeoNodeLegacyAuthenticatedRecordSearcherTask(base.NetworkFetcherTask):
             data_ = form_data.query().encode("utf-8")
             request = QtNetwork.QNetworkRequest(self.logout_url)
             request.setRawHeader(b"Referer", self.logout_url.toString().encode("utf-8"))
-            with base.wait_for_signal(self.logout_parsed, self.TIMEOUT) as loop_result:
+            with network.wait_for_signal(
+                self.logout_parsed, self.TIMEOUT
+            ) as loop_result:
                 self._logout_reply = self.network_access_manager.post(request, data_)
             if loop_result.result:
                 result = self._logout_reply.error() == QtNetwork.QNetworkReply.NoError
@@ -271,7 +277,7 @@ class GeonodeLayerDetailFetcherMixin:
         request = QtNetwork.QNetworkRequest(QtCore.QUrl(layer_detail_url))
         auth_manager = qgis.core.QgsApplication.authManager()
         auth_manager.updateNetworkRequest(request, self.authcfg)
-        with base.wait_for_signal(self.layer_detail_api_v1_parsed, self.TIMEOUT):
+        with network.wait_for_signal(self.layer_detail_api_v1_parsed, self.TIMEOUT):
             self._layer_detail_api_v1_reply = self.network_access_manager.get(request)
         if self._layer_detail_api_v1_reply.error() == QtNetwork.QNetworkReply.NoError:
             raw_layer_detail = self._layer_detail_api_v1_reply.readAll()
@@ -288,7 +294,7 @@ class GeonodeLayerDetailFetcherMixin:
         request = QtNetwork.QNetworkRequest(QtCore.QUrl(f"{self.base_url}{style_uri}"))
         auth_manager = qgis.core.QgsApplication.authManager()
         auth_manager.updateNetworkRequest(request, self.authcfg)
-        with base.wait_for_signal(self.layer_style_parsed, self.TIMEOUT):
+        with network.wait_for_signal(self.layer_style_parsed, self.TIMEOUT):
             self._layer_style_reply = self.network_access_manager.get(request)
         if self._layer_style_reply.error() == QtNetwork.QNetworkReply.NoError:
             raw_style_detail = self._layer_style_reply.readAll()
@@ -310,7 +316,7 @@ class GeonodeLayerDetailFetcherMixin:
 
 
 class GeoNodeLegacyLayerDetailFetcher(
-    GeonodeLayerDetailFetcherMixin, base.NetworkFetcherTask
+    GeonodeLayerDetailFetcherMixin, network.NetworkFetcherTask
 ):
     TIMEOUT: int = 10000
     base_url: str
@@ -358,15 +364,15 @@ class GeoNodeLegacyLayerDetailFetcher(
         log(f"qt_error: {self.parsed_reply.qt_error}")
         found_matched_reply = False
         if self._final_reply is not None:
-            if base.reply_matches(qgis_reply, self._final_reply):
+            if network.reply_matches(qgis_reply, self._final_reply):
                 found_matched_reply = True
                 self.request_parsed.emit()
         if self._layer_detail_api_v1_reply is not None:
-            if base.reply_matches(qgis_reply, self._layer_detail_api_v1_reply):
+            if network.reply_matches(qgis_reply, self._layer_detail_api_v1_reply):
                 found_matched_reply = True
                 self.layer_detail_api_v1_parsed.emit()
         if self._layer_style_reply is not None:
-            if base.reply_matches(qgis_reply, self._layer_style_reply):
+            if network.reply_matches(qgis_reply, self._layer_style_reply):
                 found_matched_reply = True
                 self.layer_style_parsed.emit()
         if not found_matched_reply:
@@ -375,7 +381,7 @@ class GeoNodeLegacyLayerDetailFetcher(
     def _blocking_get_reply(
         self,
     ) -> typing.Optional[ET.Element]:
-        with base.wait_for_signal(self.request_parsed, self.TIMEOUT) as loop_result:
+        with network.wait_for_signal(self.request_parsed, self.TIMEOUT) as loop_result:
             if self.request_payload is None:
                 self._final_reply = self.network_access_manager.get(self.request)
             else:
@@ -468,27 +474,27 @@ class GeoNodeLegacyAuthenticatedLayerDetailFetcherTask(
         log(f"qt_error: {self.parsed_reply.qt_error}")
         found_matched_reply = False
         if self._first_login_reply is not None:
-            if base.reply_matches(qgis_reply, self._first_login_reply):
+            if network.reply_matches(qgis_reply, self._first_login_reply):
                 found_matched_reply = True
                 self.first_login_parsed.emit()
         if self._second_login_reply is not None:
-            if base.reply_matches(qgis_reply, self._second_login_reply):
+            if network.reply_matches(qgis_reply, self._second_login_reply):
                 found_matched_reply = True
                 self.second_login_parsed.emit()
         if self._final_reply is not None:
-            if base.reply_matches(qgis_reply, self._final_reply):
+            if network.reply_matches(qgis_reply, self._final_reply):
                 found_matched_reply = True
                 self.request_parsed.emit()
         if self._layer_detail_api_v1_reply is not None:
-            if base.reply_matches(qgis_reply, self._layer_detail_api_v1_reply):
+            if network.reply_matches(qgis_reply, self._layer_detail_api_v1_reply):
                 found_matched_reply = True
                 self.layer_detail_api_v1_parsed.emit()
         if self._layer_style_reply is not None:
-            if base.reply_matches(qgis_reply, self._layer_style_reply):
+            if network.reply_matches(qgis_reply, self._layer_style_reply):
                 found_matched_reply = True
                 self.layer_style_parsed.emit()
         if self._logout_reply is not None:
-            if base.reply_matches(qgis_reply, self._logout_reply):
+            if network.reply_matches(qgis_reply, self._logout_reply):
                 found_matched_reply = True
                 self.logout_parsed.emit()
         if not found_matched_reply:
@@ -605,9 +611,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
     def get_layers_request_payload(
         self, search_params: models.GeonodeApiSearchParameters
     ) -> typing.Optional[str]:
-        start_position = (
-            search_params.page_size * search_params.page + 1
-        ) - search_params.page_size
+        start_position = (self.page_size * search_params.page + 1) - self.page_size
         for member in Csw202Namespace:
             ET.register_namespace(member.name.lower(), member.value)
         get_records_el = ET.Element(
@@ -617,7 +621,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
                 "version": self.VERSION,
                 "resultType": "results",
                 "startPosition": str(start_position),
-                "maxRecords": str(search_params.page_size),
+                "maxRecords": str(self.page_size),
                 "outputFormat": self.OUTPUT_FORMAT,
                 "outputSchema": self.OUTPUT_SCHEMA,
             },
@@ -678,7 +682,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
                 authcfg=self.auth_config,
             )
         else:
-            self.network_fetcher_task = base.NetworkFetcherTask(
+            self.network_fetcher_task = network.NetworkFetcherTask(
                 self, request, request_payload=request_payload, authcfg=self.auth_config
             )
         self.network_fetcher_task.request_finished.connect(
@@ -731,13 +735,9 @@ class GeonodeCswClient(base.BaseGeonodeClient):
             total = int(search_results.attrib["numberOfRecordsMatched"])
             next_record = int(search_results.attrib["nextRecord"])
             if next_record == 0:  # reached the last page
-                current_page = max(
-                    int(math.ceil(total / original_search_params.page_size)), 1
-                )
+                current_page = max(int(math.ceil(total / self.page_size)), 1)
             else:
-                current_page = max(
-                    int((next_record - 1) / original_search_params.page_size), 1
-                )
+                current_page = max(int((next_record - 1) / self.page_size), 1)
             items = search_results.findall(
                 f"{{{Csw202Namespace.GMD.value}}}MD_Metadata"
             )
@@ -750,19 +750,19 @@ class GeonodeCswClient(base.BaseGeonodeClient):
                     log(f"Could not parse {item!r} into a valid item")
                 else:
                     layers.append(brief_resource)
-            pagination_info = models.GeoNodePaginationInfo(
+            pagination_info = models.GeonodePaginationInfo(
                 total_records=total,
                 current_page=current_page,
-                page_size=original_search_params.page_size,
+                page_size=self.page_size,
             )
             self.layer_list_received.emit(layers, pagination_info)
         else:
             self.layer_list_received.emit(
                 layers,
-                models.GeoNodePaginationInfo(
+                models.GeonodePaginationInfo(
                     total_records=0,
                     current_page=1,
-                    page_size=original_search_params.page_size,
+                    page_size=self.page_size,
                 ),
             )
 

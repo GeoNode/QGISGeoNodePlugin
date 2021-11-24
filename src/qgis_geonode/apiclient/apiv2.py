@@ -206,13 +206,13 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
                     log(f"Could not parse {item!r} into a valid item")
                 else:
                     layers.append(brief_resource)
-            pagination_info = models.GeoNodePaginationInfo(
+            pagination_info = models.GeonodePaginationInfo(
                 total_records=deserialized.get("total") or 0,
                 current_page=deserialized.get("page") or 1,
                 page_size=deserialized.get("page_size") or 0,
             )
         else:
-            pagination_info = models.GeoNodePaginationInfo(
+            pagination_info = models.GeonodePaginationInfo(
                 total_records=0, current_page=1, page_size=0
             )
         self.layer_list_received.emit(layers, pagination_info)
@@ -248,7 +248,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             maps.append(
                 get_brief_geonode_resource(item, self.base_url, self.auth_config)
             )
-        pagination_info = models.GeoNodePaginationInfo(
+        pagination_info = models.GeonodePaginationInfo(
             total_records=deserialized["total"],
             current_page=deserialized["page"],
             page_size=deserialized["page_size"],

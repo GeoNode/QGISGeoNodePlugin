@@ -272,19 +272,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="map_chb">
-             <property name="text">
-              <string>Map</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">resource_types_btngrp</string>
-             </attribute>
-            </widget>
-           </item>
-           <item>
             <spacer name="horizontalSpacer">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -651,7 +638,6 @@
   <tabstop>category_cmb</tabstop>
   <tabstop>vector_chb</tabstop>
   <tabstop>raster_chb</tabstop>
-  <tabstop>map_chb</tabstop>
   <tabstop>temporal_extent_start_dte</tabstop>
   <tabstop>temporal_extent_end_dte</tabstop>
   <tabstop>search_btn</tabstop>

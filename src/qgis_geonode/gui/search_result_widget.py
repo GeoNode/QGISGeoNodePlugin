@@ -12,6 +12,7 @@ from ..apiclient import (
     base,
     models,
 )
+from .. import network
 from ..resources import *
 from ..utils import log, tr
 
@@ -30,7 +31,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     thumbnail_la: QtWidgets.QLabel
 
     layer_loader_task: typing.Optional[qgis.core.QgsTask]
-    thumbnail_fetcher_task: typing.Optional[base.NetworkFetcherTask]
+    thumbnail_fetcher_task: typing.Optional[network.NetworkFetcherTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
@@ -175,7 +176,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         # task.run()
 
         log(f"thumbnail URL: {self.brief_resource.thumbnail_url}")
-        self.thumbnail_fetcher_task = base.NetworkFetcherTask(
+        self.thumbnail_fetcher_task = network.NetworkFetcherTask(
             self.api_client,
             QtNetwork.QNetworkRequest(QtCore.QUrl(self.brief_resource.thumbnail_url)),
         )

@@ -35,7 +35,7 @@ def test_layer_list(qtbot, qgis_application, mock_geonode_server, page):
     with qtbot.waitSignal(client.layer_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_layers(GeonodeApiSearchParameters(page=page))
     layers, pagination_info = app.received_response
-    pagination_info: models.GeoNodePaginationInfo
+    pagination_info: models.GeonodePaginationInfo
 
     print(f"layer ids: {[la.pk for la in layers]}")
 
@@ -92,7 +92,7 @@ def test_map_list(qtbot, qgis_application, mock_geonode_server, page):
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_maps(GeonodeApiSearchParameters(page=page))
     maps, pagination_info = app.received_response
-    pagination_info: models.GeoNodePaginationInfo
+    pagination_info: models.GeonodePaginationInfo
     assert pagination_info.page_size == 2
     assert maps[0].pk == 43
 
@@ -105,7 +105,7 @@ def test_map_list_filtering(qtbot, qgis_application, mock_geonode_server, page):
     with qtbot.waitSignal(client.map_list_received, timeout=SIGNAL_TIMEOUT * 1000):
         client.get_maps(GeonodeApiSearchParameters(page=page, title="AIRPORT"))
     maps, pagination_info = app.received_response
-    pagination_info: models.GeoNodePaginationInfo
+    pagination_info: models.GeonodePaginationInfo
 
     assert pagination_info.page_size == 2
     assert len(maps) == 1
