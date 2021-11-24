@@ -18,7 +18,7 @@ def get_geonode_client(
     connection_settings: "ConnectionSettings",
 ) -> "BaseGeonodeClient":
     client_type: typing.Type["BaseGeonodeClient"] = {
-        GeonodeApiVersion.OGC_CSW: csw.GeonodeCswClient,
-        GeonodeApiVersion.V2: apiv2.GeonodeApiV2Client,
-    }[connection_settings.api_version]
+        "qgis_geonode.apiclient.csw.GeonodeCswClient": csw.GeonodeCswClient,
+        "qgis_geonode.apiclient.apiv2.GeonodeApiV2Client": apiv2.GeonodeApiV2Client,
+    }[connection_settings.api_client_class_path]
     return client_type.from_connection_settings(connection_settings)

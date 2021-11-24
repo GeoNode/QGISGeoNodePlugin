@@ -109,15 +109,6 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
     def get_layer_style_list_url(self, layer_id: int):
         return QtCore.QUrl(f"{self.dataset_list_url}{layer_id}/styles/")
 
-    # already moved to base class
-    # def get_dataset_list(self, search_params: models.GeonodeApiSearchParameters):
-    #     self.network_fetcher_task = network.MultipleNetworkFetcherTask(
-    #         [network.RequestToPerform(url=self.get_dataset_list_url(search_params))],
-    #         self.auth_config,
-    #     )
-    #     self.network_fetcher_task.all_finished.connect(self.handle_dataset_list)
-    #     qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
     def handle_dataset_list(self, result: bool):
         brief_datasets = []
         pagination_info = models.GeonodePaginationInfo(
@@ -151,22 +142,10 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
                         current_page=deserialized_content.get("page") or 1,
                         page_size=deserialized_content.get("page_size") or 0,
                     )
+        # TODO: WIP - handle errors
+        else:
+            self.error_received.emit[str, int, str]
         self.dataset_list_received.emit(brief_datasets, pagination_info)
-
-    # already moved to base class
-    # def get_dataset_detail(self, brief_dataset: models.BriefDataset):
-    #     requests_to_perform = [
-    #         network.RequestToPerform(url=self.get_dataset_detail_url(brief_dataset.pk))
-    #     ]
-    #     if brief_dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER:
-    #         sld_url = QtCore.QUrl(brief_dataset.default_style.sld_url)
-    #         requests_to_perform.append(network.RequestToPerform(url=sld_url))
-    #
-    #     self.network_fetcher_task = network.MultipleNetworkFetcherTask(
-    #         requests_to_perform, self.auth_config)
-    #     self.network_fetcher_task.all_finished.connect(
-    #         partial(self.handle_dataset_detail, brief_dataset))
-    #     qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
         dataset = None

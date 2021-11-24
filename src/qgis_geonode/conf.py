@@ -7,14 +7,10 @@ import uuid
 
 from qgis.PyQt import (
     QtCore,
-    QtWidgets,
 )
 from qgis.core import QgsRectangle, QgsSettings
-from qgis.gui import QgsPasswordLineEdit
 
-from .apiclient import GeonodeApiVersion
 from .apiclient import models
-from .utils import IsoTopicCategory
 
 logger = logging.getLogger(__name__)
 
@@ -30,89 +26,6 @@ def qgis_settings(group_root: str):
         settings.endGroup()
 
 
-class ApiVersionSpecificSettings:
-    PREFIX = "api_version_settings"
-
-    @classmethod
-    def from_qgs_settings(cls, settings: QgsSettings):
-        raise NotImplementedError
-
-    @classmethod
-    def from_widgets(cls, ancestor: QtWidgets.QWidget):
-        raise NotImplementedError
-
-    @classmethod
-    def get_widgets(cls):
-        raise NotImplementedError
-
-    def fill_widgets(self, ancestor: QtWidgets.QWidget):
-        raise NotImplementedError
-
-    def to_qgs_settings(self):
-        raise NotImplementedError
-
-
-@dataclasses.dataclass
-class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
-    username: typing.Optional[str] = None
-    password: typing.Optional[str] = None
-    _username_widget_name: str = "csw_api_username_le"
-    _password_widget_name: str = "csw_api_password_le"
-
-    @classmethod
-    def from_qgs_settings(cls, settings: QgsSettings):
-        api_version_settings = settings.value(cls.PREFIX)
-        return cls(
-            username=api_version_settings["username"],
-            password=api_version_settings["password"],
-        )
-
-    @classmethod
-    def from_widgets(cls, ancestor: QtWidgets.QWidget):
-        username_le = ancestor.findChild(QtWidgets.QLineEdit, cls._username_widget_name)
-        password_le = ancestor.findChild(QtWidgets.QLineEdit, cls._password_widget_name)
-        return cls(
-            username=username_le.text() or None, password=password_le.text() or None
-        )
-
-    @classmethod
-    def get_widgets(cls, group_box_name: str, title: str) -> QtWidgets.QGroupBox:
-        username_le = QtWidgets.QLineEdit()
-        username_le.setObjectName(cls._username_widget_name)
-        password_le = QgsPasswordLineEdit()
-        password_le.setObjectName(cls._password_widget_name)
-        layout = QtWidgets.QFormLayout()
-        layout.addRow(QtWidgets.QLabel("Username"), username_le)
-        layout.addRow(QtWidgets.QLabel("Password"), password_le)
-        box = QtWidgets.QGroupBox(title=title)
-        box.setObjectName(group_box_name)
-        box.setLayout(layout)
-        return box
-
-    def fill_widgets(self, ancestor: QtWidgets.QWidget):
-        if self.username is not None:
-            username_le = ancestor.findChild(
-                QtWidgets.QLineEdit, self._username_widget_name
-            )
-            username_le.setText(self.username)
-        if self.password is not None:
-            password_le = ancestor.findChild(
-                QtWidgets.QLineEdit, self._password_widget_name
-            )
-            password_le.setText(self.password)
-
-    def to_qgs_settings(self) -> typing.Dict:
-        return {"username": self.username, "password": self.password}
-
-
-def get_api_version_settings_handler(
-    api_version: GeonodeApiVersion,
-) -> typing.Optional[typing.Type]:
-    return {
-        GeonodeApiVersion.OGC_CSW: GeonodeCswSpecificConnectionSettings,
-    }.get(api_version)
-
-
 @dataclasses.dataclass
 class ConnectionSettings:
     """Helper class to manage settings for a Connection"""
@@ -120,11 +33,8 @@ class ConnectionSettings:
     id: uuid.UUID
     name: str
     base_url: str
-    api_version: GeonodeApiVersion
     page_size: int
-    api_version_settings: typing.Optional[
-        typing.Union[GeonodeCswSpecificConnectionSettings]
-    ] = None
+    api_client_class_path: typing.Optional[str] = None
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -133,20 +43,13 @@ class ConnectionSettings:
             reported_auth_cfg = settings.value("auth_config").strip()
         except AttributeError:
             reported_auth_cfg = None
-        api_version = GeonodeApiVersion[settings.value("api_version")]
-        handler = get_api_version_settings_handler(api_version)
-        if handler is not None:
-            api_version_settings = handler.from_qgs_settings(settings)
-        else:
-            api_version_settings = None
         return cls(
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
             base_url=settings.value("base_url"),
-            api_version=api_version,
-            api_version_settings=api_version_settings,
             page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg,
+            api_client_class_path=settings.value("api_client_class_path")
         )
 
     def to_json(self):
@@ -155,10 +58,9 @@ class ConnectionSettings:
                 "id": str(self.id),
                 "name": self.name,
                 "base_url": self.base_url,
-                "api_version": self.api_version,
-                "api_version_settings": self.api_version_settings.to_qgs_settings(),
                 "page_size": self.page_size,
                 "auth_config": self.auth_config,
+                "api_client_class_path": self.api_client_class_path
             }
         )
 
@@ -225,12 +127,6 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("base_url", connection_settings.base_url)
             settings.setValue("page_size", connection_settings.page_size)
             settings.setValue("auth_config", connection_settings.auth_config)
-            settings.setValue("api_version", connection_settings.api_version.name)
-            if connection_settings.api_version_settings is not None:
-                settings.setValue(
-                    ApiVersionSpecificSettings.PREFIX,
-                    connection_settings.api_version_settings.to_qgs_settings(),
-                )
 
     def delete_connection(self, connection_id: uuid.UUID):
         if self.is_current_connection(connection_id):

@@ -378,3 +378,52 @@ def _get_qt_error(cls, enum, error: QtNetwork.QNetworkReply.NetworkError) -> str
             mapping[key] = value
             mapping[value] = key
     return mapping[error]
+
+
+class ApiClientDiscovererTask(qgis.core.QgsTask):
+    discovered_client: typing.Optional[str]
+
+    discovery_finished = QtCore.pyqtSignal(str)
+
+    def __init__(
+            self,
+            base_url: str,
+            description: typing.Optional[str] = "MyApiDiscovererTask"
+    ):
+        super().__init__(description)
+        self.base_url = base_url
+        self.discovered_client = None
+
+    def run(self) -> bool:
+        network_manager = qgis.core.QgsNetworkAccessManager()
+        # DO NOT CHANGE THE ORDER OF THE LIST BELOW! Otherwise detection will not work OK
+        urls_to_try = [
+            (
+                f"{self.base_url}/api/v2/datasets/",
+                "qgis_geonode.apiclient.geonode.GeonodePostV2ApiClient"
+            ),
+            # TODO: Implement the other api clients
+            (
+                f"{self.base_url}/api/v2/",
+                "qgis_geonode.apiclient.apiv2"
+            ),
+            (
+                f"{self.base_url}/api/",
+                "qgis_geonode.apiclient.legacy"
+            ),
+        ]
+        for url, client_class_path in urls_to_try:
+            log(f"Performing request for {url!r}...")
+            request = QtNetwork.QNetworkRequest(QtCore.QUrl(url))
+            reply_content = network_manager.blockingGet(request)
+            parsed_reply = parse_network_reply(reply_content)
+            if parsed_reply.http_status_code == 200:
+                self.discovered_client = client_class_path
+                result = True
+                break
+        else:
+            result = False
+        return result
+
+    def finished(self, result: bool):
+        self.discovery_finished.emit(self.discovered_client)
