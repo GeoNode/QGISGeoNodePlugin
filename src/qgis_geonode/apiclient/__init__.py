@@ -1,24 +1,24 @@
-import enum
 import typing
 
 from . import (
     apiv2,
     csw,
+    geonode,
 )
-
-
-class GeonodeApiVersion(enum.IntEnum):
-    OGC_CSW = 1
-    V2 = 2
-    PRE_V2 = 3
-    POST_V2 = 4
+from .models import UNSUPPORTED_REMOTE
 
 
 def get_geonode_client(
     connection_settings: "ConnectionSettings",
-) -> "BaseGeonodeClient":
+) -> typing.Optional["BaseGeonodeClient"]:
     client_type: typing.Type["BaseGeonodeClient"] = {
         "qgis_geonode.apiclient.csw.GeonodeCswClient": csw.GeonodeCswClient,
         "qgis_geonode.apiclient.apiv2.GeonodeApiV2Client": apiv2.GeonodeApiV2Client,
+        "qgis_geonode.apiclient.geonode.GeonodePostV2ApiClient": geonode.GeonodePostV2ApiClient,
+        UNSUPPORTED_REMOTE: None,
     }[connection_settings.api_client_class_path]
-    return client_type.from_connection_settings(connection_settings)
+    if client_type:
+        result = client_type.from_connection_settings(connection_settings)
+    else:
+        result = None
+    return result

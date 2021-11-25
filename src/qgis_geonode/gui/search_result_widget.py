@@ -25,7 +25,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     action_buttons_layout: QtWidgets.QHBoxLayout
     browser_btn: QtWidgets.QPushButton
     description_la: QtWidgets.QLabel
-    name_la: QtWidgets.QLabel
+    title_la: QtWidgets.QLabel
     resource_type_icon_la: QtWidgets.QLabel
     resource_type_la: QtWidgets.QLabel
     thumbnail_la: QtWidgets.QLabel
@@ -38,13 +38,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     load_layer_ended = QtCore.pyqtSignal()
 
     api_client: base.BaseGeonodeClient
-    brief_resource: models.BriefGeonodeResource
+    brief_dataset: models.BriefDataset
     full_resource: typing.Optional[models.GeonodeResource]
     layer: typing.Optional["QgsMapLayer"]
 
     def __init__(
         self,
-        brief_resource: models.BriefGeonodeResource,
+        brief_dataset: models.BriefDataset,
         api_client: base.BaseGeonodeClient,
         parent=None,
     ):
@@ -55,7 +55,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.thumbnail_fetcher_task = None
         self.layer_loader_task = None
         self.layer = None
-        self.brief_resource = brief_resource
+        self.brief_dataset = brief_dataset
         self.full_resource = None
         self.api_client = api_client
         self._initialize_ui()
@@ -63,7 +63,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.load_thumbnail()
 
     def _add_loadable_button(self, geonode_service: models.GeonodeService):
-        url = self.brief_resource.service_urls.get(geonode_service)
+        url = self.brief_dataset.service_urls.get(geonode_service)
         if url is not None:
             icon = QtGui.QIcon(
                 f":/plugins/qgis_geonode/icon_{geonode_service.value}.svg"
@@ -77,18 +77,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.action_buttons_layout.insertWidget(order, button)
 
     def _initialize_ui_for_vector_dataset(self):
-        name = self.api_client.get_search_result_identifier(self.brief_resource)
-        self.name_la.setText(f"<h3>{name}</h3>")
-        self.resource_type_la.setText(self.brief_resource.resource_type.value)
         self.resource_type_icon_la.setPixmap(
             QtGui.QPixmap(":/images/themes/default/mIconVector.svg")
         )
-        sliced_abstract = (
-            f"{self.brief_resource.abstract[:700]}..."
-            if len(self.brief_resource.abstract) > 700
-            else self.brief_resource.abstract
-        )
-        self.description_la.setText(sliced_abstract)
         able_to_load_wms = (
             models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS
             in self.api_client.capabilities
@@ -101,64 +92,49 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         )
         if able_to_load_wfs:
             self._add_loadable_button(models.GeonodeService.OGC_WFS)
-        self.browser_btn.setIcon(QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg"))
-        self.browser_btn.clicked.connect(self.open_resource_page)
+
+    def _initialize_ui_for_raster_dataset(self):
+        self.resource_type_icon_la.setPixmap(
+            QtGui.QPixmap(":/images/themes/default/mIconRaster.svg")
+        )
+        able_to_load_wms = (
+            models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS
+            in self.api_client.capabilities
+        )
+        if able_to_load_wms:
+            self._add_loadable_button(models.GeonodeService.OGC_WMS)
+        able_to_load_wcs = (
+            models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS
+            in self.api_client.capabilities
+        )
+        if able_to_load_wcs:
+            self._add_loadable_button(models.GeonodeService.OGC_WCS)
 
     def _initialize_ui(self):
-        if self.brief_resource.resource_type == models.GeonodeResourceType.VECTOR_LAYER:
+        self.title_la.setText(f"<h3>{self.brief_dataset.title}</h3>")
+        self.resource_type_la.setText(self.brief_dataset.dataset_sub_type.value)
+        if self.brief_dataset.detail_url:
+            self.browser_btn.setIcon(
+                QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
+            )
+            self.browser_btn.clicked.connect(self.open_resource_page)
+        else:
+            self.browser_btn.setEnabled(False)
+        if (
+            self.brief_dataset.dataset_sub_type
+            == models.GeonodeResourceType.VECTOR_LAYER
+        ):
             self._initialize_ui_for_vector_dataset()
+        elif (
+            self.brief_dataset.dataset_sub_type
+            == models.GeonodeResourceType.RASTER_LAYER
+        ):
+            self._initialize_ui_for_raster_dataset()
         else:
             pass
-        # name = self.api_client.get_search_result_identifier(self.brief_resource)
-        # self.name_la.setText(f"<h3>{name}</h3>")
-        # if self.brief_resource.resource_type == models.GeonodeResourceType.VECTOR_LAYER:
-        #     self.resource_type_la.setText(self.brief_resource.resource_type.value)
-        #     self.resource_type_icon_la.setPixmap(
-        #         QtGui.QPixmap(":/images/themes/default/mIconVector.svg"))
-        # elif self.brief_resource.resource_type == models.GeonodeResourceType.RASTER_LAYER:
-        #     self.resource_type_la.setText(self.brief_resource.resource_type.value)
-        #     self.resource_type_icon_la.setPixmap(
-        #         QtGui.QPixmap(":/images/themes/default/mIconRaster.svg"))
-        # elif self.brief_resource.resource_type == models.GeonodeResourceType.MAP:
-        #     self.resource_type_la.setText(self.brief_resource.resource_type.value)
-        #     self.resource_type_icon_la.setPixmap(
-        #         QtGui.QPixmap(":/images/themes/default/mIconRaster.svg"))
-        # else:
-        #     self.resource_type_icon_la.setText("")
-        #     self.resource_type_la.setText(tr("Unknown type"))
-        # sliced_abstract = (
-        #     f"{self.brief_resource.abstract[:700]}..."
-        #     if len(self.brief_resource.abstract) > 700
-        #     else self.brief_resource.abstract
-        # )
-        # self.description_la.setText(sliced_abstract)
-        #
-        # for service_type in models.GeonodeService:
-        #     url = self.brief_resource.service_urls.get(service_type)
-        #     if url is not None and service_type != models.GeonodeService.FILE_DOWNLOAD:
-        #         icon = QtGui.QIcon(
-        #             f":/plugins/qgis_geonode/icon_{service_type.value}.svg"
-        #         )
-        #         button = QtWidgets.QPushButton()
-        #         button.setObjectName(f"{service_type.name.lower()}_btn")
-        #         button.setIcon(icon)
-        #         button.setToolTip(tr("Load layer via {}").format(service_type.value))
-        #         button.clicked.connect(partial(self.load_layer, service_type))
-        #         order = 1 if service_type == models.GeonodeService.OGC_WMS else 2
-        #         self.action_buttons_layout.insertWidget(order, button)
-        # self.browser_btn.setIcon(QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg"))
-        # self.browser_btn.clicked.connect(self.open_resource_page)
 
     def open_resource_page(self):
-        if self.brief_resource.gui_url is not None:
-            QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.brief_resource.gui_url))
-        else:
-            message = (
-                "Couldn't open resource in browser page, the resource doesn't contain "
-                "GeoNode layer page URL"
-            )
-            log(message)
-            self._get_datasource_widget().show_message(tr(message))
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.brief_dataset.detail_url))
 
     def toggle_service_url_buttons(self, enabled: bool):
         for index in range(self.action_buttons_layout.count()):
@@ -175,10 +151,10 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         # task.fetched.connect(partial(self.handle_thumbnail_response, task))
         # task.run()
 
-        log(f"thumbnail URL: {self.brief_resource.thumbnail_url}")
+        log(f"thumbnail URL: {self.brief_dataset.thumbnail_url}")
         self.thumbnail_fetcher_task = network.NetworkFetcherTask(
             self.api_client,
-            QtNetwork.QNetworkRequest(QtCore.QUrl(self.brief_resource.thumbnail_url)),
+            QtNetwork.QNetworkRequest(QtCore.QUrl(self.brief_dataset.thumbnail_url)),
         )
         self.thumbnail_fetcher_task.request_finished.connect(
             self.handle_thumbnail_response
@@ -189,7 +165,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.thumbnail_loader_task = ThumbnailLoader(
             self.thumbnail_fetcher_task.reply_content,
             self.thumbnail_la,
-            self.brief_resource.title,
+            self.brief_dataset.title,
         )
         qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_loader_task)
 
@@ -224,10 +200,10 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_layer(self, service_type: models.GeonodeService):
         self.handle_layer_load_start()
-        uri = self.brief_resource.service_urls[service_type]
+        uri = self.brief_dataset.service_urls[service_type]
         self.layer_loader_task = LayerLoaderTask(
             uri,
-            self.brief_resource.title,
+            self.brief_dataset.title,
             service_type,
             api_client=self.api_client,
             layer_handler=self.prepare_loaded_layer,
@@ -240,7 +216,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.layer = layer
         self.api_client.layer_detail_received.connect(self.handle_layer_detail)
         self.api_client.error_received.connect(self.handle_loading_error)
-        self.api_client.get_layer_detail_from_brief_resource(self.brief_resource)
+        self.api_client.get_layer_detail_from_brief_resource(self.brief_dataset)
 
     def handle_layer_detail(self, resource: models.GeonodeResource):
         """Populate the loaded layer with metadata from the retrieved GeoNode resource

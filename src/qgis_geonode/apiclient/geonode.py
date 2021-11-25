@@ -16,7 +16,17 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
     """An API Client for GeoNode versions above v3.2"""
 
     capabilities = [
-        models.ApiClientCapability.SEARCH_DATASETS,
+        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
+        models.ApiClientCapability.FILTER_BY_ABSTRACT,
+        models.ApiClientCapability.FILTER_BY_KEYWORD,
+        models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
+        models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
     ]
 
     @property
@@ -283,7 +293,7 @@ def _get_vector_service_urls(raw_links: typing.Dict):
 def _get_raster_service_urls(raw_links: typing.Dict):
     return {
         models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS"),
-        models.GeonodeService.OGC_WFS: _get_link(raw_links, "OGC:WCS"),
+        models.GeonodeService.OGC_WCS: _get_link(raw_links, "OGC:WCS"),
     }
 
 

@@ -16,8 +16,13 @@ from qgis.core import (
     QgsRectangle,
 )
 
+UNSUPPORTED_REMOTE = "unsupported"
+
 
 class ApiClientCapability(enum.Enum):
+    # NOTE - Some capabilities are not made explicit here because their support
+    # is mandatory far all API clients. For example, all clients must support
+    # searching datasets, as otherwise there wouldn't be much point to their existence
     FILTER_BY_NAME = enum.auto()
     FILTER_BY_ABSTRACT = enum.auto()
     FILTER_BY_KEYWORD = enum.auto()
@@ -28,7 +33,6 @@ class ApiClientCapability(enum.Enum):
     FILTER_BY_SPATIAL_EXTENT = enum.auto()
     MODIFY_LAYER_METADATA = enum.auto()
     MODIFY_LAYER_STYLE = enum.auto()
-    SEARCH_DATASETS = enum.auto()
     LOAD_VECTOR_DATASET_VIA_WMS = enum.auto()
     LOAD_VECTOR_DATASET_VIA_WFS = enum.auto()
     LOAD_RASTER_DATASET_VIA_WMS = enum.auto()

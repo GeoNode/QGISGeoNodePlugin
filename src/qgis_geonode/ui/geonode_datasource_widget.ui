@@ -77,26 +77,6 @@
           </property>
          </spacer>
         </item>
-        <item>
-         <widget class="QPushButton" name="load_connection_btn">
-          <property name="toolTip">
-           <string>Load connections from file</string>
-          </property>
-          <property name="text">
-           <string>Load</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="save_connection_btn">
-          <property name="toolTip">
-           <string>Save connections to file</string>
-          </property>
-          <property name="text">
-           <string>Save</string>
-          </property>
-         </widget>
-        </item>
        </layout>
       </item>
      </layout>
@@ -374,63 +354,6 @@
         </layout>
        </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_7">
-        <item>
-         <widget class="QLabel" name="label_7">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Stored searches</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_6">
-          <item>
-           <widget class="QComboBox" name="comboBox_6">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btnSave_3">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Save connections to file</string>
-            </property>
-            <property name="text">
-             <string>Save</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btnLoad_3">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Load connections from file</string>
-            </property>
-            <property name="text">
-             <string>Load</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </item>
      </layout>
     </widget>
    </item>
@@ -650,11 +573,6 @@
   <tabstop>new_connection_btn</tabstop>
   <tabstop>edit_connection_btn</tabstop>
   <tabstop>delete_connection_btn</tabstop>
-  <tabstop>load_connection_btn</tabstop>
-  <tabstop>save_connection_btn</tabstop>
-  <tabstop>comboBox_6</tabstop>
-  <tabstop>btnSave_3</tabstop>
-  <tabstop>btnLoad_3</tabstop>
  </tabstops>
  <resources/>
  <connections/>

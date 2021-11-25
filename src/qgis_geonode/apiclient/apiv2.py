@@ -21,7 +21,6 @@ from . import base
 class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     capabilities = [
-        models.ApiClientCapability.SEARCH_DATASETS,
         models.ApiClientCapability.FILTER_BY_NAME,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         models.ApiClientCapability.FILTER_BY_KEYWORD,

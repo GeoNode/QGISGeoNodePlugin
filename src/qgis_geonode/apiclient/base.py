@@ -158,9 +158,6 @@ class BaseGeonodeClient(QtCore.QObject):
                 f"Couldn't find any keywords in {self.base_url}"
             )
 
-    def get_datasets(self, search_params: GeonodeApiSearchParameters):
-        raise NotImplementedError
-
     def get_dataset_list(self, search_params: GeonodeApiSearchParameters):
         self.network_fetcher_task = network.MultipleNetworkFetcherTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_params))],
