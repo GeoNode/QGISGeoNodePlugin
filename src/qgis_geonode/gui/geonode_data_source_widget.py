@@ -544,9 +544,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             layout = QtWidgets.QVBoxLayout()
             layout.setContentsMargins(1, 1, 1, 1)
             layout.setSpacing(1)
-            for layer in dataset_list:
+            for brief_dataset in dataset_list:
                 search_result_widget = SearchResultWidget(
-                    layer,
+                    brief_dataset,
                     self.api_client,
                 )
                 layout.addWidget(search_result_widget)

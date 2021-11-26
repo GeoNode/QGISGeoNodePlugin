@@ -3,7 +3,7 @@ import typing
 from . import (
     apiv2,
     csw,
-    geonode,
+    version_postv2,
 )
 from .models import UNSUPPORTED_REMOTE
 
@@ -14,7 +14,7 @@ def get_geonode_client(
     client_type: typing.Type["BaseGeonodeClient"] = {
         "qgis_geonode.apiclient.csw.GeonodeCswClient": csw.GeonodeCswClient,
         "qgis_geonode.apiclient.apiv2.GeonodeApiV2Client": apiv2.GeonodeApiV2Client,
-        "qgis_geonode.apiclient.geonode.GeonodePostV2ApiClient": geonode.GeonodePostV2ApiClient,
+        "qgis_geonode.apiclient.geonode.GeonodePostV2ApiClient": version_postv2.GeonodePostV2ApiClient,
         UNSUPPORTED_REMOTE: None,
     }[connection_settings.api_client_class_path]
     if client_type:

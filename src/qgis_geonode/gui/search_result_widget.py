@@ -43,7 +43,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     api_client: base.BaseGeonodeClient
     brief_dataset: models.BriefDataset
-    full_resource: typing.Optional[models.GeonodeResource]
     layer: typing.Optional["QgsMapLayer"]
 
     def __init__(
@@ -60,7 +59,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.dataset_loader_task = None
         self.layer = None
         self.brief_dataset = brief_dataset
-        self.full_resource = None
         self.api_client = api_client
         self._initialize_ui()
         self.toggle_service_url_buttons(True)
@@ -178,25 +176,20 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         parent.show_progress(tr("Loading layer..."))
         self.toggle_service_url_buttons(False)
 
-    def handle_layer_load_end(self):
+    def handle_layer_load_end(self, clear_message_bar: typing.Optional[bool] = True):
         parent = self._get_datasource_widget()
         parent.toggle_search_controls(True)
         parent.toggle_search_buttons()
         self.toggle_service_url_buttons(True)
-        self._get_datasource_widget().message_bar.clearWidgets()
+        if clear_message_bar:
+            self._get_datasource_widget().message_bar.clearWidgets()
 
-    def handle_loading_error(
-        self, qt_error: str, http_status_code: int = 0, http_status_reason: str = None
-    ):
-        if http_status_code != 0:
-            http_status = f"{http_status_code} - {http_status_reason}"
-        else:
-            http_status = ""
-        self.handle_layer_load_end()
-        message = " ".join((qt_error, http_status))
+    def handle_loading_error(self):
+        log("Inside handle_loading_error")
+        message = f"Unable to load layer {self.brief_dataset.title}: {self.dataset_loader_task._exception}"
         self._get_datasource_widget().show_message(
-            message, level=qgis.core.Qgis.Critical
-        )
+            message, level=qgis.core.Qgis.Critical)
+        self.handle_layer_load_end(clear_message_bar=False)
 
     def load_dataset(self, service_type: models.GeonodeService):
         self.handle_dataset_load_start()
@@ -204,25 +197,30 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.brief_dataset,
             service_type,
             api_client=self.api_client,
-            layer_handler=self.prepare_loaded_layer,
-            error_handler=self.handle_loading_error,
         )
+        self.dataset_loader_task.taskCompleted.connect(self.prepare_loaded_layer)
+        self.dataset_loader_task.taskTerminated.connect(self.handle_loading_error)
         qgis.core.QgsApplication.taskManager().addTask(self.dataset_loader_task)
 
-    def prepare_loaded_layer(self, layer: "QgsMapLayer"):
-        """Retrieve layer details for the layer that has been loaded"""
-        self.layer = layer
-        self.api_client.layer_detail_received.connect(self.handle_layer_detail)
+    def prepare_loaded_layer(self):
+        log("inside prepare_loaded_layer")
+        if self.dataset_loader_task._exception is not None:
+            log(self.dataset_loader_task._exception)
+        self.layer = self.dataset_loader_task.layer
+        log(f"layer: {self.layer}")
+        log(f"layer is valid: {self.layer.isValid()}")
+        self.api_client.dataset_detail_received.connect(self.handle_layer_detail)
         self.api_client.error_received.connect(self.handle_loading_error)
-
         self.api_client.get_dataset_detail(self.brief_dataset)
 
     def handle_layer_detail(self, dataset: models.Dataset):
-        self.full_resource = dataset
+        log(f"inside handle_layer_detail")
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
         metadata = populate_metadata(self.layer.metadata(), dataset)
         self.layer.setMetadata(metadata)
-        if dataset.default_style:
+        provider_name =  self.layer.dataProvider().name()
+        log(f"provider_name: {provider_name}")
+        if provider_name == "WFS" and dataset.default_style:
             error_message = ""
             loaded_sld = self.layer.readSld(dataset.default_style, error_message)
             if not loaded_sld():
@@ -232,6 +230,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.add_layer_to_project()
 
     def add_layer_to_project(self):
+        log(f"inside add_layer_to_project")
         self.api_client.error_received.disconnect(self.handle_loading_error)
         self.project.addMapLayer(self.layer)
         self.handle_layer_load_end()
@@ -279,8 +278,6 @@ class LayerLoaderTask(qgis.core.QgsTask):
     brief_resource: models.BriefGeonodeResource
     service_type: models.GeonodeService
     api_client: base.BaseGeonodeClient
-    layer_handler: typing.Callable
-    error_handler: typing.Callable
     layer: typing.Optional["QgsMapLayer"]
     _exception: typing.Optional[str]
 
@@ -289,8 +286,6 @@ class LayerLoaderTask(qgis.core.QgsTask):
         brief_dataset: models.BriefDataset,
         service_type: models.GeonodeService,
         api_client: base.BaseGeonodeClient,
-        layer_handler: typing.Callable,
-        error_handler: typing.Callable,
     ):
         """Load a QGIS layer
 
@@ -303,13 +298,10 @@ class LayerLoaderTask(qgis.core.QgsTask):
         self.brief_dataset = brief_dataset
         self.service_type = service_type
         self.api_client = api_client
-        self.layer_handler = layer_handler
-        self.error_handler = error_handler
         self.layer = None
         self._exception = None
 
     def run(self):
-        log(f"service_url: {self.brief_dataset.service_urls[self.service_type]}")
         if self.service_type == models.GeonodeService.OGC_WMS:
             layer = self._load_wms()
         elif self.service_type == models.GeonodeService.OGC_WFS:
@@ -324,8 +316,11 @@ class LayerLoaderTask(qgis.core.QgsTask):
         if layer is not None and layer.isValid():
             self.layer = layer
             result = True
-        log(f"result: {result}")
-
+        else:
+            error = layer.error()
+            log(f"layer error: {error.messageList()}")
+            log(f"provider error: {layer.dataProvider().error().messageList()}")
+            log(f"provider errors: {layer.dataProvider().errors()}")
         return result
 
     def finished(self, result: bool):
@@ -334,8 +329,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
             # layers work appropriately - Otherwise we get random crashes when loading
             # WMS layers. This may be related to how the layer is moved from the
             # secondary thread by QgsTaskManager and the layer's ownership.
-            cloned_layer = self.layer.clone()
-            self.layer_handler(cloned_layer)
+            self.layer = self.layer.clone()
         else:
             message = (
                 f"Error loading layer {self.brief_dataset.title!r} from "
@@ -343,10 +337,8 @@ class LayerLoaderTask(qgis.core.QgsTask):
                 f"{self._exception}"
             )
             log(message)
-            self.error_handler(message)
 
     def _load_wms(self) -> qgis.core.QgsMapLayer:
-        log(f"crs: {self.brief_dataset.srid.postgisSrid()}")
         params = {
             "crs": f"EPSG:{self.brief_dataset.srid.postgisSrid()}",
             "format": "image/png",
@@ -355,7 +347,6 @@ class LayerLoaderTask(qgis.core.QgsTask):
             "url": self.brief_dataset.service_urls[self.service_type],
         }
         url = urllib.parse.unquote(urllib.parse.urlencode(params))
-        log(f"url: {url}")
         return qgis.core.QgsRasterLayer(url, self.brief_dataset.title, "wms")
 
     def _load_wcs(self) -> qgis.core.QgsMapLayer:
@@ -387,64 +378,64 @@ class LayerLoaderTask(qgis.core.QgsTask):
 
 
 def populate_metadata(
-    metadata: qgis.core.QgsLayerMetadata, geonode_resource: models.GeonodeResource
+    metadata: qgis.core.QgsLayerMetadata, dataset: models.Dataset
 ):
-    metadata.setIdentifier(str(geonode_resource.uuid))
-    metadata.setTitle(geonode_resource.title)
-    metadata.setAbstract(geonode_resource.abstract)
-    metadata.setLanguage(geonode_resource.language)
-    metadata.setKeywords({"layer": geonode_resource.keywords})
-    if geonode_resource.category:
-        metadata.setCategories([geonode_resource.category])
-    if geonode_resource.license:
-        metadata.setLicenses([geonode_resource.license])
-    if geonode_resource.constraints:
+    metadata.setIdentifier(str(dataset.uuid))
+    metadata.setTitle(dataset.title)
+    metadata.setAbstract(dataset.abstract)
+    metadata.setLanguage(dataset.language)
+    metadata.setKeywords({"layer": dataset.keywords})
+    if dataset.category:
+        metadata.setCategories([dataset.category])
+    if dataset.license:
+        metadata.setLicenses([dataset.license])
+    if dataset.constraints:
         constraints = [
-            qgis.core.QgsLayerMetadata.Constraint(geonode_resource.constraints)
+            qgis.core.QgsLayerMetadata.Constraint(dataset.constraints)
         ]
         metadata.setConstraints(constraints)
-    metadata.setCrs(geonode_resource.crs)
+    metadata.setCrs(dataset.srid)
     spatial_extent = qgis.core.QgsLayerMetadata.SpatialExtent()
-    spatial_extent.extentCrs = geonode_resource.crs
-    if geonode_resource.spatial_extent:
-        spatial_extent.bounds = geonode_resource.spatial_extent.toBox3d(0, 0)
-        if geonode_resource.temporal_extent:
+    spatial_extent.extentCrs = dataset.srid
+    if dataset.spatial_extent:
+        spatial_extent.bounds = dataset.spatial_extent.toBox3d(0, 0)
+        if dataset.temporal_extent:
             metadata.extent().setTemporalExtents(
                 [
                     qgis.core.QgsDateTimeRange(
-                        geonode_resource.temporal_extent[0],
-                        geonode_resource.temporal_extent[1],
+                        dataset.temporal_extent[0],
+                        dataset.temporal_extent[1],
                     )
                 ]
             )
 
     metadata.extent().setSpatialExtents([spatial_extent])
-    if geonode_resource.owner:
+    if dataset.owner:
         owner_contact = qgis.core.QgsAbstractMetadataBase.Contact(
-            geonode_resource.owner["username"]
+            dataset.owner
         )
         owner_contact.role = tr("owner")
         metadata.addContact(owner_contact)
-    if geonode_resource.metadata_author:
+    if dataset.metadata_author:
         metadata_author = qgis.core.QgsAbstractMetadataBase.Contact(
-            geonode_resource.metadata_author["username"]
+            dataset.metadata_author
         )
         metadata_author.role = tr("metadata_author")
         metadata.addContact(metadata_author)
     links = []
-    if geonode_resource.thumbnail_url:
+    if dataset.thumbnail_url:
         link = qgis.core.QgsAbstractMetadataBase.Link(
-            tr("Thumbnail"), tr("Thumbail_link"), geonode_resource.thumbnail_url
+            tr("Thumbnail"), tr("Thumbail_link"), dataset.thumbnail_url
         )
         links.append(link)
-    if geonode_resource.api_url:
+    if dataset.link:
         link = qgis.core.QgsAbstractMetadataBase.Link(
-            tr("API"), tr("API_URL"), geonode_resource.api_url
+            tr("API"), tr("API_URL"), dataset.link
         )
         links.append(link)
-    if geonode_resource.gui_url:
+    if dataset.detail_url:
         link = qgis.core.QgsAbstractMetadataBase.Link(
-            tr("Detail"), tr("Detail_URL"), geonode_resource.gui_url
+            tr("Detail"), tr("Detail_URL"), dataset.detail_url
         )
         links.append(link)
     metadata.setLinks(links)
