@@ -302,6 +302,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             else:
                 if current_connection.api_client_class_path:
                     self.api_client = get_geonode_client(current_connection)
+                    self.api_client.dataset_list_received.connect(
+                        self.handle_dataset_list
+                    )
                     self.api_client.error_received.connect(self.show_search_error)
                 else:
                     # don't know if current config is valid or not yet, need to detect it
@@ -325,20 +328,21 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.previous_btn.setEnabled(enable_previous)
         self.next_btn.setEnabled(enable_next)
 
-    def update_current_connection(self, current_index: int):
-        current_text = self.connections_cmb.itemText(current_index)
-        try:
-            current_connection = conf.settings_manager.find_connection_by_name(
-                current_text
-            )
-        except ValueError:
-            pass
-        else:
-            conf.settings_manager.set_current_connection(current_connection.id)
-            self.api_client = get_geonode_client(current_connection)
-            self.api_client.layer_list_received.connect(self.handle_layer_list)
-            self.api_client.error_received.connect(self.show_search_error)
-            self.update_gui(current_connection)
+    #
+    # def update_current_connection(self, current_index: int):
+    #     current_text = self.connections_cmb.itemText(current_index)
+    #     try:
+    #         current_connection = conf.settings_manager.find_connection_by_name(
+    #             current_text
+    #         )
+    #     except ValueError:
+    #         pass
+    #     else:
+    #         conf.settings_manager.set_current_connection(current_connection.id)
+    #         self.api_client = get_geonode_client(current_connection)
+    #         self.api_client.layer_list_received.connect(self.handle_layer_list)
+    #         self.api_client.error_received.connect(self.show_search_error)
+    #         self.update_gui(current_connection)
 
     def update_gui(self, connection_settings: conf.ConnectionSettings):
         """Update our UI based on the capabilities of the current API client"""
@@ -462,7 +466,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             elif self.api_client is None:
                 self.search_finished.emit(tr(_INVALID_CONNECTION_MESSAGE))
             else:
-                self.api_client.dataset_list_received.connect(self.handle_dataset_list)
                 self.api_client.get_dataset_list(
                     models.GeonodeApiSearchParameters(
                         page=self.current_page,
