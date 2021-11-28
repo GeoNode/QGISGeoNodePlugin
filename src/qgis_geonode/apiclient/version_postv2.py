@@ -186,7 +186,14 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
                         sld_doc = self.deserialize_sld_style(
                             sld_response_content.response_body
                         )
-                        dataset.default_style = sld_doc
+                        sld_root = sld_doc.documentElement()
+                        error_message = "Could not parse downloaded SLD document"
+                        if sld_root.isNull():
+                            raise RuntimeError(error_message)
+                        sld_named_layer = sld_root.firstChildElement("NamedLayer")
+                        if sld_named_layer.isNull():
+                            raise RuntimeError(error_message)
+                        dataset.default_style = sld_named_layer
         self.dataset_detail_received.emit(dataset)
 
 

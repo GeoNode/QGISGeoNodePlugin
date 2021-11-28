@@ -32,7 +32,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     thumbnail_la: QtWidgets.QLabel
 
     dataset_loader_task: typing.Optional[qgis.core.QgsTask]
-
     # thumbnail_fetcher_task fetches the thumbnail
     # thumbnail_loader_task then loads the thumbnail
     thumbnail_fetcher_task: typing.Optional[network.MultipleNetworkFetcherTask]
@@ -44,16 +43,19 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     api_client: base.BaseGeonodeClient
     brief_dataset: models.BriefDataset
     layer: typing.Optional["QgsMapLayer"]
+    data_source_widget: "GeonodeDataSourceWidget"
 
     def __init__(
         self,
         brief_dataset: models.BriefDataset,
         api_client: base.BaseGeonodeClient,
+        data_source_widget: "GeonodeDataSourceWidget",
         parent=None,
     ):
         super().__init__(parent)
         self.setupUi(self)
         self.project = qgis.core.QgsProject.instance()
+        self.data_source_widget = data_source_widget
         self.thumbnail_loader_task = None
         self.thumbnail_fetcher_task = None
         self.dataset_loader_task = None
@@ -167,27 +169,22 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         else:
             log(f"Could not fetch thumbnail")
 
-    def _get_datasource_widget(self):
-        return self.parent().parent().parent().parent()
-
     def handle_dataset_load_start(self):
-        parent = self._get_datasource_widget()
-        parent.toggle_search_controls(False)
-        parent.show_progress(tr("Loading layer..."))
+        self.data_source_widget.toggle_search_controls(False)
+        self.data_source_widget.show_progress(tr("Loading layer..."))
         self.toggle_service_url_buttons(False)
 
     def handle_layer_load_end(self, clear_message_bar: typing.Optional[bool] = True):
-        parent = self._get_datasource_widget()
-        parent.toggle_search_controls(True)
-        parent.toggle_search_buttons()
+        self.data_source_widget.toggle_search_controls(True)
+        self.data_source_widget.toggle_search_buttons()
         self.toggle_service_url_buttons(True)
         if clear_message_bar:
-            self._get_datasource_widget().message_bar.clearWidgets()
+            self.data_source_widget.message_bar.clearWidgets()
 
     def handle_loading_error(self):
         log("Inside handle_loading_error")
         message = f"Unable to load layer {self.brief_dataset.title}: {self.dataset_loader_task._exception}"
-        self._get_datasource_widget().show_message(
+        self.data_source_widget.show_message(
             message, level=qgis.core.Qgis.Critical)
         self.handle_layer_load_end(clear_message_bar=False)
 
@@ -203,34 +200,26 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         qgis.core.QgsApplication.taskManager().addTask(self.dataset_loader_task)
 
     def prepare_loaded_layer(self):
-        log("inside prepare_loaded_layer")
         if self.dataset_loader_task._exception is not None:
             log(self.dataset_loader_task._exception)
         self.layer = self.dataset_loader_task.layer
-        log(f"layer: {self.layer}")
-        log(f"layer is valid: {self.layer.isValid()}")
         self.api_client.dataset_detail_received.connect(self.handle_layer_detail)
         self.api_client.error_received.connect(self.handle_loading_error)
         self.api_client.get_dataset_detail(self.brief_dataset)
 
     def handle_layer_detail(self, dataset: models.Dataset):
-        log(f"inside handle_layer_detail")
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
         metadata = populate_metadata(self.layer.metadata(), dataset)
         self.layer.setMetadata(metadata)
         provider_name =  self.layer.dataProvider().name()
-        log(f"provider_name: {provider_name}")
         if provider_name == "WFS" and dataset.default_style:
             error_message = ""
             loaded_sld = self.layer.readSld(dataset.default_style, error_message)
-            if not loaded_sld():
-                self._get_datasource_widget().show_message(
-                    tr(f"Problem in applying GeoNode style for layer: {error_message}")
-                )
+            if not loaded_sld:
+                log(f"Could not apply SLD to layer: {error_message}")
         self.add_layer_to_project()
 
     def add_layer_to_project(self):
-        log(f"inside add_layer_to_project")
         self.api_client.error_received.disconnect(self.handle_loading_error)
         self.project.addMapLayer(self.layer)
         self.handle_layer_load_end()
@@ -346,8 +335,11 @@ class LayerLoaderTask(qgis.core.QgsTask):
             "styles": "",
             "url": self.brief_dataset.service_urls[self.service_type],
         }
-        url = urllib.parse.unquote(urllib.parse.urlencode(params))
-        return qgis.core.QgsRasterLayer(url, self.brief_dataset.title, "wms")
+        return qgis.core.QgsRasterLayer(
+            urllib.parse.unquote(urllib.parse.urlencode(params)),
+            self.brief_dataset.title,
+            "wms"
+        )
 
     def _load_wcs(self) -> qgis.core.QgsMapLayer:
         params = {
@@ -371,7 +363,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
         }
         base_url = self.brief_dataset.service_urls[self.service_type].rstrip("/")
         return qgis.core.QgsVectorLayer(
-            f"{base_url}/{urllib.parse.unquote(urllib.parse.urlencode(params))}",
+            f"{base_url}/?{urllib.parse.unquote(urllib.parse.urlencode(params))}",
             self.brief_dataset.title,
             "WFS",
         )

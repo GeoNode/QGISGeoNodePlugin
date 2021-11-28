@@ -106,7 +106,7 @@ class Dataset(BriefDataset):
     owner: typing.Dict[str, str]
     metadata_author: typing.Dict[str, str]
     styles: typing.List[BriefGeonodeStyle]
-    default_style: typing.Optional[QtXml.QDomDocument]
+    default_style: typing.Optional[QtXml.QDomElement]
 
 
 # TODO: Remove this in favor of BriefDataset

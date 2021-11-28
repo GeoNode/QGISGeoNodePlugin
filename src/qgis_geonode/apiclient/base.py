@@ -124,6 +124,7 @@ class BaseGeonodeClient(QtCore.QObject):
     def handle_layer_detail(self):
         raise NotImplementedError
 
+    # TODO: remove this, as it is not needed when using blockingget to fetch the sld
     def handle_layer_style_detail(self):
         deserialized = self.deserialize_sld_style(
             self.network_fetcher_task.reply_content

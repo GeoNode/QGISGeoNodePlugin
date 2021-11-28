@@ -548,6 +548,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 search_result_widget = SearchResultWidget(
                     brief_dataset,
                     self.api_client,
+                    data_source_widget=self,
                 )
                 layout.addWidget(search_result_widget)
                 layout.setAlignment(search_result_widget, QtCore.Qt.AlignTop)

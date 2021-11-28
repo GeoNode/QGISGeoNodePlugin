@@ -20,7 +20,7 @@ class ParsedNetworkReply:
     http_status_code: int
     http_status_reason: str
     qt_error: str
-    response_body: str
+    response_body: QtCore.QByteArray
 
 
 @dataclasses.dataclass()
