@@ -535,7 +535,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
     TYPE_NAME = ET.QName(Csw202Namespace.GMD.value, "MD_Metadata")
 
     capabilities = [
-        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_TITLE,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         # models.ApiClientCapability.FILTER_BY_SPATIAL_EXTENT,
     ]
@@ -588,7 +588,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
         """
 
         name = {
-            models.OrderingType.NAME: "apiso:Title",
+            models.OrderingType.TITLE: "apiso:Title",
         }[ordering_type]
         return f"{name}:{'D' if reverse_sort else 'A'}"
 

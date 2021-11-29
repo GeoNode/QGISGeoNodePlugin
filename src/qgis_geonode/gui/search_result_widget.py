@@ -267,7 +267,7 @@ class ThumbnailLoaderTask(qgis.core.QgsTask):
 
 class LayerLoaderTask(qgis.core.QgsTask):
     brief_dataset: models.BriefDataset
-    brief_resource: models.BriefGeonodeResource
+    brief_resource: models.BriefDataset
     service_type: models.GeonodeService
     api_client: base.BaseGeonodeClient
     layer: typing.Optional["QgsMapLayer"]

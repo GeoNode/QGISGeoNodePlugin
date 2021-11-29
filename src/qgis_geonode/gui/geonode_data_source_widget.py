@@ -169,7 +169,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.publication_end_dte.clear()
 
         self._load_categories()
-        self._load_sorting_fields(selected_by_default=models.OrderingType.NAME)
         self._initialize_spatial_extent_box()
         self.title_le.textChanged.connect(self.store_search_filters)
         self.abstract_le.textChanged.connect(self.store_search_filters)
@@ -296,6 +295,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             else:
                 if current_connection.api_client_class_path:
                     self.api_client = get_geonode_client(current_connection)
+                    self._load_sorting_fields()
                     self.api_client.dataset_list_received.connect(
                         self.handle_dataset_list
                     )
@@ -354,7 +354,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     def _get_usable_search_filters(self) -> typing.List:
         capabilities = self.api_client.capabilities if self.api_client else []
         result = []
-        if ApiClientCapability.FILTER_BY_NAME in capabilities:
+        if ApiClientCapability.FILTER_BY_TITLE in capabilities:
             result.extend((self.title_la, self.title_le))
         if ApiClientCapability.FILTER_BY_ABSTRACT in capabilities:
             result.extend((self.abstract_la, self.abstract_le))
@@ -485,7 +485,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def handle_dataset_list(
         self,
-        dataset_list: typing.List[models.BriefGeonodeResource],
+        dataset_list: typing.List[models.BriefDataset],
         pagination_info: models.GeonodePaginationInfo,
     ):
         """Handle incoming dataset list
@@ -548,15 +548,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         for display_name, data_ in items_to_add:
             self.category_cmb.addItem(display_name, data_)
 
-    def _load_sorting_fields(self, selected_by_default: models.OrderingType):
-        labels = {
-            models.OrderingType.NAME: tr("Name"),
-        }
-        for ordering_type, item_text in labels.items():
-            self.sort_field_cmb.addItem(item_text, ordering_type)
-        self.sort_field_cmb.setCurrentIndex(
-            self.sort_field_cmb.findData(selected_by_default, role=QtCore.Qt.UserRole)
-        )
+    def _load_sorting_fields(self):
+        self.sort_field_cmb.clear()
+        for ordering_type, description in self.api_client.get_ordering_fields():
+            self.sort_field_cmb.addItem(tr(description), ordering_type)
 
     def restore_search_filters(self):
         current_search_filters = conf.settings_manager.get_current_search_filters()

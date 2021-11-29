@@ -219,7 +219,7 @@ class SettingsManager(QtCore.QObject):
                 settings.setValue(
                     "spatial_extent_west", filters.spatial_extent.xMinimum()
                 )
-            settings.setValue("sort_by_field", filters.ordering_field.value)
+            settings.setValue("sort_by_field", filters.ordering_field)
             settings.setValue("reverse_sort_order", filters.reverse_ordering)
 
     def get_current_search_filters(self) -> models.GeonodeApiSearchFilters:
@@ -257,9 +257,7 @@ class SettingsManager(QtCore.QObject):
                     float(settings.value("spatial_extent_west")),
                     float(settings.value("spatial_extent_north")),
                 )
-            result.ordering_field = models.OrderingType(
-                settings.value("sort_by_field", models.OrderingType.NAME.value)
-            )
+            result.ordering_field = settings.value("sort_by_field")
             result.reverse_ordering = settings.value(
                 "reverse_sort_order", False, type=bool
             )

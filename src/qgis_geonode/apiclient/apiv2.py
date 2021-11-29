@@ -21,7 +21,7 @@ from . import base
 class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     capabilities = [
-        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_TITLE,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         models.ApiClientCapability.FILTER_BY_KEYWORD,
         models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
@@ -42,7 +42,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         reverse_sort: typing.Optional[bool] = False,
     ) -> str:
         name = {
-            models.OrderingType.NAME: "name",
+            models.OrderingType.TITLE: "name",
         }[ordering_type]
         return f"{'-' if reverse_sort else ''}{name}"
 

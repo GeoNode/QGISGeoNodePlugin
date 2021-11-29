@@ -25,7 +25,7 @@ class ApiClientCapability(enum.Enum):
     # NOTE - Some capabilities are not made explicit here because their support
     # is mandatory far all API clients. For example, all clients must support
     # searching datasets, as otherwise there wouldn't be much point to their existence
-    FILTER_BY_NAME = enum.auto()
+    FILTER_BY_TITLE = enum.auto()
     FILTER_BY_ABSTRACT = enum.auto()
     FILTER_BY_KEYWORD = enum.auto()
     FILTER_BY_TOPIC_CATEGORY = enum.auto()
@@ -55,7 +55,7 @@ class GeonodeResourceType(enum.Enum):
 
 
 class OrderingType(enum.Enum):
-    NAME = "name"
+    TITLE = "title"
 
 
 @dataclasses.dataclass
@@ -111,93 +111,6 @@ class Dataset(BriefDataset):
     default_style: typing.Optional[QtXml.QDomElement]
 
 
-# TODO: Remove this in favor of BriefDataset
-class BriefGeonodeResource:
-    pk: typing.Optional[int]
-    uuid: UUID
-    name: str
-    resource_type: GeonodeResourceType
-    title: str
-    abstract: str
-    published_date: typing.Optional[dt.datetime]
-    spatial_extent: QgsRectangle
-    temporal_extent: typing.Optional[typing.List[dt.datetime]]
-    crs: QgsCoordinateReferenceSystem
-    thumbnail_url: str
-    api_url: typing.Optional[str]
-    gui_url: str
-    keywords: typing.List[str]
-    category: typing.Optional[str]
-    service_urls: typing.Dict[GeonodeService, str]
-
-    def __init__(
-        self,
-        uuid: UUID,
-        name: str,
-        resource_type: GeonodeResourceType,
-        title: str,
-        abstract: str,
-        spatial_extent: QgsRectangle,
-        crs: QgsCoordinateReferenceSystem,
-        thumbnail_url: str,
-        gui_url: str,
-        pk: typing.Optional[int] = None,
-        api_url: typing.Optional[str] = None,
-        published_date: typing.Optional[dt.datetime] = None,
-        temporal_extent: typing.Optional[typing.List[dt.datetime]] = None,
-        keywords: typing.Optional[typing.List[str]] = None,
-        category: typing.Optional[str] = None,
-        service_urls: typing.Optional[typing.Dict[GeonodeService, str]] = None,
-    ):
-        self.pk = pk
-        self.uuid = uuid
-        self.name = name
-        self.resource_type = resource_type
-        self.title = title
-        self.abstract = abstract
-        self.spatial_extent = spatial_extent
-        self.crs = crs
-        self.thumbnail_url = thumbnail_url
-        self.api_url = api_url
-        self.gui_url = gui_url
-        self.published_date = published_date
-        self.temporal_extent = temporal_extent
-        self.keywords = list(keywords) if keywords is not None else []
-        self.category = category
-        self.service_urls = dict(service_urls) if service_urls is not None else {}
-
-
-class GeonodeResource(BriefGeonodeResource):
-    language: str
-    license: str
-    constraints: str
-    owner: typing.Dict[str, str]
-    metadata_author: typing.Dict[str, str]
-    default_style: BriefGeonodeStyle
-    styles: typing.List[BriefGeonodeStyle]
-
-    def __init__(
-        self,
-        language: str,
-        license: str,
-        constraints: str,
-        owner: typing.Dict[str, str],
-        metadata_author: typing.Dict[str, str],
-        default_style: BriefGeonodeStyle,
-        styles: typing.List[BriefGeonodeStyle],
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.language = language
-        self.license = license
-        self.constraints = constraints
-        self.owner = owner
-        self.metadata_author = metadata_author
-        self.default_style = default_style
-        self.styles = styles
-
-
 @dataclasses.dataclass
 class GeonodeApiSearchFilters:
     page: typing.Optional[int] = 1
@@ -208,7 +121,7 @@ class GeonodeApiSearchFilters:
     layer_types: typing.Optional[typing.List[GeonodeResourceType]] = dataclasses.field(
         default_factory=list
     )
-    ordering_field: typing.Optional[OrderingType] = None
+    ordering_field: typing.Optional[str] = None
     reverse_ordering: typing.Optional[bool] = False
     temporal_extent_start: typing.Optional[QtCore.QDateTime] = None
     temporal_extent_end: typing.Optional[QtCore.QDateTime] = None

@@ -16,7 +16,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
     """An API Client for GeoNode versions above v3.2"""
 
     capabilities = [
-        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_TITLE,
         models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         models.ApiClientCapability.FILTER_BY_KEYWORD,
@@ -37,56 +37,64 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
     def dataset_list_url(self):
         return f"{self.api_url}/datasets/"
 
+    def get_ordering_fields(self) -> typing.List[typing.Tuple[str, str]]:
+        return [
+            ("title", "Title"),
+        ]
+
     def build_search_query(
-        self, search_params: models.GeonodeApiSearchFilters
+        self, search_filters: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
-        query.addQueryItem("page", str(search_params.page))
+        query.addQueryItem("page", str(search_filters.page))
         query.addQueryItem("page_size", str(self.page_size))
-        if search_params.title is not None:
-            query.addQueryItem("filter{title.icontains}", search_params.title)
-        if search_params.abstract is not None:
-            query.addQueryItem("filter{abstract.icontains}", search_params.abstract)
-        if search_params.keyword is not None:
-            query.addQueryItem("filter{keywords.name.icontains}", search_params.keyword)
-        if search_params.topic_category is not None:
+        if search_filters.title is not None:
+            query.addQueryItem("filter{title.icontains}", search_filters.title)
+        if search_filters.abstract is not None:
+            query.addQueryItem("filter{abstract.icontains}", search_filters.abstract)
+        if search_filters.keyword is not None:
             query.addQueryItem(
-                "filter{category.identifier}", search_params.topic_category.name.lower()
+                "filter{keywords.name.icontains}", search_filters.keyword
             )
-        if search_params.temporal_extent_start is not None:
+        if search_filters.topic_category is not None:
+            query.addQueryItem(
+                "filter{category.identifier}",
+                search_filters.topic_category.name.lower(),
+            )
+        if search_filters.temporal_extent_start is not None:
             query.addQueryItem(
                 "filter{temporal_extent_start.gte}",
-                search_params.temporal_extent_start.toString(QtCore.Qt.ISODate),
+                search_filters.temporal_extent_start.toString(QtCore.Qt.ISODate),
             )
-        if search_params.temporal_extent_end is not None:
+        if search_filters.temporal_extent_end is not None:
             query.addQueryItem(
                 "filter{temporal_extent_end.lte}",
-                search_params.temporal_extent_end.toString(QtCore.Qt.ISODate),
+                search_filters.temporal_extent_end.toString(QtCore.Qt.ISODate),
             )
-        if search_params.publication_date_start is not None:
+        if search_filters.publication_date_start is not None:
             query.addQueryItem(
                 "filter{date.gte}",
-                search_params.publication_date_start.toString(QtCore.Qt.ISODate),
+                search_filters.publication_date_start.toString(QtCore.Qt.ISODate),
             )
-        if search_params.publication_date_end is not None:
+        if search_filters.publication_date_end is not None:
             query.addQueryItem(
                 "filter{date.lte}",
-                search_params.publication_date_end.toString(QtCore.Qt.ISODate),
+                search_filters.publication_date_end.toString(QtCore.Qt.ISODate),
             )
         # TODO revisit once the support for spatial extent is available on
         # GeoNode API V2
         if (
-            search_params.spatial_extent is not None
-            and not search_params.spatial_extent.isNull()
+            search_filters.spatial_extent is not None
+            and not search_filters.spatial_extent.isNull()
         ):
             pass
-        if search_params.layer_types is None:
+        if search_filters.layer_types is None:
             types = [
                 models.GeonodeResourceType.VECTOR_LAYER,
                 models.GeonodeResourceType.RASTER_LAYER,
             ]
         else:
-            types = list(search_params.layer_types)
+            types = list(search_filters.layer_types)
         is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
         is_raster = models.GeonodeResourceType.RASTER_LAYER in types
         if is_vector and is_raster:
@@ -97,17 +105,17 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
             query.addQueryItem("filter{subtype}", "raster")
         else:
             raise NotImplementedError
-        if search_params.ordering_field is not None:
+        if search_filters.ordering_field is not None:
             query.addQueryItem(
-                "sort[]", f"{'-' if search_params.reverse_ordering else ''}name"
+                "sort[]", f"{'-' if search_filters.reverse_ordering else ''}name"
             )
         return query
 
     def get_dataset_list_url(
-        self, search_params: models.GeonodeApiSearchFilters
+        self, search_filters: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(self.dataset_list_url)
-        query = self.build_search_query(search_params)
+        query = self.build_search_query(search_filters)
         url.setQuery(query.query())
         return url
 

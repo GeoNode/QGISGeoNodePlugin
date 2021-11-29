@@ -400,11 +400,14 @@ class ApiClientDiscovererTask(qgis.core.QgsTask):
         urls_to_try = [
             (
                 f"{self.base_url}/api/v2/datasets/",
-                "qgis_geonode.apiclient.geonode.GeonodePostV2ApiClient",
+                "qgis_geonode.apiclient.version_postv2.GeonodePostV2ApiClient",
             ),
             # TODO: Implement the other api clients
             (f"{self.base_url}/api/v2/", "qgis_geonode.apiclient.apiv2"),
-            (f"{self.base_url}/api/", "qgis_geonode.apiclient.legacy"),
+            (
+                f"{self.base_url}/api/",
+                "qgis_geonode.apiclient.version_legacy.GeonodeLegacyApiClient",
+            ),
         ]
         for url, client_class_path in urls_to_try:
             log(f"Performing request for {url!r}...")

@@ -112,7 +112,7 @@
            <string>Display WFS FeatureTypes containing this word in the title, name or abstract</string>
           </property>
           <property name="whatsThis">
-           <string>Display WFS FeatureTypes containing this word in the title, name or abstract</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Title (or part of it) of the remote GeoNode dataset&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
          </widget>
         </item>
@@ -153,6 +153,9 @@
           <widget class="QLineEdit" name="abstract_le">
            <property name="enabled">
             <bool>true</bool>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&amp;lt;html&amp;gt;&amp;lt;head/&amp;gt;&amp;lt;body&amp;gt;&amp;lt;p&amp;gt;Abstract (or part of it) of the remote GeoNode dataset&amp;lt;/p&amp;gt;&amp;lt;/body&amp;gt;&amp;lt;/html&amp;gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
           </widget>
          </item>
