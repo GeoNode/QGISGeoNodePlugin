@@ -97,14 +97,10 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
             types = list(search_filters.layer_types)
         is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
         is_raster = models.GeonodeResourceType.RASTER_LAYER in types
-        if is_vector and is_raster:
-            pass
-        elif is_vector:
+        if is_vector:
             query.addQueryItem("filter{subtype}", "vector")
-        elif is_raster:
+        if is_raster:
             query.addQueryItem("filter{subtype}", "raster")
-        else:
-            raise NotImplementedError
         if search_filters.ordering_field is not None:
             query.addQueryItem(
                 "sort[]", f"{'-' if search_filters.reverse_ordering else ''}name"
@@ -232,7 +228,7 @@ def _get_common_model_properties(raw_dataset: typing.Dict) -> typing.Dict:
         service_urls = _get_raster_service_urls(raw_links)
     else:
         service_urls = {}
-    raw_style = raw_dataset.get("default_style", {})
+    raw_style = raw_dataset.get("default_style") or {}
     return {
         "pk": int(raw_dataset["pk"]),
         "uuid": uuid.UUID(raw_dataset["uuid"]),
@@ -285,14 +281,10 @@ def _get_temporal_extent(
 def _get_resource_type(
     raw_dataset: typing.Dict,
 ) -> typing.Optional[models.GeonodeResourceType]:
-    resource_type = raw_dataset.get("resource_type")
-    if resource_type == "dataset":
-        result = {
-            "raster": models.GeonodeResourceType.RASTER_LAYER,
-            "vector": models.GeonodeResourceType.VECTOR_LAYER,
-        }.get(raw_dataset.get("subtype"))
-    else:
-        result = None
+    result = {
+        "raster": models.GeonodeResourceType.RASTER_LAYER,
+        "vector": models.GeonodeResourceType.VECTOR_LAYER,
+    }.get(raw_dataset.get("subtype"))
     return result
 
 

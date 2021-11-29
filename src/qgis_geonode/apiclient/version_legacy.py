@@ -6,10 +6,40 @@ import qgis.core
 from qgis.PyQt import QtCore
 
 from .. import network
-from ..utils import log
+from ..utils import (
+    IsoTopicCategory,
+    log,
+)
 
 from . import models
 from .base import BaseGeonodeClient
+
+# NOTE: the legacy GeoNode API's dataset list endpoint does not return a dataset's
+# category identifier, just its description. In order to simplify and not having to
+# perform additional requests, this is a mapping of each category description to the
+# corresponding enum variant
+_TOPIC_CATEGORY_MAP = {
+    "Biota": IsoTopicCategory.biota,
+    "Boundaries": IsoTopicCategory.boundaries,
+    "Climatology Meteorology Atmosphere": IsoTopicCategory.climatologyMeteorologyAtmosphere,
+    "Economy": IsoTopicCategory.economy,
+    "Elevation": IsoTopicCategory.elevation,
+    "Environment": IsoTopicCategory.environment,
+    "Farming": IsoTopicCategory.farming,
+    "Geoscientific Information": IsoTopicCategory.geoscientificInformation,
+    "Health": IsoTopicCategory.health,
+    "Imagery Base Maps Earth Cover": IsoTopicCategory.imageryBaseMapsEarthCover,
+    "Inland waters": IsoTopicCategory.inlandWaters,
+    "Intelligence Military": IsoTopicCategory.intelligenceMilitary,
+    "Location": IsoTopicCategory.location,
+    "Oceans": IsoTopicCategory.oceans,
+    # there seems to be an additional Population category, which does not seems to be on the ISO - lets ignore it for now
+    "Planning Cadastre": IsoTopicCategory.planningCadastre,
+    "Society": IsoTopicCategory.society,
+    "Structure": IsoTopicCategory.structure,
+    "Transportation": IsoTopicCategory.transportation,
+    "Utilities Communication": IsoTopicCategory.utilitiesCommunication,
+}
 
 
 class GeonodeLegacyApiClient(BaseGeonodeClient):
@@ -18,6 +48,9 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
     capabilities = [
         models.ApiClientCapability.FILTER_BY_TITLE,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
+        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
     ]
 
     @property
@@ -38,7 +71,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
         query.addQueryItem("limit", str(self.page_size))
-        query.addQueryItem("offset", str(search_filters.page * self.page_size))
+        query.addQueryItem("offset", str((search_filters.page - 1) * self.page_size))
         if search_filters.title is not None:
             query.addQueryItem("title__icontains", search_filters.title)
         if search_filters.abstract is not None:
@@ -84,17 +117,17 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
                                 raw_brief_dataset
                             )
                             brief_dataset = models.BriefDataset(**parsed_properties)
-                        except ValueError:
+                        except ValueError as exc:
                             log(
                                 f"Could not parse {raw_brief_dataset!r} into a "
-                                f"valid item",
+                                f"valid item: {str(exc)}",
                                 debug=False,
                             )
                         else:
                             brief_datasets.append(brief_dataset)
                     meta = deserialized_content.get("meta", {})
                     page_size = meta.get("limit", self.page_size)
-                    current_page = meta.get("offset", 0) * page_size
+                    current_page = int((meta.get("offset", 0) / page_size) + 1)
                     pagination_info = models.GeonodePaginationInfo(
                         total_records=meta.get("total_count") or 0,
                         current_page=current_page,
@@ -112,7 +145,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
             "abstract": raw_dataset.get("raw_abstract", ""),
             "thumbnail_url": raw_dataset["thumbnail_url"],
             "link": f"{self.api_url}{raw_dataset['resource_uri']}",
-            "detail_url": f"{self.base_url}/{raw_dataset['detail_url']}",
+            "detail_url": f"{self.base_url}{raw_dataset['detail_url']}",
             "dataset_sub_type": type_,
             "service_urls": self._get_service_urls(type_),
             "spatial_extent": qgis.core.QgsRectangle.fromWkt(
@@ -122,6 +155,10 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
             "published_date": _get_published_date(raw_dataset),
             "temporal_extent": _get_temporal_extent(raw_dataset),
             "keywords": raw_dataset.get("keywords", []),
+            "category": _TOPIC_CATEGORY_MAP.get(
+                raw_dataset.get("category__gn_description")),
+            "default_style": models.BriefGeonodeStyle(
+                name="", sld_url=f"{self.base_url}/{raw_dataset.get('default_style')}")
         }
 
     def _get_service_urls(
@@ -147,7 +184,12 @@ def _get_resource_type(
 
 def _parse_datetime(raw_value: str) -> dt.datetime:
     format_ = "%Y-%m-%dT%H:%M:%S"
-    return dt.datetime.strptime(raw_value, format_)
+    try:
+        result = dt.datetime.strptime(raw_value, format_)
+    except ValueError:
+        microsecond_format = "%Y-%m-%dT%H:%M:%S.%f"
+        result = dt.datetime.strptime(raw_value, microsecond_format)
+    return result
 
 
 def _get_published_date(payload: typing.Dict) -> typing.Optional[dt.datetime]:

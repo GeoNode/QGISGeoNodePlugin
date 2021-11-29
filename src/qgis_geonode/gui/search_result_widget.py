@@ -309,10 +309,8 @@ class LayerLoaderTask(qgis.core.QgsTask):
             self.layer = layer
             result = True
         else:
-            error = layer.error()
-            log(f"layer error: {error.messageList()}")
+            log(f"layer error: {layer.error().messageList()}")
             log(f"provider error: {layer.dataProvider().error().messageList()}")
-            log(f"provider errors: {layer.dataProvider().errors()}")
         return result
 
     def finished(self, result: bool):

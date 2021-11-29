@@ -49,17 +49,6 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_ordering_fields(self) -> typing.List[typing.Tuple[str, str]]:
         raise NotImplementedError
 
-    def get_ordering_filter_name(
-        self,
-        ordering_type: models.OrderingType,
-        reverse_sort: typing.Optional[bool] = False,
-    ) -> str:
-        raise NotImplementedError
-
-    # FIXME: is this being used?
-    def get_search_result_identifier(self, resource: models.BriefDataset) -> str:
-        raise NotImplementedError
-
     def get_layer_styles_url_endpoint(self, layer_id: int):
         raise NotImplementedError
 

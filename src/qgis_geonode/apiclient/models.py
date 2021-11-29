@@ -51,11 +51,6 @@ class GeonodeService(enum.Enum):
 class GeonodeResourceType(enum.Enum):
     VECTOR_LAYER = "vector"
     RASTER_LAYER = "raster"
-    MAP = "map"
-
-
-class OrderingType(enum.Enum):
-    TITLE = "title"
 
 
 @dataclasses.dataclass
