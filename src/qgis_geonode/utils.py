@@ -11,26 +11,28 @@ from qgis.core import (
 )
 
 
+# NOTE: for simplicity, this enum's variants are named directly after the GeoNode
+# topic_category ids.
 class IsoTopicCategory(enum.Enum):
-    FARMING = "Farming"
-    CLIMATOLOGY_METEOROLOGY_ATMOSPHERE = "Climatology Meteorology Atmosphere"
-    LOCATION = "Location"
-    INTELLIGENCE_MILITARY = "Intelligence Military"
-    TRANSPORTATION = "Transportation"
-    STRUCTURE = "Structure"
-    BOUNDARIES = "Boundaries"
-    INLAND_WATERS = "Inland Waters"
-    PLANNING_CADASTRE = "Planning Cadastre"
-    GEOSCIENTIFIC_INFORMATION = "Geoscientific Information"
-    ELEVATION = "Elevation"
-    HEALTH = "Health"
-    BIOTA = "Biota"
-    OCEANS = "Oceans"
-    ENVIRONMENT = "Environment"
-    UTILITIES_COMMUNICATION = "Utilities Communication"
-    ECONOMY = "Economy"
-    SOCIETY = "Society"
-    IMAGERY_BASE_MAPS_EARTH_COVER = "Imagery Base Maps Earth Cover"
+    biota = "Biota"
+    boundaries = "Boundaries"
+    climatologyMeteorologyAtmosphere = "Climatology Meteorology Atmosphere"
+    economy = "Economy"
+    elevation = "Elevation"
+    environment = "Environment"
+    farming = "Farming"
+    geoscientificInformation = "Geoscientific Information"
+    health = "Health"
+    imageryBaseMapsEarthCover = "Imagery Base Maps Earth Cover"
+    inlandWaters = "Inland Waters"
+    intelligenceMilitary = "Intelligence Military"
+    location = "Location"
+    oceans = "Oceans"
+    planningCadastre = "Planning Cadastre"
+    society = "Society"
+    structure = "Structure"
+    transportation = "Transportation"
+    utilitiesCommunication = "Utilities Communication"
 
 
 def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):

@@ -3,7 +3,11 @@ import typing
 import urllib.parse
 from functools import partial
 
-from qgis.PyQt import QtCore, QtGui, QtNetwork, QtWidgets, QtXml
+from qgis.PyQt import (
+    QtCore,
+    QtGui,
+    QtWidgets,
+)
 from qgis.PyQt.uic import loadUiType
 import qgis.core
 import qgis.gui
@@ -184,8 +188,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def handle_loading_error(self):
         log("Inside handle_loading_error")
         message = f"Unable to load layer {self.brief_dataset.title}: {self.dataset_loader_task._exception}"
-        self.data_source_widget.show_message(
-            message, level=qgis.core.Qgis.Critical)
+        self.data_source_widget.show_message(message, level=qgis.core.Qgis.Critical)
         self.handle_layer_load_end(clear_message_bar=False)
 
     def load_dataset(self, service_type: models.GeonodeService):
@@ -211,7 +214,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
         metadata = populate_metadata(self.layer.metadata(), dataset)
         self.layer.setMetadata(metadata)
-        provider_name =  self.layer.dataProvider().name()
+        provider_name = self.layer.dataProvider().name()
         if provider_name == "WFS" and dataset.default_style:
             error_message = ""
             loaded_sld = self.layer.readSld(dataset.default_style, error_message)
@@ -338,7 +341,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
         return qgis.core.QgsRasterLayer(
             urllib.parse.unquote(urllib.parse.urlencode(params)),
             self.brief_dataset.title,
-            "wms"
+            "wms",
         )
 
     def _load_wcs(self) -> qgis.core.QgsMapLayer:
@@ -369,9 +372,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
         )
 
 
-def populate_metadata(
-    metadata: qgis.core.QgsLayerMetadata, dataset: models.Dataset
-):
+def populate_metadata(metadata: qgis.core.QgsLayerMetadata, dataset: models.Dataset):
     metadata.setIdentifier(str(dataset.uuid))
     metadata.setTitle(dataset.title)
     metadata.setAbstract(dataset.abstract)
@@ -382,9 +383,7 @@ def populate_metadata(
     if dataset.license:
         metadata.setLicenses([dataset.license])
     if dataset.constraints:
-        constraints = [
-            qgis.core.QgsLayerMetadata.Constraint(dataset.constraints)
-        ]
+        constraints = [qgis.core.QgsLayerMetadata.Constraint(dataset.constraints)]
         metadata.setConstraints(constraints)
     metadata.setCrs(dataset.srid)
     spatial_extent = qgis.core.QgsLayerMetadata.SpatialExtent()
@@ -403,9 +402,7 @@ def populate_metadata(
 
     metadata.extent().setSpatialExtents([spatial_extent])
     if dataset.owner:
-        owner_contact = qgis.core.QgsAbstractMetadataBase.Contact(
-            dataset.owner
-        )
+        owner_contact = qgis.core.QgsAbstractMetadataBase.Contact(dataset.owner)
         owner_contact.role = tr("owner")
         metadata.addContact(owner_contact)
     if dataset.metadata_author:

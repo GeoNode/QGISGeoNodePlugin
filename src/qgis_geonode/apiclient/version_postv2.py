@@ -38,7 +38,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         return f"{self.api_url}/datasets/"
 
     def build_search_query(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
         query.addQueryItem("page", str(search_params.page))
@@ -47,13 +47,11 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
             query.addQueryItem("filter{title.icontains}", search_params.title)
         if search_params.abstract is not None:
             query.addQueryItem("filter{abstract.icontains}", search_params.abstract)
-        if search_params.selected_keyword is not None:
-            query.addQueryItem(
-                "filter{keywords.name.icontains}", search_params.selected_keyword
-            )
+        if search_params.keyword is not None:
+            query.addQueryItem("filter{keywords.name.icontains}", search_params.keyword)
         if search_params.topic_category is not None:
             query.addQueryItem(
-                "filter{category.identifier}", search_params.topic_category
+                "filter{category.identifier}", search_params.topic_category.name.lower()
             )
         if search_params.temporal_extent_start is not None:
             query.addQueryItem(
@@ -106,7 +104,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         return query
 
     def get_dataset_list_url(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(self.dataset_list_url)
         query = self.build_search_query(search_params)

@@ -164,31 +164,7 @@
            <property name="text">
             <string>Keyword</string>
            </property>
-           <property name="buddy">
-            <cstring>keyword_cmb</cstring>
-           </property>
           </widget>
-         </item>
-         <item row="1" column="1">
-          <layout class="QHBoxLayout" name="horizontalLayout">
-           <item>
-            <widget class="QComboBox" name="keyword_cmb">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QToolButton" name="keyword_tool_btn">
-             <property name="toolTip">
-              <string>Click to fetch available keywords from the GeoNode instance</string>
-             </property>
-             <property name="text">
-              <string>...</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
          </item>
          <item row="2" column="0">
           <widget class="QLabel" name="category_la">
@@ -350,6 +326,9 @@
             <bool>true</bool>
            </property>
           </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="keyword_le"/>
          </item>
         </layout>
        </widget>
@@ -556,8 +535,6 @@
  <tabstops>
   <tabstop>title_le</tabstop>
   <tabstop>abstract_le</tabstop>
-  <tabstop>keyword_cmb</tabstop>
-  <tabstop>keyword_tool_btn</tabstop>
   <tabstop>category_cmb</tabstop>
   <tabstop>vector_chb</tabstop>
   <tabstop>raster_chb</tabstop>

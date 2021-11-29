@@ -604,12 +604,12 @@ class GeonodeCswClient(base.BaseGeonodeClient):
         return resource.title
 
     def get_layers_url_endpoint(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         return QtCore.QUrl(self.catalogue_url)
 
     def get_layers_request_payload(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> typing.Optional[str]:
         start_position = (self.page_size * search_params.page + 1) - self.page_size
         for member in Csw202Namespace:
@@ -664,10 +664,10 @@ class GeonodeCswClient(base.BaseGeonodeClient):
         return url
 
     def get_layers(
-        self, search_params: typing.Optional[models.GeonodeApiSearchParameters] = None
+        self, search_params: typing.Optional[models.GeonodeApiSearchFilters] = None
     ):
         url = self.get_layers_url_endpoint(search_params)
-        params = search_params or models.GeonodeApiSearchParameters()
+        params = search_params or models.GeonodeApiSearchFilters()
         request_payload = self.get_layers_request_payload(params)
         log(f"URL: {url.toString()}")
         request = QtNetwork.QNetworkRequest(url)
@@ -718,7 +718,7 @@ class GeonodeCswClient(base.BaseGeonodeClient):
 
     def handle_layer_list(
         self,
-        original_search_params: models.GeonodeApiSearchParameters,
+        original_search_params: models.GeonodeApiSearchFilters,
     ):
         log(f"inside handle_layer_list")
         layers = []
@@ -1185,7 +1185,7 @@ def _get_wfs_uri(
 
 def _add_constraints(
     parent: ET.Element,
-    search_params: models.GeonodeApiSearchParameters,
+    search_params: models.GeonodeApiSearchFilters,
 ):
     if search_params.layer_types is None:
         types = [

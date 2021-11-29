@@ -14,7 +14,7 @@ from ..utils import (
 )
 from .. import network
 from . import models
-from .models import GeonodeApiSearchParameters
+from .models import GeonodeApiSearchFilters
 
 
 class BaseGeonodeClient(QtCore.QObject):
@@ -73,17 +73,17 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_layers_url_endpoint(
-        self, search_params: GeonodeApiSearchParameters
+        self, search_params: GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         raise NotImplementedError
 
     def get_layers_request_payload(
-        self, search_params: GeonodeApiSearchParameters
+        self, search_params: GeonodeApiSearchFilters
     ) -> typing.Optional[str]:
         return None
 
     def get_maps_request_payload(
-        self, search_params: GeonodeApiSearchParameters
+        self, search_params: GeonodeApiSearchFilters
     ) -> typing.Optional[str]:
         return None
 
@@ -96,13 +96,9 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_maps_url_endpoint(
-        self, search_params: GeonodeApiSearchParameters
+        self, search_params: GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         raise NotImplementedError
-
-    def get_keywords_url_endpoint(self) -> QtCore.QUrl:
-        url = QtCore.QUrl(f"{self.base_url}/h_keywords_api")
-        return url
 
     def deserialize_response_contents(self, contents: QtCore.QByteArray) -> typing.Any:
         raise NotImplementedError
@@ -117,7 +113,7 @@ class BaseGeonodeClient(QtCore.QObject):
         return sld_doc
 
     # TODO: remove this in favor of handle_dataset_list
-    def handle_layer_list(self, original_search_params: GeonodeApiSearchParameters):
+    def handle_layer_list(self, original_search_params: GeonodeApiSearchFilters):
         raise NotImplementedError
 
     # TODO: remove this in favor of handle_dataset_detail
@@ -138,28 +134,15 @@ class BaseGeonodeClient(QtCore.QObject):
             raise RuntimeError(error_message)
         self.style_detail_received.emit(sld_named_layer)
 
+    # TODO: remove this if it is not being used
     def handle_layer_style_list(self):
         raise NotImplementedError
 
-    def handle_map_list(self, original_search_params: GeonodeApiSearchParameters):
+    # TODO: remove this if it is not being used
+    def handle_map_list(self, original_search_params: GeonodeApiSearchFilters):
         raise NotImplementedError
 
-    def handle_keyword_list(self):
-        if self.network_fetcher_task.reply_content is not None:
-            deserialized = self.deserialize_response_contents(
-                self.network_fetcher_task.reply_content
-            )
-            keywords = []
-            for item in deserialized:
-                keywords.append(item["text"])
-            self.keyword_list_received.emit(keywords)
-        else:
-            log(f"Couldn't find any keywords in {self.base_url}")
-            self.error_received[str].emit(
-                f"Couldn't find any keywords in {self.base_url}"
-            )
-
-    def get_dataset_list(self, search_params: GeonodeApiSearchParameters):
+    def get_dataset_list(self, search_params: GeonodeApiSearchFilters):
         self.network_fetcher_task = network.MultipleNetworkFetcherTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_params))],
             self.auth_config,
@@ -169,11 +152,11 @@ class BaseGeonodeClient(QtCore.QObject):
 
     # TODO: Delete this in favor of get_dataset_list
     def get_layers(
-        self, search_params: typing.Optional[GeonodeApiSearchParameters] = None
+        self, search_params: typing.Optional[GeonodeApiSearchFilters] = None
     ):
         """Initiate a search for remote GeoNode datasets"""
         params = (
-            search_params if search_params is not None else GeonodeApiSearchParameters()
+            search_params if search_params is not None else GeonodeApiSearchFilters()
         )
         self.network_fetcher_task = network.NetworkFetcherTask(
             self,
@@ -246,7 +229,7 @@ class BaseGeonodeClient(QtCore.QObject):
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def get_maps(self, search_params: GeonodeApiSearchParameters):
+    def get_maps(self, search_params: GeonodeApiSearchFilters):
         url = self.get_maps_url_endpoint(search_params)
         request_payload = self.get_maps_request_payload(search_params)
         log(f"URL: {url.toString()}")
@@ -259,14 +242,4 @@ class BaseGeonodeClient(QtCore.QObject):
         self.network_fetcher_task.request_finished.connect(
             partial(self.handle_map_list, search_params)
         )
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
-    def get_keywords(self):
-        url = self.get_keywords_url_endpoint()
-        self.network_fetcher_task = network.NetworkFetcherTask(
-            self,
-            QtNetwork.QNetworkRequest(url),
-            authcfg=self.auth_config,
-        )
-        self.network_fetcher_task.request_finished.connect(self.handle_keyword_list)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)

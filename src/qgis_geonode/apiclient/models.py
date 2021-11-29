@@ -16,6 +16,8 @@ from qgis.core import (
     QgsRectangle,
 )
 
+from ..utils import IsoTopicCategory
+
 UNSUPPORTED_REMOTE = "unsupported"
 
 
@@ -197,14 +199,15 @@ class GeonodeResource(BriefGeonodeResource):
 
 
 @dataclasses.dataclass
-class GeonodeApiSearchParameters:
+class GeonodeApiSearchFilters:
     page: typing.Optional[int] = 1
     title: typing.Optional[str] = None
     abstract: typing.Optional[str] = None
-    selected_keyword: typing.Optional[str] = None
-    keywords: typing.Optional[list] = None
-    topic_category: typing.Optional[str] = None
-    layer_types: typing.Optional[typing.List[GeonodeResourceType]] = None
+    keyword: typing.Optional[typing.List[str]] = None
+    topic_category: typing.Optional[IsoTopicCategory] = None
+    layer_types: typing.Optional[typing.List[GeonodeResourceType]] = dataclasses.field(
+        default_factory=list
+    )
     ordering_field: typing.Optional[OrderingType] = None
     reverse_ordering: typing.Optional[bool] = False
     temporal_extent_start: typing.Optional[QtCore.QDateTime] = None

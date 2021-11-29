@@ -52,7 +52,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         return resource.name
 
     def get_layers_url_endpoint(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/datasets/")
         query = self._build_search_query(search_params)
@@ -60,7 +60,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         return url
 
     def _build_search_query(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
         query.addQueryItem("page", str(search_params.page))
@@ -139,7 +139,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def get_maps_url_endpoint(
         self,
-        search_params: base.GeonodeApiSearchParameters,
+        search_params: base.GeonodeApiSearchFilters,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/maps/")
         query = self._build_search_query(search_params)
@@ -189,7 +189,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def handle_layer_list(
         self,
-        original_search_params: base.GeonodeApiSearchParameters,
+        original_search_params: base.GeonodeApiSearchFilters,
     ):
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content
@@ -237,7 +237,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def handle_map_list(
         self,
-        original_search_params: base.GeonodeApiSearchParameters,
+        original_search_params: base.GeonodeApiSearchFilters,
     ):
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content

@@ -46,8 +46,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     edit_connection_btn: QtWidgets.QPushButton
     delete_connection_btn: QtWidgets.QPushButton
     keyword_la: QtWidgets.QLabel
-    keyword_cmb: QtWidgets.QComboBox
-    keyword_tool_btn: QtWidgets.QToolButton
+    keyword_le: QtWidgets.QLineEdit
     message_bar: qgis.gui.QgsMessageBar
     next_btn: QtWidgets.QPushButton
     new_connection_btn: QtWidgets.QPushButton
@@ -93,9 +92,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.previous_btn.setIcon(
             QtGui.QIcon(":/images/themes/default/mActionAtlasPrev.svg")
         )
-        self.keyword_tool_btn.setIcon(
-            QtGui.QIcon(":/images/themes/default/mActionRefresh.svg")
-        )
         self.grid_layout = QtWidgets.QGridLayout()
         self.message_bar = qgis.gui.QgsMessageBar()
         self.message_bar.setSizePolicy(
@@ -124,8 +120,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.abstract_la,
             self.abstract_le,
             self.keyword_la,
-            self.keyword_cmb,
-            self.keyword_tool_btn,
+            self.keyword_le,
             self.category_la,
             self.category_cmb,
             self.vector_chb,
@@ -167,7 +162,6 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         )
         self.next_btn.clicked.connect(self.request_next_page)
         self.previous_btn.clicked.connect(self.request_previous_page)
-        self.keyword_tool_btn.clicked.connect(self.search_keywords)
 
         self.temporal_extent_start_dte.clear()
         self.temporal_extent_end_dte.clear()
@@ -177,19 +171,19 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self._load_categories()
         self._load_sorting_fields(selected_by_default=models.OrderingType.NAME)
         self._initialize_spatial_extent_box()
-        self.title_le.textChanged.connect(self.save_search_filters)
-        self.abstract_le.textChanged.connect(self.save_search_filters)
-        self.keyword_cmb.currentIndexChanged.connect(self.save_search_filters)
-        self.category_cmb.currentIndexChanged.connect(self.save_search_filters)
-        self.resource_types_btngrp.buttonToggled.connect(self.save_search_filters)
-        self.temporal_extent_start_dte.valueChanged.connect(self.save_search_filters)
-        self.temporal_extent_end_dte.valueChanged.connect(self.save_search_filters)
-        self.publication_start_dte.valueChanged.connect(self.save_search_filters)
-        self.publication_end_dte.valueChanged.connect(self.save_search_filters)
-        self.spatial_extent_box.extentChanged.connect(self.save_search_filters)
-        self.sort_field_cmb.currentIndexChanged.connect(self.save_search_filters)
-        self.reverse_order_chb.toggled.connect(self.save_search_filters)
-        self._restore_search_filters()
+        self.title_le.textChanged.connect(self.store_search_filters)
+        self.abstract_le.textChanged.connect(self.store_search_filters)
+        self.keyword_le.textChanged.connect(self.store_search_filters)
+        self.category_cmb.currentIndexChanged.connect(self.store_search_filters)
+        self.resource_types_btngrp.buttonToggled.connect(self.store_search_filters)
+        self.temporal_extent_start_dte.valueChanged.connect(self.store_search_filters)
+        self.temporal_extent_end_dte.valueChanged.connect(self.store_search_filters)
+        self.publication_start_dte.valueChanged.connect(self.store_search_filters)
+        self.publication_end_dte.valueChanged.connect(self.store_search_filters)
+        self.spatial_extent_box.extentChanged.connect(self.store_search_filters)
+        self.sort_field_cmb.currentIndexChanged.connect(self.store_search_filters)
+        self.reverse_order_chb.toggled.connect(self.store_search_filters)
+        self.restore_search_filters()
 
         # this method calls connections_cmb.setCurrentIndex(), which in turn emits
         # connections_cmb.currentIndexChanged, which causes
@@ -368,8 +362,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             result.extend(
                 (
                     self.keyword_la,
-                    self.keyword_cmb,
-                    self.keyword_tool_btn,
+                    self.keyword_le,
                 )
             )
         if ApiClientCapability.FILTER_BY_TOPIC_CATEGORY in capabilities:
@@ -443,21 +436,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         next_(*next_args, **next_kwargs)
 
     def search_geonode(self, reset_pagination: bool = False):
-        self.search_started.emit()
-        resource_types = []
-        if self.vector_chb.isChecked():
-            resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
-        if self.raster_chb.isChecked():
-            resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
-        if len(resource_types) > 0:
+        search_params = self.get_search_filters()
+        if len(search_params.layer_types) > 0:
+            self.search_started.emit()
             if reset_pagination:
                 self.current_page = 1
                 self.total_pages = 1
-            temp_extent_start = self.temporal_extent_start_dte.dateTime()
-            temp_extent_end = self.temporal_extent_end_dte.dateTime()
-            pub_start = self.publication_start_dte.dateTime()
-            pub_end = self.publication_end_dte.dateTime()
-
             current_connection = conf.settings_manager.get_current_connection_settings()
             if not current_connection.api_client_class_path:
                 self.discover_api_client(
@@ -466,33 +450,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             elif self.api_client is None:
                 self.search_finished.emit(tr(_INVALID_CONNECTION_MESSAGE))
             else:
-                self.api_client.get_dataset_list(
-                    models.GeonodeApiSearchParameters(
-                        page=self.current_page,
-                        title=self.title_le.text() or None,
-                        abstract=self.abstract_le.text() or None,
-                        selected_keyword=self.keyword_cmb.currentText() or None,
-                        topic_category=self.category_cmb.currentText().lower() or None,
-                        layer_types=resource_types,
-                        ordering_field=self.sort_field_cmb.currentData(
-                            QtCore.Qt.UserRole
-                        ),
-                        reverse_ordering=self.reverse_order_chb.isChecked(),
-                        temporal_extent_start=(
-                            temp_extent_start
-                            if not temp_extent_start.isNull()
-                            else None
-                        ),
-                        temporal_extent_end=(
-                            temp_extent_end if not temp_extent_end.isNull() else None
-                        ),
-                        publication_date_start=pub_start
-                        if not pub_start.isNull()
-                        else None,
-                        publication_date_end=pub_end if not pub_end.isNull() else None,
-                        spatial_extent=self.spatial_extent_box.outputExtent(),
-                    )
-                )
+                self.api_client.get_dataset_list(search_params)
 
     def toggle_search_controls(self, enabled: bool):
         for widget in self._unusable_search_filters:
@@ -582,30 +540,13 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.pagination_info_la.clear()
 
     def _load_categories(self):
-        self.category_cmb.addItems(
-            [
-                "",
-                tr(IsoTopicCategory.FARMING.value),
-                tr(IsoTopicCategory.CLIMATOLOGY_METEOROLOGY_ATMOSPHERE.value),
-                tr(IsoTopicCategory.LOCATION.value),
-                tr(IsoTopicCategory.INTELLIGENCE_MILITARY.value),
-                tr(IsoTopicCategory.TRANSPORTATION.value),
-                tr(IsoTopicCategory.STRUCTURE.value),
-                tr(IsoTopicCategory.BOUNDARIES.value),
-                tr(IsoTopicCategory.INLAND_WATERS.value),
-                tr(IsoTopicCategory.PLANNING_CADASTRE.value),
-                tr(IsoTopicCategory.GEOSCIENTIFIC_INFORMATION.value),
-                tr(IsoTopicCategory.ELEVATION.value),
-                tr(IsoTopicCategory.HEALTH.value),
-                tr(IsoTopicCategory.BIOTA.value),
-                tr(IsoTopicCategory.OCEANS.value),
-                tr(IsoTopicCategory.ENVIRONMENT.value),
-                tr(IsoTopicCategory.UTILITIES_COMMUNICATION.value),
-                tr(IsoTopicCategory.ECONOMY.value),
-                tr(IsoTopicCategory.SOCIETY.value),
-                tr(IsoTopicCategory.IMAGERY_BASE_MAPS_EARTH_COVER.value),
-            ]
-        )
+        self.category_cmb.addItem("", "")
+        items_to_add = []
+        for name, member in IsoTopicCategory.__members__.items():
+            items_to_add.append((tr(member.value), name))
+        items_to_add.sort()
+        for display_name, data_ in items_to_add:
+            self.category_cmb.addItem(display_name, data_)
 
     def _load_sorting_fields(self, selected_by_default: models.OrderingType):
         labels = {
@@ -617,38 +558,17 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.sort_field_cmb.findData(selected_by_default, role=QtCore.Qt.UserRole)
         )
 
-    def search_keywords(self):
-        connection_name = self.connections_cmb.currentText()
-        if connection_name:
-            self.api_client.keyword_list_received.connect(self.update_keywords)
-            self.api_client.error_received.connect(self.show_search_error)
-            self.show_progress(tr("Searching for keywords..."))
-            self.api_client.get_keywords()
-
-    def update_keywords(self, keywords: typing.Optional[typing.List[str]] = None):
-        if keywords:
-            self.keyword_cmb.addItem("")
-            self.keyword_cmb.addItems(keywords)
-            self.save_search_filters()
-        self.message_bar.clearWidgets()
-
-    def _restore_search_filters(self):
+    def restore_search_filters(self):
         current_search_filters = conf.settings_manager.get_current_search_filters()
-        # if keywords list exist populate the keywords list first
-        keywords = current_search_filters.keywords
-        if keywords is not None:
-            self.keyword_cmb.addItem("")
-            self.keyword_cmb.addItems(keywords)
-        if current_search_filters.title is not None:
-            self.title_le.setText(current_search_filters.title)
-        if current_search_filters.abstract is not None:
-            self.abstract_le.setText(current_search_filters.abstract)
-        if current_search_filters.selected_keyword is not None:
-            index = self.keyword_cmb.findText(current_search_filters.selected_keyword)
-            self.keyword_cmb.setCurrentIndex(index)
+        self.keyword_le.setText(current_search_filters.keyword or "")
+        self.title_le.setText(current_search_filters.title or "")
+        self.abstract_le.setText(current_search_filters.abstract or "")
         if current_search_filters.topic_category is not None:
-            index = self.category_cmb.findText(current_search_filters.topic_category)
+            index = self.category_cmb.findData(
+                current_search_filters.topic_category.name
+            )
             self.category_cmb.setCurrentIndex(index)
+
         if current_search_filters.temporal_extent_start is not None:
             self.temporal_extent_start_dte.setDateTime(
                 current_search_filters.temporal_extent_start
@@ -686,43 +606,41 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.resource_types_btngrp.buttonClicked.emit(None)
         sort_index = self.sort_field_cmb.findData(current_search_filters.ordering_field)
         self.sort_field_cmb.setCurrentIndex(sort_index)
-
         self.reverse_order_chb.setChecked(current_search_filters.reverse_ordering)
 
-    def save_search_filters(self):
+    def store_search_filters(self):
+        """Store current search filters in the QGIS Settings."""
+        current_search_params = self.get_search_filters()
+        conf.settings_manager.store_current_search_filters(current_search_params)
+
+    def get_search_filters(self) -> base.GeonodeApiSearchFilters:
         resource_types = []
-        search_vector = self.vector_chb.isChecked()
-        search_raster = self.raster_chb.isChecked()
-        spatial_extent = self.spatial_extent_box.outputExtent()
-        if search_vector:
+        if self.vector_chb.isChecked():
             resource_types.append(models.GeonodeResourceType.VECTOR_LAYER)
-        if search_raster:
+        if self.raster_chb.isChecked():
             resource_types.append(models.GeonodeResourceType.RASTER_LAYER)
-        temp_extent_start = self.temporal_extent_start_dte.dateTime()
-        temp_extent_end = self.temporal_extent_end_dte.dateTime()
+        temp_ex_start = self.temporal_extent_start_dte.dateTime()
+        temp_ex_end = self.temporal_extent_end_dte.dateTime()
         pub_start = self.publication_start_dte.dateTime()
         pub_end = self.publication_end_dte.dateTime()
-
-        current_search_filters = models.GeonodeApiSearchParameters(
+        try:
+            current_raw_category = self.category_cmb.currentData()
+            category = IsoTopicCategory[current_raw_category]
+        except KeyError:
+            category = None
+        result = models.GeonodeApiSearchFilters(
+            page=self.current_page,
             title=self.title_le.text() or None,
             abstract=self.abstract_le.text() or None,
-            selected_keyword=self.keyword_cmb.currentText() or None,
-            keywords=[
-                self.keyword_cmb.itemText(i) for i in range(self.keyword_cmb.count())
-            ]
-            or None,
-            topic_category=self.category_cmb.currentText() or None,
+            keyword=self.keyword_le.text() or None,
+            topic_category=category,
             layer_types=resource_types,
             ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.UserRole),
             reverse_ordering=self.reverse_order_chb.isChecked(),
-            temporal_extent_start=(
-                temp_extent_start if not temp_extent_start.isNull() else None
-            ),
-            temporal_extent_end=(
-                temp_extent_end if not temp_extent_end.isNull() else None
-            ),
+            temporal_extent_start=temp_ex_start if not temp_ex_start.isNull() else None,
+            temporal_extent_end=temp_ex_end if not temp_ex_end.isNull() else None,
             publication_date_start=pub_start if not pub_start.isNull() else None,
             publication_date_end=pub_end if not pub_end.isNull() else None,
-            spatial_extent=spatial_extent,
+            spatial_extent=self.spatial_extent_box.outputExtent(),
         )
-        conf.settings_manager.store_current_search_filters(current_search_filters)
+        return result
