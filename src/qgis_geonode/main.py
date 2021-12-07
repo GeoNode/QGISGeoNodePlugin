@@ -19,16 +19,13 @@ from qgis.PyQt.QtWidgets import QAction
 # Initialize Qt resources from file resources.py
 from .resources import *
 
+from .gui.geonode_source_select_provider import GeonodeSourceSelectProvider
 from .gui.layer_properties_config_widget import (
     LayerPropertiesConfigWidgetFactory,
 )
 
-from qgis_geonode.gui.geonode_source_select_provider import GeonodeSourceSelectProvider
-
 
 class QgisGeoNode:
-    """QGIS Plugin Implementation."""
-
     def __init__(self, iface):
         self.iface = iface
         self.plugin_dir = os.path.dirname(__file__)
@@ -42,7 +39,6 @@ class QgisGeoNode:
             self.translator.load(locale_path)
             QCoreApplication.installTranslator(self.translator)
 
-        # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u"&QGIS GeoNode Plugin")
         # TODO: We are going to let the user set this up in a future iteration

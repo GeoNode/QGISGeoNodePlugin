@@ -77,26 +77,6 @@
           </property>
          </spacer>
         </item>
-        <item>
-         <widget class="QPushButton" name="load_connection_btn">
-          <property name="toolTip">
-           <string>Load connections from file</string>
-          </property>
-          <property name="text">
-           <string>Load</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="save_connection_btn">
-          <property name="toolTip">
-           <string>Save connections to file</string>
-          </property>
-          <property name="text">
-           <string>Save</string>
-          </property>
-         </widget>
-        </item>
        </layout>
       </item>
      </layout>
@@ -132,7 +112,7 @@
            <string>Display WFS FeatureTypes containing this word in the title, name or abstract</string>
           </property>
           <property name="whatsThis">
-           <string>Display WFS FeatureTypes containing this word in the title, name or abstract</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Title (or part of it) of the remote GeoNode dataset&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
          </widget>
         </item>
@@ -174,6 +154,9 @@
            <property name="enabled">
             <bool>true</bool>
            </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&amp;lt;html&amp;gt;&amp;lt;head/&amp;gt;&amp;lt;body&amp;gt;&amp;lt;p&amp;gt;Abstract (or part of it) of the remote GeoNode dataset&amp;lt;/p&amp;gt;&amp;lt;/body&amp;gt;&amp;lt;/html&amp;gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
           </widget>
          </item>
          <item row="1" column="0">
@@ -184,31 +167,7 @@
            <property name="text">
             <string>Keyword</string>
            </property>
-           <property name="buddy">
-            <cstring>keyword_cmb</cstring>
-           </property>
           </widget>
-         </item>
-         <item row="1" column="1">
-          <layout class="QHBoxLayout" name="horizontalLayout">
-           <item>
-            <widget class="QComboBox" name="keyword_cmb">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QToolButton" name="keyword_tool_btn">
-             <property name="toolTip">
-              <string>Click to fetch available keywords from the GeoNode instance</string>
-             </property>
-             <property name="text">
-              <string>...</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
          </item>
          <item row="2" column="0">
           <widget class="QLabel" name="category_la">
@@ -262,19 +221,6 @@
             <widget class="QCheckBox" name="raster_chb">
              <property name="text">
               <string>Raster</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-             <attribute name="buttonGroup">
-              <string notr="true">resource_types_btngrp</string>
-             </attribute>
-            </widget>
-           </item>
-           <item>
-            <widget class="QCheckBox" name="map_chb">
-             <property name="text">
-              <string>Map</string>
              </property>
              <property name="checked">
               <bool>true</bool>
@@ -384,65 +330,11 @@
            </property>
           </widget>
          </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="keyword_le"/>
+         </item>
         </layout>
        </widget>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_7">
-        <item>
-         <widget class="QLabel" name="label_7">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Stored searches</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_6">
-          <item>
-           <widget class="QComboBox" name="comboBox_6">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btnSave_3">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Save connections to file</string>
-            </property>
-            <property name="text">
-             <string>Save</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btnLoad_3">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Load connections from file</string>
-            </property>
-            <property name="text">
-             <string>Load</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
       </item>
      </layout>
     </widget>
@@ -646,12 +538,9 @@
  <tabstops>
   <tabstop>title_le</tabstop>
   <tabstop>abstract_le</tabstop>
-  <tabstop>keyword_cmb</tabstop>
-  <tabstop>keyword_tool_btn</tabstop>
   <tabstop>category_cmb</tabstop>
   <tabstop>vector_chb</tabstop>
   <tabstop>raster_chb</tabstop>
-  <tabstop>map_chb</tabstop>
   <tabstop>temporal_extent_start_dte</tabstop>
   <tabstop>temporal_extent_end_dte</tabstop>
   <tabstop>search_btn</tabstop>
@@ -664,11 +553,6 @@
   <tabstop>new_connection_btn</tabstop>
   <tabstop>edit_connection_btn</tabstop>
   <tabstop>delete_connection_btn</tabstop>
-  <tabstop>load_connection_btn</tabstop>
-  <tabstop>save_connection_btn</tabstop>
-  <tabstop>comboBox_6</tabstop>
-  <tabstop>btnSave_3</tabstop>
-  <tabstop>btnLoad_3</tabstop>
  </tabstops>
  <resources/>
  <connections/>

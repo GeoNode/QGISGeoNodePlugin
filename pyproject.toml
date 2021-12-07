@@ -20,6 +20,7 @@ httpx = "^0.16.1"
 pytest-xvfb = "^2.0.0"
 Pygments = "^2.8.0"
 pymdown-extensions = "^8.1.1"
+pytest-custom-exit-code = "^0.3.0"
 
 [tool.poetry.dev-dependencies]
 

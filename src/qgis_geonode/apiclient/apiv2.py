@@ -19,21 +19,22 @@ from . import base
 
 
 class GeonodeApiV2Client(base.BaseGeonodeClient):
-    _api_path: str = "/api/v2"
 
     capabilities = [
-        models.ApiClientCapability.FILTER_BY_NAME,
+        models.ApiClientCapability.FILTER_BY_TITLE,
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         models.ApiClientCapability.FILTER_BY_KEYWORD,
         models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
         models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
         models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
         models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
     ]
 
     @property
     def api_url(self):
-        return f"{self.base_url}{self._api_path}"
+        return f"{self.base_url}/api/v2"
 
     def get_ordering_filter_name(
         self,
@@ -41,7 +42,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         reverse_sort: typing.Optional[bool] = False,
     ) -> str:
         name = {
-            models.OrderingType.NAME: "name",
+            models.OrderingType.TITLE: "name",
         }[ordering_type]
         return f"{'-' if reverse_sort else ''}{name}"
 
@@ -51,7 +52,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         return resource.name
 
     def get_layers_url_endpoint(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/datasets/")
         query = self._build_search_query(search_params)
@@ -59,7 +60,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
         return url
 
     def _build_search_query(
-        self, search_params: models.GeonodeApiSearchParameters
+        self, search_params: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrlQuery:
         query = QtCore.QUrlQuery()
         query.addQueryItem("page", str(search_params.page))
@@ -138,7 +139,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def get_maps_url_endpoint(
         self,
-        search_params: base.GeonodeApiSearchParameters,
+        search_params: base.GeonodeApiSearchFilters,
     ) -> QtCore.QUrl:
         url = QtCore.QUrl(f"{self.api_url}/maps/")
         query = self._build_search_query(search_params)
@@ -188,7 +189,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def handle_layer_list(
         self,
-        original_search_params: base.GeonodeApiSearchParameters,
+        original_search_params: base.GeonodeApiSearchFilters,
     ):
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content
@@ -204,13 +205,13 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
                     log(f"Could not parse {item!r} into a valid item")
                 else:
                     layers.append(brief_resource)
-            pagination_info = models.GeoNodePaginationInfo(
+            pagination_info = models.GeonodePaginationInfo(
                 total_records=deserialized.get("total") or 0,
                 current_page=deserialized.get("page") or 1,
                 page_size=deserialized.get("page_size") or 0,
             )
         else:
-            pagination_info = models.GeoNodePaginationInfo(
+            pagination_info = models.GeonodePaginationInfo(
                 total_records=0, current_page=1, page_size=0
             )
         self.layer_list_received.emit(layers, pagination_info)
@@ -236,7 +237,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
 
     def handle_map_list(
         self,
-        original_search_params: base.GeonodeApiSearchParameters,
+        original_search_params: base.GeonodeApiSearchFilters,
     ):
         deserialized = self.deserialize_response_contents(
             self.network_fetcher_task.reply_content
@@ -246,7 +247,7 @@ class GeonodeApiV2Client(base.BaseGeonodeClient):
             maps.append(
                 get_brief_geonode_resource(item, self.base_url, self.auth_config)
             )
-        pagination_info = models.GeoNodePaginationInfo(
+        pagination_info = models.GeonodePaginationInfo(
             total_records=deserialized["total"],
             current_page=deserialized["page"],
             page_size=deserialized["page_size"],

@@ -1,18 +1,17 @@
 import contextlib
 import dataclasses
+import json
 import logging
 import typing
 import uuid
 
 from qgis.PyQt import (
     QtCore,
-    QtWidgets,
 )
 from qgis.core import QgsRectangle, QgsSettings
-from qgis.gui import QgsPasswordLineEdit
 
-from .apiclient import GeonodeApiVersion
 from .apiclient import models
+from .apiclient.models import GeonodeResourceType
 from .utils import IsoTopicCategory
 
 logger = logging.getLogger(__name__)
@@ -29,89 +28,6 @@ def qgis_settings(group_root: str):
         settings.endGroup()
 
 
-class ApiVersionSpecificSettings:
-    PREFIX = "api_version_settings"
-
-    @classmethod
-    def from_qgs_settings(cls, settings: QgsSettings):
-        raise NotImplementedError
-
-    @classmethod
-    def from_widgets(cls, ancestor: QtWidgets.QWidget):
-        raise NotImplementedError
-
-    @classmethod
-    def get_widgets(cls):
-        raise NotImplementedError
-
-    def fill_widgets(self, ancestor: QtWidgets.QWidget):
-        raise NotImplementedError
-
-    def to_qgs_settings(self):
-        raise NotImplementedError
-
-
-@dataclasses.dataclass
-class GeonodeCswSpecificConnectionSettings(ApiVersionSpecificSettings):
-    username: typing.Optional[str] = None
-    password: typing.Optional[str] = None
-    _username_widget_name: str = "csw_api_username_le"
-    _password_widget_name: str = "csw_api_password_le"
-
-    @classmethod
-    def from_qgs_settings(cls, settings: QgsSettings):
-        api_version_settings = settings.value(cls.PREFIX)
-        return cls(
-            username=api_version_settings["username"],
-            password=api_version_settings["password"],
-        )
-
-    @classmethod
-    def from_widgets(cls, ancestor: QtWidgets.QWidget):
-        username_le = ancestor.findChild(QtWidgets.QLineEdit, cls._username_widget_name)
-        password_le = ancestor.findChild(QtWidgets.QLineEdit, cls._password_widget_name)
-        return cls(
-            username=username_le.text() or None, password=password_le.text() or None
-        )
-
-    @classmethod
-    def get_widgets(cls, group_box_name: str, title: str) -> QtWidgets.QGroupBox:
-        username_le = QtWidgets.QLineEdit()
-        username_le.setObjectName(cls._username_widget_name)
-        password_le = QgsPasswordLineEdit()
-        password_le.setObjectName(cls._password_widget_name)
-        layout = QtWidgets.QFormLayout()
-        layout.addRow(QtWidgets.QLabel("Username"), username_le)
-        layout.addRow(QtWidgets.QLabel("Password"), password_le)
-        box = QtWidgets.QGroupBox(title=title)
-        box.setObjectName(group_box_name)
-        box.setLayout(layout)
-        return box
-
-    def fill_widgets(self, ancestor: QtWidgets.QWidget):
-        if self.username is not None:
-            username_le = ancestor.findChild(
-                QtWidgets.QLineEdit, self._username_widget_name
-            )
-            username_le.setText(self.username)
-        if self.password is not None:
-            password_le = ancestor.findChild(
-                QtWidgets.QLineEdit, self._password_widget_name
-            )
-            password_le.setText(self.password)
-
-    def to_qgs_settings(self) -> typing.Dict:
-        return {"username": self.username, "password": self.password}
-
-
-def get_api_version_settings_handler(
-    api_version: GeonodeApiVersion,
-) -> typing.Optional[typing.Type]:
-    return {
-        GeonodeApiVersion.OGC_CSW: GeonodeCswSpecificConnectionSettings,
-    }.get(api_version)
-
-
 @dataclasses.dataclass
 class ConnectionSettings:
     """Helper class to manage settings for a Connection"""
@@ -119,11 +35,8 @@ class ConnectionSettings:
     id: uuid.UUID
     name: str
     base_url: str
-    api_version: GeonodeApiVersion
     page_size: int
-    api_version_settings: typing.Optional[
-        typing.Union[GeonodeCswSpecificConnectionSettings]
-    ] = None
+    api_client_class_path: typing.Optional[str] = None
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -132,20 +45,25 @@ class ConnectionSettings:
             reported_auth_cfg = settings.value("auth_config").strip()
         except AttributeError:
             reported_auth_cfg = None
-        api_version = GeonodeApiVersion[settings.value("api_version")]
-        handler = get_api_version_settings_handler(api_version)
-        if handler is not None:
-            api_version_settings = handler.from_qgs_settings(settings)
-        else:
-            api_version_settings = None
         return cls(
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
             base_url=settings.value("base_url"),
-            api_version=api_version,
-            api_version_settings=api_version_settings,
             page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg,
+            api_client_class_path=settings.value("api_client_class_path") or None,
+        )
+
+    def to_json(self):
+        return json.dumps(
+            {
+                "id": str(self.id),
+                "name": self.name,
+                "base_url": self.base_url,
+                "page_size": self.page_size,
+                "auth_config": self.auth_config,
+                "api_client_class_path": self.api_client_class_path,
+            }
         )
 
 
@@ -154,8 +72,16 @@ class SettingsManager(QtCore.QObject):
 
     BASE_GROUP_NAME: str = "qgis_geonode"
     SELECTED_CONNECTION_KEY: str = "selected_connection"
+    CURRENT_FILTERS_KEY: str = "current_search_filters"
 
     current_connection_changed = QtCore.pyqtSignal(str)
+
+    _TEMPORAL_FILTER_NAMES = (
+        "temporal_extent_start",
+        "temporal_extent_end",
+        "publication_date_start",
+        "publication_date_end",
+    )
 
     def list_connections(self) -> typing.List[ConnectionSettings]:
         result = []
@@ -211,12 +137,9 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("base_url", connection_settings.base_url)
             settings.setValue("page_size", connection_settings.page_size)
             settings.setValue("auth_config", connection_settings.auth_config)
-            settings.setValue("api_version", connection_settings.api_version.name)
-            if connection_settings.api_version_settings is not None:
-                settings.setValue(
-                    ApiVersionSpecificSettings.PREFIX,
-                    connection_settings.api_version_settings.to_qgs_settings(),
-                )
+            settings.setValue(
+                "api_client_class_path", connection_settings.api_client_class_path or ""
+            )
 
     def delete_connection(self, connection_id: uuid.UUID):
         if self.is_current_connection(connection_id):
@@ -224,7 +147,7 @@ class SettingsManager(QtCore.QObject):
         with qgis_settings(f"{self.BASE_GROUP_NAME}/connections") as settings:
             settings.remove(str(connection_id))
 
-    def get_current_connection(self) -> typing.Optional[ConnectionSettings]:
+    def get_current_connection_settings(self) -> typing.Optional[ConnectionSettings]:
         with qgis_settings(self.BASE_GROUP_NAME) as settings:
             current = settings.value(self.SELECTED_CONNECTION_KEY)
         if current is not None:
@@ -247,147 +170,103 @@ class SettingsManager(QtCore.QObject):
         self.current_connection_changed.emit("")
 
     def is_current_connection(self, connection_id: uuid.UUID):
-        current = self.get_current_connection()
+        current = self.get_current_connection_settings()
         return False if current is None else current.id == connection_id
 
     def _get_connection_settings_base(self, identifier: typing.Union[str, uuid.UUID]):
         return f"{self.BASE_GROUP_NAME}/connections/{str(identifier)}"
 
-    def store_current_search_filters(
-        self, current_filters: models.GeonodeApiSearchParameters
-    ):
+    def store_current_search_filters(self, filters: models.GeonodeApiSearchFilters):
         with qgis_settings(
-            f"{self.BASE_GROUP_NAME}/current_search_filters"
+            f"{self.BASE_GROUP_NAME}/{self.CURRENT_FILTERS_KEY}"
         ) as settings:
-            settings.setValue("title", current_filters.title)
-            settings.setValue("abstract", current_filters.abstract)
-            settings.setValue("selected_keyword", current_filters.selected_keyword)
-            settings.setValue("keywords", current_filters.keywords)
-            settings.setValue("topic_category", current_filters.topic_category)
-            if current_filters.layer_types is not None:
+            settings.setValue("title", filters.title)
+            settings.setValue("abstract", filters.abstract)
+            settings.setValue("keyword", filters.keyword)
+            if filters.topic_category is not None:
+                settings.setValue("topic_category", filters.topic_category.name)
+            else:
+                settings.setValue("topic_category", None)
+            if filters.layer_types is not None:
                 settings.setValue(
                     "resource_types_vector",
-                    (
-                        models.GeonodeResourceType.VECTOR_LAYER
-                        in current_filters.layer_types
-                    ),
+                    GeonodeResourceType.VECTOR_LAYER in filters.layer_types,
                 )
                 settings.setValue(
                     "resource_types_raster",
-                    (
-                        models.GeonodeResourceType.RASTER_LAYER
-                        in current_filters.layer_types
-                    ),
+                    GeonodeResourceType.RASTER_LAYER in filters.layer_types,
+                )
+            for temporal_filter_name in self._TEMPORAL_FILTER_NAMES:
+                filter_value: typing.Optional[QtCore.QDateTime] = getattr(
+                    filters, temporal_filter_name
+                )
+                if filter_value is not None:
+                    settings.setValue(
+                        temporal_filter_name, filter_value.toString(QtCore.Qt.ISODate)
+                    )
+                else:
+                    settings.setValue(temporal_filter_name, None)
+            if filters.spatial_extent is not None:
+                settings.setValue(
+                    "spatial_extent_north", filters.spatial_extent.yMaximum()
                 )
                 settings.setValue(
-                    "resource_types_map",
-                    (models.GeonodeResourceType.MAP in current_filters.layer_types),
+                    "spatial_extent_south", filters.spatial_extent.yMinimum()
                 )
-            if current_filters.temporal_extent_start is not None:
                 settings.setValue(
-                    "temporal_extent_start",
-                    current_filters.temporal_extent_start.toString(QtCore.Qt.ISODate),
+                    "spatial_extent_east", filters.spatial_extent.xMaximum()
                 )
-            else:
-                settings.setValue("temporal_extent_start", None)
-            if current_filters.temporal_extent_end is not None:
                 settings.setValue(
-                    "temporal_extent_end",
-                    current_filters.temporal_extent_end.toString(QtCore.Qt.ISODate),
+                    "spatial_extent_west", filters.spatial_extent.xMinimum()
                 )
-            else:
-                settings.setValue("temporal_extent_end", None)
+            settings.setValue("sort_by_field", filters.ordering_field)
+            settings.setValue("reverse_sort_order", filters.reverse_ordering)
 
-            if current_filters.publication_date_start is not None:
-                settings.setValue(
-                    "publication_date_start",
-                    current_filters.publication_date_start.toString(QtCore.Qt.ISODate),
-                )
-            else:
-                settings.setValue("publication_date_start", None)
-            if current_filters.publication_date_end is not None:
-                settings.setValue(
-                    "publication_date_end",
-                    current_filters.publication_date_end.toString(QtCore.Qt.ISODate),
-                )
-            else:
-                settings.setValue("publication_date_end", None)
-            if current_filters.spatial_extent is not None:
-                settings.setValue(
-                    "spatial_extent_north", current_filters.spatial_extent.yMaximum()
-                )
-                settings.setValue(
-                    "spatial_extent_south", current_filters.spatial_extent.yMinimum()
-                )
-                settings.setValue(
-                    "spatial_extent_east", current_filters.spatial_extent.xMaximum()
-                )
-                settings.setValue(
-                    "spatial_extent_west", current_filters.spatial_extent.xMinimum()
-                )
-            settings.setValue("sort_by_field", current_filters.ordering_field.value)
-            settings.setValue("reverse_sort_order", current_filters.reverse_ordering)
-
-    def get_current_search_filters(self) -> models.GeonodeApiSearchParameters:
+    def get_current_search_filters(self) -> models.GeonodeApiSearchFilters:
+        result = models.GeonodeApiSearchFilters()
         with qgis_settings(
-            f"{self.BASE_GROUP_NAME}/current_search_filters"
+            f"{self.BASE_GROUP_NAME}/{self.CURRENT_FILTERS_KEY}"
         ) as settings:
-            resources_types = []
-            temporal_extent_start = None
-            temporal_extent_end = None
-            publication_date_start = None
-            publication_date_end = None
-            spatial_extent = None
-
+            stored_category = settings.value("topic_category", None)
+            try:
+                category = IsoTopicCategory[stored_category]
+            except KeyError:
+                category = None
+            result.title = settings.value("title", None)
+            result.abstract = settings.value("abstract", None)
+            result.keyword = settings.value("keyword", None)
+            result.topic_category = category
             if settings.value("resource_types_vector", True, type=bool):
-                resources_types.append(models.GeonodeResourceType.VECTOR_LAYER)
+                result.layer_types.append(models.GeonodeResourceType.VECTOR_LAYER)
             if settings.value("resource_types_raster", True, type=bool):
-                resources_types.append(models.GeonodeResourceType.RASTER_LAYER)
-            if settings.value("resource_types_map", True, type=bool):
-                resources_types.append(models.GeonodeResourceType.MAP)
-            if settings.value("temporal_extent_start"):
-                temporal_extent_start = QtCore.QDateTime.fromString(
-                    settings.value("temporal_extent_start"), QtCore.Qt.ISODate
-                )
-            if settings.value("temporal_extent_end"):
-                temporal_extent_end = QtCore.QDateTime.fromString(
-                    settings.value("temporal_extent_end"), QtCore.Qt.ISODate
-                )
-            if settings.value("publication_date_start"):
-                publication_date_start = QtCore.QDateTime.fromString(
-                    settings.value("publication_date_start"), QtCore.Qt.ISODate
-                )
-            if settings.value("publication_date_end"):
-                publication_date_end = QtCore.QDateTime.fromString(
-                    settings.value("publication_date_end"), QtCore.Qt.ISODate
-                )
+                result.layer_types.append(models.GeonodeResourceType.RASTER_LAYER)
+
+            for temporal_filter_name in self._TEMPORAL_FILTER_NAMES:
+                value = settings.value(temporal_filter_name)
+                if value is not None:
+                    setattr(
+                        result,
+                        temporal_filter_name,
+                        QtCore.QDateTime.fromString(value, QtCore.Qt.ISODate),
+                    )
+
             if settings.value("spatial_extent_north") is not None:
-                spatial_extent = QgsRectangle(
+                result.spatial_extent = QgsRectangle(
                     float(settings.value("spatial_extent_east")),
                     float(settings.value("spatial_extent_south")),
                     float(settings.value("spatial_extent_west")),
                     float(settings.value("spatial_extent_north")),
                 )
-            ordering_field = models.OrderingType(
-                settings.value("sort_by_field", models.OrderingType.NAME.value)
+            result.ordering_field = settings.value("sort_by_field")
+            result.reverse_ordering = settings.value(
+                "reverse_sort_order", False, type=bool
             )
-            reverse_sort_order = settings.value("reverse_sort_order", False, type=bool)
+        return result
 
-            return models.GeonodeApiSearchParameters(
-                title=settings.value("title", None),
-                abstract=settings.value("abstract", None),
-                selected_keyword=settings.value("selected_keyword", None),
-                keywords=settings.value("keywords", None),
-                topic_category=settings.value("topic_category", None),
-                layer_types=resources_types,
-                temporal_extent_start=temporal_extent_start,
-                temporal_extent_end=temporal_extent_end,
-                publication_date_start=publication_date_start,
-                publication_date_end=publication_date_end,
-                spatial_extent=spatial_extent,
-                ordering_field=ordering_field,
-                reverse_ordering=reverse_sort_order,
-            )
+    def clear_current_search_filters(self):
+        with qgis_settings(self.BASE_GROUP_NAME) as settings:
+            settings.setValue(self.CURRENT_FILTERS_KEY, None)
+        self.current_connection_changed.emit("")
 
 
 settings_manager = SettingsManager()

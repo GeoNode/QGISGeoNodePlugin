@@ -356,8 +356,7 @@ def _log(msg, *args, context: typing.Optional[typer.Context] = None, **kwargs):
 
 def _get_qgis_root_dir(context: typing.Optional[typer.Context] = None) -> Path:
     return (
-            Path.home() /
-            f".local/share/QGIS/QGIS3/profiles/{context.obj['qgis_profile']}"
+        Path.home() / f".local/share/QGIS/QGIS3/profiles/{context.obj['qgis_profile']}"
     )
 
 
