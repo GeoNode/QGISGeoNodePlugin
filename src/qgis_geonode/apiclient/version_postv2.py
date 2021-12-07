@@ -6,8 +6,12 @@ from functools import partial
 import qgis.core
 from qgis.PyQt import QtCore
 
-from .. import network
+from .. import (
+    network,
+    utils,
+)
 from ..utils import log
+
 from . import models
 from .base import BaseGeonodeClient
 
@@ -187,7 +191,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
                         sld_response_content: network.ParsedNetworkReply = (
                             self.network_fetcher_task.response_contents[1]
                         )
-                        sld_doc = self.deserialize_sld_style(
+                        sld_doc = utils.deserialize_sld_style(
                             sld_response_content.response_body
                         )
                         sld_root = sld_doc.documentElement()
@@ -197,7 +201,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
                         sld_named_layer = sld_root.firstChildElement("NamedLayer")
                         if sld_named_layer.isNull():
                             raise RuntimeError(error_message)
-                        dataset.default_style = sld_named_layer
+                        dataset.default_style.sld = sld_named_layer
         self.dataset_detail_received.emit(dataset)
 
 

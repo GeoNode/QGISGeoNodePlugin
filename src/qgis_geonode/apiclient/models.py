@@ -17,6 +17,7 @@ from qgis.core import (
     QgsRectangle,
 )
 
+from .. import utils
 from ..utils import IsoTopicCategory
 
 UNSUPPORTED_REMOTE = "unsupported"
@@ -76,6 +77,7 @@ class GeonodePaginationInfo:
 class BriefGeonodeStyle:
     name: str
     sld_url: str
+    sld: typing.Optional[QtXml.QDomElement] = None
 
 
 @dataclasses.dataclass()
@@ -107,9 +109,28 @@ class Dataset(BriefDataset):
     owner: typing.Dict[str, str]
     metadata_author: typing.Dict[str, str]
     styles: typing.List[BriefGeonodeStyle]
-    default_style: typing.Optional[QtXml.QDomElement]
 
     def to_json(self):
+        if self.temporal_extent is not None:
+            serialized_temporal_extent = []
+            for temporal_extent_item in self.temporal_extent:
+                temporal_extent_item: dt.datetime
+                serialized_temporal_extent.append(temporal_extent_item.isoformat())
+        else:
+            serialized_temporal_extent = None
+        serialized_styles = []
+        for style in self.styles:
+            serialized_styles.append(
+                {
+                    "name": style.name,
+                    "sld_url": style.sld_url,
+                }
+            )
+        if self.default_style.sld is not None:
+            sld_root = self.default_style.sld.ownerDocument()
+            serialized_sld = sld_root.toString()
+        else:
+            serialized_sld = None
         return json.dumps(
             {
                 "pk": self.pk,
@@ -122,7 +143,7 @@ class Dataset(BriefDataset):
                 if self.published_date
                 else None,
                 "spatial_extent": self.spatial_extent.asWktPolygon(),
-                "temporal_extent": None,  # TODO
+                "temporal_extent": serialized_temporal_extent,
                 "srid": self.srid.postgisSrid(),
                 "thumbnail_url": self.thumbnail_url,
                 "link": self.link,
@@ -137,21 +158,79 @@ class Dataset(BriefDataset):
                 "constraints": self.constraints,
                 "owner": self.owner,
                 "metadata_author": self.metadata_author,
-                # TODO: add styles
+                "default_style": {
+                    "name": self.default_style.name,
+                    "sld_url": self.default_style.sld_url,
+                    "sld": serialized_sld,
+                },
+                "styles": serialized_styles,
             }
         )
 
-    # @classmethod
-    # def from_json(cls, contents: str):
-    #     parsed = json.loads(contents)
-    #     return cls(
-    #         pk=parsed["pk"],
-    #         uuid=UUID(parsed["uuid"]),
-    #         name=parsed["name"],
-    #         dataset_sub_type=GeonodeResourceType(parsed["dataset_sub_type.value"]),
-    #         title=parsed["title"],
-    #         abstract=parsed["abstract"],
-    #     )
+    @classmethod
+    def from_json(cls, contents: str):
+        parsed = json.loads(contents)
+        raw_published = parsed["published_date"]
+        raw_temporal_extent = parsed["temporal_extent"]
+        if raw_temporal_extent is not None:
+            temporal_extent = [
+                dt.datetime.fromisoformat(i) for i in raw_temporal_extent
+            ]
+        else:
+            temporal_extent = None
+        service_urls = {}
+        for service_type, url in parsed["service_urls"].items():
+            type_ = GeonodeService(service_type)
+            service_urls[type_] = url
+        styles = []
+        for raw_style in parsed.get("styles", []):
+            styles.append(
+                {
+                    "name": raw_style.get("name", ""),
+                    "sld_url": raw_style.get("sld_url"),
+                    "sld": raw_style.get("sld"),
+                }
+            )
+        default_sld = parsed.get("default_style", {}).get("sld")
+        if default_sld is not None:
+            parsed_default_sld = utils.deserialize_sld_style(
+                QtCore.QByteArray(default_sld.encode())
+            )
+        else:
+            parsed_default_sld = None
+        return cls(
+            pk=parsed["pk"],
+            uuid=UUID(parsed["uuid"]),
+            name=parsed["name"],
+            dataset_sub_type=GeonodeResourceType(parsed["dataset_sub_type"]),
+            title=parsed["title"],
+            abstract=parsed["abstract"],
+            published_date=(
+                dt.datetime.fromisoformat(raw_published)
+                if raw_published is not None
+                else None
+            ),
+            spatial_extent=qgis.core.QgsRectangle.fromWkt(parsed["spatial_extent"]),
+            temporal_extent=temporal_extent,
+            srid=qgis.core.QgsCoordinateReferenceSystem.fromEpsgId(parsed["srid"]),
+            thumbnail_url=parsed["thumbnail_url"],
+            link=parsed["link"],
+            detail_url=parsed["detail_url"],
+            keywords=parsed["keywords"],
+            category=parsed["category"],
+            service_urls=service_urls,
+            language=parsed["language"],
+            license=parsed["license"],
+            constraints=parsed["constraints"],
+            owner=parsed["owner"],
+            metadata_author=parsed["metadata_author"],
+            default_style=BriefGeonodeStyle(
+                name=parsed.get("default_style", {}).get("name", ""),
+                sld_url=parsed.get("default_style", {}).get("sld_url"),
+                sld=parsed_default_sld,
+            ),
+            styles=styles,
+        )
 
 
 @dataclasses.dataclass

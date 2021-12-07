@@ -27,7 +27,7 @@ from ..utils import (
     tr,
 )
 
-WidgetUi, _ = loadUiType(Path(__file__).parent / "../ui/geonode_datasource_widget.ui")
+WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/geonode_datasource_widget.ui")
 
 _INVALID_CONNECTION_MESSAGE = (
     "Current connection is invalid. Please review connection settings."

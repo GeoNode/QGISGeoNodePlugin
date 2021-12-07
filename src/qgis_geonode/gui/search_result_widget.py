@@ -224,7 +224,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             provider_name = self.layer.dataProvider().name()
             if provider_name == "WFS" and dataset.default_style:
                 error_message = ""
-                loaded_sld = self.layer.readSld(dataset.default_style, error_message)
+                loaded_sld = self.layer.readSld(
+                    dataset.default_style.sld, error_message
+                )
                 if not loaded_sld:
                     log(f"Could not apply SLD to layer: {error_message}")
         self.add_layer_to_project()

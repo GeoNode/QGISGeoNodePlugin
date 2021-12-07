@@ -121,12 +121,3 @@ class BaseGeonodeClient(QtCore.QObject):
             self.handle_layer_style_detail
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
-    def deserialize_sld_style(self, raw_sld: QtCore.QByteArray) -> QtXml.QDomDocument:
-        sld_doc = QtXml.QDomDocument()
-        # in the line below, `True` means use XML namespaces and it is crucial for
-        # QGIS to be able to load the SLD
-        sld_loaded = sld_doc.setContent(raw_sld, True)
-        if not sld_loaded:
-            raise RuntimeError("Could not load downloaded SLD document")
-        return sld_doc
