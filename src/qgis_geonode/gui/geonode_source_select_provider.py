@@ -12,13 +12,13 @@ class GeonodeSourceSelectProvider(qgis.gui.QgsSourceSelectProvider):
         return GeonodeDataSourceWidget(parent, fl, widgetMode)
 
     def providerKey(self):
-        return "geonodeprovider"
+        return "qgis_geonode_plugin_provider"
 
     def icon(self):
         return QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
 
     def text(self):
-        return tr("GeoNode Plugin Provider")
+        return tr("GeoNode Plugin")
 
     def toolTip(self):
         return tr("Add Geonode Layer")

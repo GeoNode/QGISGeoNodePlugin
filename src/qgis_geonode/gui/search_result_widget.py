@@ -20,6 +20,7 @@ from ..apiclient import (
 from .. import network
 from ..resources import *
 from ..utils import log, tr
+from ..apiclient.models import ApiClientCapability
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/search_result_widget.ui")
@@ -89,13 +90,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             QtGui.QPixmap(":/images/themes/default/mIconVector.svg")
         )
         able_to_load_wms = (
-            models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS
+            ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS
             in self.api_client.capabilities
         )
         if able_to_load_wms:
             self._add_loadable_button(models.GeonodeService.OGC_WMS)
         able_to_load_wfs = (
-            models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS
+            ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS
             in self.api_client.capabilities
         )
         if able_to_load_wfs:
@@ -106,13 +107,13 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             QtGui.QPixmap(":/images/themes/default/mIconRaster.svg")
         )
         able_to_load_wms = (
-            models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS
+            ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS
             in self.api_client.capabilities
         )
         if able_to_load_wms:
             self._add_loadable_button(models.GeonodeService.OGC_WMS)
         able_to_load_wcs = (
-            models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS
+            ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS
             in self.api_client.capabilities
         )
         if able_to_load_wcs:
@@ -210,16 +211,22 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.api_client.error_received.connect(self.handle_loading_error)
         self.api_client.get_dataset_detail(self.brief_dataset)
 
-    def handle_layer_detail(self, dataset: models.Dataset):
+    def handle_layer_detail(self, dataset: typing.Optional[models.Dataset]):
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
-        metadata = populate_metadata(self.layer.metadata(), dataset)
-        self.layer.setMetadata(metadata)
-        provider_name = self.layer.dataProvider().name()
-        if provider_name == "WFS" and dataset.default_style:
-            error_message = ""
-            loaded_sld = self.layer.readSld(dataset.default_style, error_message)
-            if not loaded_sld:
-                log(f"Could not apply SLD to layer: {error_message}")
+        self.layer.setCustomProperty(
+            models.DATASET_CUSTOM_PROPERTY_KEY,
+            dataset.to_json() if dataset is not None else None
+        )
+        if ApiClientCapability.LOAD_LAYER_METADATA in self.api_client.capabilities:
+            metadata = populate_metadata(self.layer.metadata(), dataset)
+            self.layer.setMetadata(metadata)
+        if ApiClientCapability.LOAD_LAYER_STYLE in self.api_client.capabilities:
+            provider_name = self.layer.dataProvider().name()
+            if provider_name == "WFS" and dataset.default_style:
+                error_message = ""
+                loaded_sld = self.layer.readSld(dataset.default_style, error_message)
+                if not loaded_sld:
+                    log(f"Could not apply SLD to layer: {error_message}")
         self.add_layer_to_project()
 
     def add_layer_to_project(self):
@@ -309,8 +316,15 @@ class LayerLoaderTask(qgis.core.QgsTask):
             self.layer = layer
             result = True
         else:
-            log(f"layer error: {layer.error().messageList()}")
-            log(f"provider error: {layer.dataProvider().error().messageList()}")
+            layer_error_message_list = layer.error().messageList()
+            layer_error = ", ".join(err.message() for err in layer_error_message_list)
+            self._exception = layer_error
+            log(f"layer errors: {layer_error}")
+            provider_error_message_list = layer.dataProvider().error().messageList()
+            log(
+                f"provider errors: "
+                f"{', '.join([err.message() for err in provider_error_message_list])}"
+            )
         return result
 
     def finished(self, result: bool):

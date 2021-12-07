@@ -23,6 +23,8 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
         models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
         models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
+        models.ApiClientCapability.LOAD_LAYER_METADATA,
+        models.ApiClientCapability.LOAD_LAYER_STYLE,
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,

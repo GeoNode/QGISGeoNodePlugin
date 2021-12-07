@@ -50,6 +50,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
         models.ApiClientCapability.FILTER_BY_ABSTRACT,
         models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
     ]
 
@@ -134,6 +135,29 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
                         page_size=page_size,
                     )
         self.dataset_list_received.emit(brief_datasets, pagination_info)
+
+    def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
+        dataset = None
+        if result:
+            detail_response_content: network.ParsedNetworkReply = (
+                self.network_fetcher_task.response_contents[0])
+            deserialized_response = network.deserialize_json_response(
+                detail_response_content.response_body)
+            if deserialized_response is not None:
+                try:
+                    dataset = self._parse_dataset_detail(deserialized_response)
+                except KeyError as exc:
+                    log(
+                        f"Could not parse server response into a dataset: {str(exc)}",
+                        debug=False,
+                    )
+                else:
+                    # TODO: maybe we also have the SLD to parse fetch
+                    pass
+        self.dataset_detail_received.emit(dataset)
+
+    def _parse_dataset_detail(self) -> models.Dataset:
+        pass
 
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = _get_resource_type(raw_dataset)

@@ -1,6 +1,7 @@
 import dataclasses
 import datetime as dt
 import enum
+import json
 import math
 import typing
 from uuid import UUID
@@ -19,6 +20,7 @@ from qgis.core import (
 from ..utils import IsoTopicCategory
 
 UNSUPPORTED_REMOTE = "unsupported"
+DATASET_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset"
 
 
 class ApiClientCapability(enum.Enum):
@@ -33,7 +35,9 @@ class ApiClientCapability(enum.Enum):
     FILTER_BY_TEMPORAL_EXTENT = enum.auto()
     FILTER_BY_PUBLICATION_DATE = enum.auto()
     FILTER_BY_SPATIAL_EXTENT = enum.auto()
+    LOAD_LAYER_METADATA = enum.auto()
     MODIFY_LAYER_METADATA = enum.auto()
+    LOAD_LAYER_STYLE = enum.auto()
     MODIFY_LAYER_STYLE = enum.auto()
     LOAD_VECTOR_DATASET_VIA_WMS = enum.auto()
     LOAD_VECTOR_DATASET_VIA_WFS = enum.auto()
@@ -104,6 +108,45 @@ class Dataset(BriefDataset):
     metadata_author: typing.Dict[str, str]
     styles: typing.List[BriefGeonodeStyle]
     default_style: typing.Optional[QtXml.QDomElement]
+
+    def to_json(self):
+        return json.dumps({
+            "pk": self.pk,
+            "uuid": str(self.uuid),
+            "name": self.name,
+            "dataset_sub_type": self.dataset_sub_type.value,
+            "title": self.title,
+            "abstract": self.abstract,
+            "published_date": self.published_date.isoformat() if self.published_date else None,
+            "spatial_extent": self.spatial_extent.asWktPolygon(),
+            "temporal_extent": None,   # TODO
+            "srid": self.srid.postgisSrid(),
+            "thumbnail_url": self.thumbnail_url,
+            "link": self.link,
+            "detail_url": self.detail_url,
+            "keywords": self.keywords,
+            "category": self.category,
+            "service_urls": {
+                service.value: value for service, value in self.service_urls.items()},
+            "language": self.language,
+            "license": self.license,
+            "constraints": self.constraints,
+            "owner": self.owner,
+            "metadata_author": self.metadata_author,
+            # TODO: add styles
+        })
+
+    # @classmethod
+    # def from_json(cls, contents: str):
+    #     parsed = json.loads(contents)
+    #     return cls(
+    #         pk=parsed["pk"],
+    #         uuid=UUID(parsed["uuid"]),
+    #         name=parsed["name"],
+    #         dataset_sub_type=GeonodeResourceType(parsed["dataset_sub_type.value"]),
+    #         title=parsed["title"],
+    #         abstract=parsed["abstract"],
+    #     )
 
 
 @dataclasses.dataclass
