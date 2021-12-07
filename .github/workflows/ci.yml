@@ -39,7 +39,7 @@ jobs:
         run: poetry run python pluginadmin.py --verbose install-qgis-into-venv
 
       - name: Run tests
-        run: poetry run pytest
+        run: poetry run pytest --suppress-no-test-exit-code
 
   publish-docs:
     needs: ci
