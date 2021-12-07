@@ -215,7 +215,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
         self.layer.setCustomProperty(
             models.DATASET_CUSTOM_PROPERTY_KEY,
-            dataset.to_json() if dataset is not None else None
+            dataset.to_json() if dataset is not None else None,
         )
         if ApiClientCapability.LOAD_LAYER_METADATA in self.api_client.capabilities:
             metadata = populate_metadata(self.layer.metadata(), dataset)

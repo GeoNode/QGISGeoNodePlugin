@@ -140,9 +140,11 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
         dataset = None
         if result:
             detail_response_content: network.ParsedNetworkReply = (
-                self.network_fetcher_task.response_contents[0])
+                self.network_fetcher_task.response_contents[0]
+            )
             deserialized_response = network.deserialize_json_response(
-                detail_response_content.response_body)
+                detail_response_content.response_body
+            )
             if deserialized_response is not None:
                 try:
                     dataset = self._parse_dataset_detail(deserialized_response)
@@ -180,9 +182,11 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
             "temporal_extent": _get_temporal_extent(raw_dataset),
             "keywords": raw_dataset.get("keywords", []),
             "category": _TOPIC_CATEGORY_MAP.get(
-                raw_dataset.get("category__gn_description")),
+                raw_dataset.get("category__gn_description")
+            ),
             "default_style": models.BriefGeonodeStyle(
-                name="", sld_url=f"{self.base_url}/{raw_dataset.get('default_style')}")
+                name="", sld_url=f"{self.base_url}/{raw_dataset.get('default_style')}"
+            ),
         }
 
     def _get_service_urls(

@@ -36,4 +36,5 @@ def parse_geonode_version(raw_version: str) -> GeonodeVersion:
     version_fragment, pre_release = pre_release_fragment.partition("-")[::2]
     major, minor, patch = (int(part) for part in version_fragment.split("."))
     return GeonodeVersion(
-        major, minor, patch, pre_release or None, build_metadata or None)
+        major, minor, patch, pre_release or None, build_metadata or None
+    )

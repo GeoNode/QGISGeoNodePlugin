@@ -110,31 +110,36 @@ class Dataset(BriefDataset):
     default_style: typing.Optional[QtXml.QDomElement]
 
     def to_json(self):
-        return json.dumps({
-            "pk": self.pk,
-            "uuid": str(self.uuid),
-            "name": self.name,
-            "dataset_sub_type": self.dataset_sub_type.value,
-            "title": self.title,
-            "abstract": self.abstract,
-            "published_date": self.published_date.isoformat() if self.published_date else None,
-            "spatial_extent": self.spatial_extent.asWktPolygon(),
-            "temporal_extent": None,   # TODO
-            "srid": self.srid.postgisSrid(),
-            "thumbnail_url": self.thumbnail_url,
-            "link": self.link,
-            "detail_url": self.detail_url,
-            "keywords": self.keywords,
-            "category": self.category,
-            "service_urls": {
-                service.value: value for service, value in self.service_urls.items()},
-            "language": self.language,
-            "license": self.license,
-            "constraints": self.constraints,
-            "owner": self.owner,
-            "metadata_author": self.metadata_author,
-            # TODO: add styles
-        })
+        return json.dumps(
+            {
+                "pk": self.pk,
+                "uuid": str(self.uuid),
+                "name": self.name,
+                "dataset_sub_type": self.dataset_sub_type.value,
+                "title": self.title,
+                "abstract": self.abstract,
+                "published_date": self.published_date.isoformat()
+                if self.published_date
+                else None,
+                "spatial_extent": self.spatial_extent.asWktPolygon(),
+                "temporal_extent": None,  # TODO
+                "srid": self.srid.postgisSrid(),
+                "thumbnail_url": self.thumbnail_url,
+                "link": self.link,
+                "detail_url": self.detail_url,
+                "keywords": self.keywords,
+                "category": self.category,
+                "service_urls": {
+                    service.value: value for service, value in self.service_urls.items()
+                },
+                "language": self.language,
+                "license": self.license,
+                "constraints": self.constraints,
+                "owner": self.owner,
+                "metadata_author": self.metadata_author,
+                # TODO: add styles
+            }
+        )
 
     # @classmethod
     # def from_json(cls, contents: str):
