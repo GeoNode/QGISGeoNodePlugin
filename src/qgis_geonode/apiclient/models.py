@@ -133,6 +133,7 @@ class Dataset(BriefDataset):
     owner: typing.Dict[str, str]
     metadata_author: typing.Dict[str, str]
     styles: typing.List[BriefGeonodeStyle]
+    styles: typing.Dict[str, BriefGeonodeStyle]
 
     def to_json(self):
         if self.temporal_extent is not None:
@@ -142,14 +143,12 @@ class Dataset(BriefDataset):
                 serialized_temporal_extent.append(temporal_extent_item.isoformat())
         else:
             serialized_temporal_extent = None
-        serialized_styles = []
-        for style in self.styles:
-            serialized_styles.append(
-                {
-                    "name": style.name,
-                    "sld_url": style.sld_url,
-                }
-            )
+        serialized_styles = {}
+        for style_name, style in self.styles.items():
+            serialized_styles[style_name] = {
+                "name": style.name,
+                "sld_url": style.sld_url,
+            }
         if self.default_style.sld is not None:
             sld_root = self.default_style.sld.ownerDocument()
             serialized_sld = sld_root.toString()
@@ -206,14 +205,12 @@ class Dataset(BriefDataset):
         for service_type, url in parsed["service_urls"].items():
             type_ = GeonodeService(service_type)
             service_urls[type_] = url
-        styles = []
-        for raw_style in parsed.get("styles", []):
-            styles.append(
-                {
-                    "name": raw_style.get("name", ""),
-                    "sld_url": raw_style.get("sld_url"),
-                    "sld": raw_style.get("sld"),
-                }
+        styles = {}
+        for style_name, raw_style in parsed.get("styles", {}).items():
+            styles[style_name] = BriefGeonodeStyle(
+                name=style_name,
+                sld_url=raw_style.get("sld_url"),
+                sld=raw_style.get("sld"),
             )
         default_sld = parsed.get("default_style", {}).get("sld")
         if default_sld is not None:

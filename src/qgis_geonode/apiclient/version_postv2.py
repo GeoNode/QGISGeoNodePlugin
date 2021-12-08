@@ -207,12 +207,11 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
 
 def parse_dataset_detail(raw_dataset: typing.Dict) -> models.Dataset:
     properties = _get_common_model_properties(raw_dataset)
-    styles = []
+    styles = {}
     for raw_style in raw_dataset.get("styles", []):
-        styles.append(
-            models.BriefGeonodeStyle(
-                name=raw_style.get("name", ""), sld_url=raw_style.get("sld_url")
-            )
+        name = raw_style["name"]
+        styles[name] = models.BriefGeonodeStyle(
+            name=name, sld_url=raw_style.get("sld_url")
         )
     properties.update(
         language=raw_dataset.get("language"),
