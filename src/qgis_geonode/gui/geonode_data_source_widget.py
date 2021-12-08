@@ -17,12 +17,11 @@ from ..apiclient import (
     models,
 )
 from .. import conf
-from ..apiclient.models import ApiClientCapability
+from ..apiclient.models import ApiClientCapability, IsoTopicCategory
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
 from .. import network
 from ..utils import (
-    IsoTopicCategory,
     log,
     tr,
 )

@@ -18,10 +18,10 @@ from qgis.core import (
 )
 
 from .. import utils
-from ..utils import IsoTopicCategory
 
 UNSUPPORTED_REMOTE = "unsupported"
 DATASET_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset"
+DATASET_CONNECTION_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset_connection"
 
 
 class ApiClientCapability(enum.Enum):
@@ -44,6 +44,30 @@ class ApiClientCapability(enum.Enum):
     LOAD_VECTOR_DATASET_VIA_WFS = enum.auto()
     LOAD_RASTER_DATASET_VIA_WMS = enum.auto()
     LOAD_RASTER_DATASET_VIA_WCS = enum.auto()
+
+
+# NOTE: for simplicity, this enum's variants are named directly after the GeoNode
+# topic_category ids.
+class IsoTopicCategory(enum.Enum):
+    biota = "Biota"
+    boundaries = "Boundaries"
+    climatologyMeteorologyAtmosphere = "Climatology Meteorology Atmosphere"
+    economy = "Economy"
+    elevation = "Elevation"
+    environment = "Environment"
+    farming = "Farming"
+    geoscientificInformation = "Geoscientific Information"
+    health = "Health"
+    imageryBaseMapsEarthCover = "Imagery Base Maps Earth Cover"
+    inlandWaters = "Inland Waters"
+    intelligenceMilitary = "Intelligence Military"
+    location = "Location"
+    oceans = "Oceans"
+    planningCadastre = "Planning Cadastre"
+    society = "Society"
+    structure = "Structure"
+    transportation = "Transportation"
+    utilitiesCommunication = "Utilities Communication"
 
 
 class GeonodeService(enum.Enum):

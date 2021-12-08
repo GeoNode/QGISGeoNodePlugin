@@ -7,9 +7,9 @@ from qgis.PyQt import QtCore
 
 from .. import network
 from ..utils import (
-    IsoTopicCategory,
     log,
 )
+from .models import IsoTopicCategory
 
 from . import models
 from .base import BaseGeonodeClient

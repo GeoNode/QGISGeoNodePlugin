@@ -11,8 +11,7 @@ from qgis.PyQt import (
 from qgis.core import QgsRectangle, QgsSettings
 
 from .apiclient import models
-from .apiclient.models import GeonodeResourceType
-from .utils import IsoTopicCategory
+from .apiclient.models import GeonodeResourceType, IsoTopicCategory
 
 logger = logging.getLogger(__name__)
 

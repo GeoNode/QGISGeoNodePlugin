@@ -18,9 +18,10 @@ from ..apiclient import (
     models,
 )
 from .. import network
+from ..apiclient.models import ApiClientCapability
+from ..conf import settings_manager
 from ..resources import *
 from ..utils import log, tr
-from ..apiclient.models import ApiClientCapability
 
 WidgetUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/search_result_widget.ui")
@@ -216,6 +217,11 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.layer.setCustomProperty(
             models.DATASET_CUSTOM_PROPERTY_KEY,
             dataset.to_json() if dataset is not None else None,
+        )
+        current_connection_settings = settings_manager.get_current_connection_settings()
+        self.layer.setCustomProperty(
+            models.DATASET_CONNECTION_CUSTOM_PROPERTY_KEY,
+            str(current_connection_settings.id),
         )
         if ApiClientCapability.LOAD_LAYER_METADATA in self.api_client.capabilities:
             metadata = populate_metadata(self.layer.metadata(), dataset)

@@ -13,47 +13,54 @@
   <property name="windowTitle">
    <string>Geonode Layer</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QgsCollapsibleGroupBox" name="style_gb">
      <property name="title">
       <string>GeoNode Style</string>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <layout class="QFormLayout" name="formLayout">
-        <item row="0" column="0">
-         <widget class="QLabel" name="available_styles_la">
-          <property name="text">
-           <string>Available Styles</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="available_styles_la">
+        <property name="text">
+         <string>Available styles</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
          <widget class="QComboBox" name="available_styles_cb"/>
         </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="upload_style_la">
+        <item>
+         <widget class="QPushButton" name="apply_style_pb">
           <property name="text">
-           <string>Current style name</string>
+           <string>Set as current style</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <item>
-           <widget class="QLineEdit" name="style_name_le"/>
-          </item>
-          <item>
-           <widget class="QPushButton" name="upload_current_style_pb">
-            <property name="text">
-             <string>Upload current style...</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+       </layout>
+      </item>
+      <item row="1" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QLineEdit" name="style_name_le"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="upload_current_style_pb">
+          <property name="text">
+           <string>Upload</string>
+          </property>
+         </widget>
         </item>
        </layout>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="upload_style_la">
+        <property name="text">
+         <string>Current style name</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
