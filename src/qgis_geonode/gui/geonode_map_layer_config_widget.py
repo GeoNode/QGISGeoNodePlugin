@@ -47,6 +47,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def update_dataset(self, new_dataset: models.Dataset):
         serialized = new_dataset.to_json()
+        log(f"inside update_dataset. serialized: {serialized}")
         self.layer.setCustomProperty(models.DATASET_CUSTOM_PROPERTY_KEY, serialized)
 
     @property
@@ -149,10 +150,6 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def _apply_sld(self):
         dataset = self.get_dataset()
-        with open("/home/ricardo/Desktop/qgis_geonode_tests/test_sld.sld", "w") as fh:
-            doc = dataset.default_style.sld.ownerDocument()
-            fh.write(doc.toString())
-
         sld_load_error_msg = ""
         sld_load_result = self.layer.readSld(
             dataset.default_style.sld, sld_load_error_msg

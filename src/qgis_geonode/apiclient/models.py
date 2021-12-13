@@ -142,16 +142,12 @@ class Dataset(BriefDataset):
         else:
             serialized_temporal_extent = None
         if self.default_style.sld is not None:
-            sld_root = self.default_style.sld.ownerDocument()
-            serialized_sld = sld_root.toString()
+            buffer_ = QtCore.QByteArray()
+            stream = QtCore.QTextStream(buffer_)
+            self.default_style.sld.save(stream, 0)
+            serialized_sld = buffer_.data().decode(encoding="utf-8")
         else:
             serialized_sld = None
-        log(f"inside to_json serialized_sld: {serialized_sld}")
-        log(f"serialized_sld is None: {serialized_sld is None}")
-        with open(
-            "/home/ricardo/Desktop/qgis_geonode_tests/to_json_sld.sld", "w"
-        ) as fh:
-            fh.write(serialized_sld)
         return json.dumps(
             {
                 "pk": self.pk,
@@ -203,15 +199,12 @@ class Dataset(BriefDataset):
             type_ = GeonodeService(service_type)
             service_urls[type_] = url
         default_sld = parsed.get("default_style", {}).get("sld")
-        log(f"inside from_json default_sld: {default_sld}")
-        log(f"default_sld is None: {default_sld is None}")
         if default_sld is not None:
-            parsed_default_sld = deserialize_sld_style(
+            sld_named_layer, sld_loading_error_message = deserialize_sld_style(
                 QtCore.QByteArray(default_sld.encode())
             )
         else:
-            parsed_default_sld = None
-        log(f"inside parsed_defaults_sld is None: {parsed_default_sld is None}")
+            sld_named_layer = None
         return cls(
             pk=parsed["pk"],
             uuid=UUID(parsed["uuid"]),
@@ -241,7 +234,7 @@ class Dataset(BriefDataset):
             default_style=BriefGeonodeStyle(
                 name=parsed.get("default_style", {}).get("name", ""),
                 sld_url=parsed.get("default_style", {}).get("sld_url"),
-                sld=parsed_default_sld,
+                sld=sld_named_layer,
             ),
         )
 
