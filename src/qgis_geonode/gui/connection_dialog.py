@@ -13,13 +13,12 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
+from .. import network
 from ..apiclient.base import BaseGeonodeClient
-from ..apiclient import models
 from ..conf import (
     ConnectionSettings,
     settings_manager,
 )
-from .. import network
 from ..utils import tr
 
 DialogUi, _ = loadUiType(
@@ -57,7 +56,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.url_le.setText(connection_settings.base_url)
             self.authcfg_acs.setConfigId(connection_settings.auth_config)
             self.page_size_sb.setValue(connection_settings.page_size)
-            if self.api_client_class_path == models.UNSUPPORTED_REMOTE:
+            if self.api_client_class_path == network.UNSUPPORTED_REMOTE:
                 self.show_progress(
                     tr("Invalid configuration. Correct GeoNode URL and/or test again."),
                     message_level=qgis.core.Qgis.Critical,
@@ -105,7 +104,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     def handle_discovery_test(self, discovered_api_client_class_path: str):
         self.bar.clearWidgets()
         self.api_client_class_path = discovered_api_client_class_path
-        if self.api_client_class_path != models.UNSUPPORTED_REMOTE:
+        if self.api_client_class_path != network.UNSUPPORTED_REMOTE:
             self.bar.pushMessage("Connection is valid", level=qgis.core.Qgis.Info)
         else:
             self.bar.pushMessage(

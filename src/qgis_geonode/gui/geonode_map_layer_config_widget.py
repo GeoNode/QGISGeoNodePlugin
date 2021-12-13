@@ -1,6 +1,5 @@
 import json
 import typing
-from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -28,17 +27,13 @@ WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dial
 
 
 class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
-    available_styles_cb: QtWidgets.QComboBox
-    apply_style_pb: QtWidgets.QPushButton
-
     download_style_pb: QtWidgets.QPushButton
     upload_style_pb: QtWidgets.QPushButton
 
     network_task: typing.Optional[network.MultipleNetworkFetcherTask]
-    _style_to_be_applied: typing.Optional[models.BriefGeonodeStyle]
+    _apply_geonode_style: bool
 
-    @property
-    def dataset(self) -> typing.Optional[models.Dataset]:
+    def get_dataset(self) -> typing.Optional[models.Dataset]:
         serialized_dataset = self.layer.customProperty(
             models.DATASET_CUSTOM_PROPERTY_KEY
         )
@@ -49,6 +44,10 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         else:
             result = None
         return result
+
+    def update_dataset(self, new_dataset: models.Dataset):
+        serialized = new_dataset.to_json()
+        self.layer.setCustomProperty(models.DATASET_CUSTOM_PROPERTY_KEY, serialized)
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
@@ -72,32 +71,63 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         )
         self.layout().insertWidget(0, self.message_bar)
         self.network_task = None
-        self._style_to_be_applied = None
+        self._apply_geonode_style = False
         self.layer = layer
-        serialized_dataset = self.layer.customProperty(
-            models.DATASET_CUSTOM_PROPERTY_KEY
-        )
-        if serialized_dataset is not None:
-            pass
+        if self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY) is not None:
             # this layer came from GeoNode
-            # self.apply_style_pb.clicked.connect(self._trigger_apply_selected_style)
-            # self._populate_styles_combobox()
+            # TODO: check if the API client has the relevant capabilities before enabling the GUI controls
+            self._toggle_style_controls(enabled=True)
+            self.download_style_pb.clicked.connect(self.download_style)
+            self.upload_style_pb.clicked.connect(self.upload_style)
         else:
             pass  # this is not a GeoNode layer, disable widgets
 
+    # def shouldTriggerLayerRepaint(self):
+    #     return True
+
     def apply(self):
-        self.message_bar.pushMessage("This is the apply slot")
-        if self._style_to_be_applied is not None:
+        self.message_bar.clearWidgets()
+        self.message_bar.pushMessage(
+            f"This is the apply slot, apply style: {self._apply_geonode_style}"
+        )
+        log(f"apply style: {self._apply_geonode_style}")
+        if self._apply_geonode_style:
             self._apply_sld()
-            self._style_to_be_applied = None
+            self._apply_geonode_style = False
 
     def download_style(self):
+        dataset = self.get_dataset()
         self.network_task = network.MultipleNetworkFetcherTask(
-            [network.RequestToPerform(QtCore.QUrl(self.dataset.default_style.sld_url))],
+            [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
             self.connection_settings.auth_config,
         )
-        self.network_task.all_finished.connect(self._handle_sld_downloaded)
+        self.network_task.all_finished.connect(self.handle_style_downloaded)
+        self._toggle_style_controls(enabled=False)
+        progress_bar = QtWidgets.QProgressBar()
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(0)
+        self.message_bar.pushWidget(progress_bar)
         qgis.core.QgsApplication.taskManager().addTask(self.network_task)
+
+    def handle_style_downloaded(self, task_result: bool):
+        self._toggle_style_controls(enabled=True)
+        if task_result:
+            sld_named_layer, error_message = styles.get_usable_sld(
+                self.network_task.response_contents[0]
+            )
+            if sld_named_layer is not None:
+                dataset = self.get_dataset()
+                dataset.default_style.sld = sld_named_layer
+                self.update_dataset(dataset)
+                self._apply_geonode_style = True
+                self.apply()
+            else:
+                self.message_bar.pushMessage(
+                    f"Unable to download and parse SLD style from "
+                    f"remote GeoNode: {error_message}"
+                )
+        else:
+            self.message_bar.pushMessage("Unable to retrieve GeoNode style")
 
     def upload_style(self):
         self.apply()
@@ -106,90 +136,29 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self.layer.exportSldStyle(doc, error_message)
         log(f"exportSldStyle error_message: {error_message!r}")
         if error_message == "":
+            dataset = self.get_dataset()
             self.network_task = network.MultipleNetworkFetcherTask(
                 [
                     network.RequestToPerform(
-                        QtCore.QUrl(self.dataset.default_style.sld_url),
+                        QtCore.QUrl(dataset.default_style.sld_url),
                         payload=json.dumps(doc),
                     )
                 ],
                 self.connection_settings.auth_config,
             )
 
-    # def shouldTriggerLayerRepaint(self):
-    #     return True
-
-    # def _trigger_apply_selected_style(self):
-    #     selected_style = self.available_styles_cb.currentData()
-    #     selected_style: models.BriefGeonodeStyle
-    #     if selected_style.sld is not None:
-    #         # we already have it locally, no need to re-download
-    #         self._style_to_be_applied = selected_style
-    #         self._apply_sld()
-    #     else:  # let's download it
-    #         connection_settings_id = self.layer.customProperty(
-    #             models.DATASET_CONNECTION_CUSTOM_PROPERTY_KEY
-    #         )
-    #         connection_settings = conf.settings_manager.get_connection_settings(
-    #             UUID(connection_settings_id)
-    #         )
-    #         self.network_task = network.MultipleNetworkFetcherTask(
-    #             [network.RequestToPerform(QtCore.QUrl(selected_style.sld_url))],
-    #             connection_settings.auth_config,
-    #         )
-    #         self.network_task.all_finished.connect(
-    #             partial(self._handle_sld_style_downloaded, selected_style)
-    #         )
-    #         qgis.core.QgsApplication.taskManager().addTask(self.network_task)
-
-    def _handle_sld_downloaded(self, task_result: bool):
-        if task_result:
-            usable_sld = styles.get_usable_sld(self.network_task.response_contents[0])
-            if usable_sld is not None:
-                self.dataset.default_style.sld = usable_sld
-                self._style_to_be_applied = self.dataset.default_style
-                self.apply()
-                self.message_bar.pushMessage(
-                    "Applied downloaded SLD style from remote GeoNode"
-                )
-            else:
-                self.message_bar.pushMessage(
-                    "Unable to apply downloaded SLD style from remote GeoNode"
-                )
-        else:
-            self.message_bar.pushMessage("Unable to retrieve GeoNode style")
-
-    # def _handle_sld_style_downloaded(
-    #     self, style: models.BriefGeonodeStyle, task_result: bool
-    # ):
-    #     if task_result:
-    #         usable_sld = styles.get_usable_sld(self.network_task.response_contents[0])
-    #         if usable_sld is not None:
-    #             self.message_bar.pushMessage(
-    #                 "Applied downloaded SLD style from remote GeoNode"
-    #             )
-    #             style.sld = usable_sld
-    #             self._style_to_be_applied = style
-    #             self.apply()
-    #         else:
-    #             self.message_bar.pushMessage(
-    #                 "Unable to apply downloaded SLD style from remote GeoNode"
-    #             )
-    #     else:
-    #         self.message_bar.pushMessage("Unable to retrieve GeoNode style")
-
-    # def _populate_styles_combobox(self):
-    #     for style_name, style in self.dataset.styles.items():
-    #         if (style.sld_url or None) is not None:
-    #             self.available_styles_cb.addItem(style_name, style)
-
     def _apply_sld(self):
+        dataset = self.get_dataset()
+        with open("/home/ricardo/Desktop/qgis_geonode_tests/test_sld.sld", "w") as fh:
+            doc = dataset.default_style.sld.ownerDocument()
+            fh.write(doc.toString())
+
         sld_load_error_msg = ""
         sld_load_result = self.layer.readSld(
-            self._style_to_be_applied.sld, sld_load_error_msg
+            dataset.default_style.sld, sld_load_error_msg
         )
         log(
-            f"sld_load_result: {sld_load_result} - seld_load_error_msg: {sld_load_error_msg}"
+            f"sld_load_result: {sld_load_result} - sld_load_error_msg: {sld_load_error_msg}"
         )
         if sld_load_result:
             layer_properties_dialog = self._get_layer_properties_dialog()
@@ -200,3 +169,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         #  may not even work for layers that are not vector, but I've not been able
         #  to find a more elegant way to retrieve it yet
         return self.parent().parent().parent().parent()
+
+    def _toggle_style_controls(self, enabled: bool):
+        widgets = (
+            self.upload_style_pb,
+            self.download_style_pb,
+        )
+        for widget in widgets:
+            widget.setEnabled(enabled)

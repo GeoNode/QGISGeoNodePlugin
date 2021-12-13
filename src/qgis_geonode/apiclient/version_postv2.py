@@ -1,15 +1,12 @@
 import datetime as dt
 import typing
 import uuid
-from functools import partial
 
 import qgis.core
 from qgis.PyQt import QtCore
 
-from .. import (
-    network,
-    utils,
-)
+from .. import network
+from .. import styles as geonode_styles
 from ..utils import log
 
 from . import models
@@ -188,18 +185,10 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
                         == models.GeonodeResourceType.VECTOR_LAYER
                     )
                     if is_vector:
-                        sld_response_content: network.ParsedNetworkReply = (
+                        sld_named_layer, error_message = geonode_styles.get_usable_sld(
                             self.network_fetcher_task.response_contents[1]
                         )
-                        sld_doc = utils.deserialize_sld_style(
-                            sld_response_content.response_body
-                        )
-                        sld_root = sld_doc.documentElement()
-                        error_message = "Could not parse downloaded SLD document"
-                        if sld_root.isNull():
-                            raise RuntimeError(error_message)
-                        sld_named_layer = sld_root.firstChildElement("NamedLayer")
-                        if sld_named_layer.isNull():
+                        if sld_named_layer is None:
                             raise RuntimeError(error_message)
                         dataset.default_style.sld = sld_named_layer
         self.dataset_detail_received.emit(dataset)
@@ -207,19 +196,12 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
 
 def parse_dataset_detail(raw_dataset: typing.Dict) -> models.Dataset:
     properties = _get_common_model_properties(raw_dataset)
-    styles = {}
-    for raw_style in raw_dataset.get("styles", []):
-        name = raw_style["name"]
-        styles[name] = models.BriefGeonodeStyle(
-            name=name, sld_url=raw_style.get("sld_url")
-        )
     properties.update(
         language=raw_dataset.get("language"),
         license=(raw_dataset.get("license") or {}).get("identifier", ""),
         constraints=raw_dataset.get("raw_constraints_other", ""),
         owner=raw_dataset.get("owner", {}).get("username", ""),
         metadata_author=raw_dataset.get("metadata_author", {}).get("username", ""),
-        styles=styles,
     )
     return models.Dataset(**properties)
 

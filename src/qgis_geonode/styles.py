@@ -1,40 +1,26 @@
 import typing
 
-import qgis.core
+from PyQt5 import QtCore, QtXml
 from qgis.PyQt import QtXml
 
-from . import (
-    network,
-    utils,
-)
-from .utils import log
+from . import network
 
 
-def load_layer_sld(
-    layer: qgis.core.QgsMapLayer, http_response: network.ParsedNetworkReply
-) -> typing.Tuple[bool, str]:
-    raw_sld = http_response.response_body
-    log(f"raw_sld: {raw_sld}")
-    sld_doc = utils.deserialize_sld_style(raw_sld)
-    sld_root = sld_doc.documentElement()
-    error_message = "Could not parse downloaded SLD document"
-    result = False
-    if not sld_root.isNull():
-        sld_named_layer = sld_root.firstChildElement("NamedLayer")
-        if not sld_named_layer.isNull():
-            sld_load_error_msg = ""
-            result = layer.readSld(sld_named_layer, sld_load_error_msg)
-            error_message = ": ".join((error_message, sld_load_error_msg))
-    log(error_message)
-    return result, error_message
+def deserialize_sld_style(raw_sld: QtCore.QByteArray) -> QtXml.QDomDocument:
+    sld_doc = QtXml.QDomDocument()
+    # in the line below, `True` means use XML namespaces and it is crucial for
+    # QGIS to be able to load the SLD
+    sld_loaded = sld_doc.setContent(raw_sld, True)
+    if not sld_loaded:
+        raise RuntimeError("Could not load downloaded SLD document")
+    return sld_doc
 
 
 def get_usable_sld(
     http_response: network.ParsedNetworkReply,
-) -> typing.Optional[QtXml.QDomElement]:
+) -> typing.Tuple[typing.Optional[QtXml.QDomElement], str]:
     raw_sld = http_response.response_body
-    log(f"raw_sld: {raw_sld}")
-    sld_doc = utils.deserialize_sld_style(raw_sld)
+    sld_doc = deserialize_sld_style(raw_sld)
     sld_root = sld_doc.documentElement()
     error_message = "Could not parse downloaded SLD document"
     result = None
@@ -42,4 +28,5 @@ def get_usable_sld(
         sld_named_layer = sld_root.firstChildElement("NamedLayer")
         if not sld_named_layer.isNull():
             result = sld_named_layer
-    return result
+            error_message = ""
+    return result, error_message

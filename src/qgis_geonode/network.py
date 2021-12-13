@@ -12,7 +12,8 @@ from qgis.PyQt import (
 )
 
 from .utils import log
-from .apiclient.models import UNSUPPORTED_REMOTE
+
+UNSUPPORTED_REMOTE = "unsupported"
 
 
 @dataclasses.dataclass()

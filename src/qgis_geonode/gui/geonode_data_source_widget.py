@@ -287,7 +287,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.toggle_search_buttons(enable=False)
         else:
             conf.settings_manager.set_current_connection(current_connection.id)
-            if current_connection.api_client_class_path == models.UNSUPPORTED_REMOTE:
+            if current_connection.api_client_class_path == network.UNSUPPORTED_REMOTE:
                 self.show_message(
                     tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
                 )

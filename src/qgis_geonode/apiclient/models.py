@@ -17,9 +17,9 @@ from qgis.core import (
     QgsRectangle,
 )
 
-from .. import utils
+from ..styles import deserialize_sld_style
+from ..utils import log
 
-UNSUPPORTED_REMOTE = "unsupported"
 DATASET_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset"
 DATASET_CONNECTION_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset_connection"
 
@@ -132,8 +132,6 @@ class Dataset(BriefDataset):
     constraints: str
     owner: typing.Dict[str, str]
     metadata_author: typing.Dict[str, str]
-    styles: typing.List[BriefGeonodeStyle]
-    styles: typing.Dict[str, BriefGeonodeStyle]
 
     def to_json(self):
         if self.temporal_extent is not None:
@@ -143,17 +141,17 @@ class Dataset(BriefDataset):
                 serialized_temporal_extent.append(temporal_extent_item.isoformat())
         else:
             serialized_temporal_extent = None
-        serialized_styles = {}
-        for style_name, style in self.styles.items():
-            serialized_styles[style_name] = {
-                "name": style.name,
-                "sld_url": style.sld_url,
-            }
         if self.default_style.sld is not None:
             sld_root = self.default_style.sld.ownerDocument()
             serialized_sld = sld_root.toString()
         else:
             serialized_sld = None
+        log(f"inside to_json serialized_sld: {serialized_sld}")
+        log(f"serialized_sld is None: {serialized_sld is None}")
+        with open(
+            "/home/ricardo/Desktop/qgis_geonode_tests/to_json_sld.sld", "w"
+        ) as fh:
+            fh.write(serialized_sld)
         return json.dumps(
             {
                 "pk": self.pk,
@@ -186,7 +184,6 @@ class Dataset(BriefDataset):
                     "sld_url": self.default_style.sld_url,
                     "sld": serialized_sld,
                 },
-                "styles": serialized_styles,
             }
         )
 
@@ -205,20 +202,16 @@ class Dataset(BriefDataset):
         for service_type, url in parsed["service_urls"].items():
             type_ = GeonodeService(service_type)
             service_urls[type_] = url
-        styles = {}
-        for style_name, raw_style in parsed.get("styles", {}).items():
-            styles[style_name] = BriefGeonodeStyle(
-                name=style_name,
-                sld_url=raw_style.get("sld_url"),
-                sld=raw_style.get("sld"),
-            )
         default_sld = parsed.get("default_style", {}).get("sld")
+        log(f"inside from_json default_sld: {default_sld}")
+        log(f"default_sld is None: {default_sld is None}")
         if default_sld is not None:
-            parsed_default_sld = utils.deserialize_sld_style(
+            parsed_default_sld = deserialize_sld_style(
                 QtCore.QByteArray(default_sld.encode())
             )
         else:
             parsed_default_sld = None
+        log(f"inside parsed_defaults_sld is None: {parsed_default_sld is None}")
         return cls(
             pk=parsed["pk"],
             uuid=UUID(parsed["uuid"]),
@@ -250,7 +243,6 @@ class Dataset(BriefDataset):
                 sld_url=parsed.get("default_style", {}).get("sld_url"),
                 sld=parsed_default_sld,
             ),
-            styles=styles,
         )
 
 
