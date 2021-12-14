@@ -23,14 +23,14 @@
       <item>
        <widget class="QPushButton" name="download_style_pb">
         <property name="text">
-         <string>Reload style from GeoNode</string>
+         <string>Reload default style</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="upload_style_pb">
         <property name="text">
-         <string>Upload style to GeoNode</string>
+         <string>Save current style as default</string>
         </property>
        </widget>
       </item>

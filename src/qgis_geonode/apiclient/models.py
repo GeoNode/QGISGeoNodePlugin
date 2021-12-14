@@ -17,7 +17,7 @@ from qgis.core import (
     QgsRectangle,
 )
 
-from ..styles import deserialize_sld_style
+from .. import styles as qgis_geonode_styles
 from ..utils import log
 
 DATASET_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset"
@@ -142,10 +142,9 @@ class Dataset(BriefDataset):
         else:
             serialized_temporal_extent = None
         if self.default_style.sld is not None:
-            buffer_ = QtCore.QByteArray()
-            stream = QtCore.QTextStream(buffer_)
-            self.default_style.sld.save(stream, 0)
-            serialized_sld = buffer_.data().decode(encoding="utf-8")
+            serialized_sld = qgis_geonode_styles.serialize_sld_named_layer(
+                self.default_style.sld
+            )
         else:
             serialized_sld = None
         return json.dumps(
@@ -200,11 +199,13 @@ class Dataset(BriefDataset):
             service_urls[type_] = url
         default_sld = parsed.get("default_style", {}).get("sld")
         if default_sld is not None:
-            sld_named_layer, sld_loading_error_message = deserialize_sld_style(
-                QtCore.QByteArray(default_sld.encode())
+            sld, sld_error_message = qgis_geonode_styles.deserialize_sld_named_layer(
+                default_sld
             )
+            if sld is None:
+                log(f"Could not deserialize SLD style: {sld_error_message}")
         else:
-            sld_named_layer = None
+            sld = None
         return cls(
             pk=parsed["pk"],
             uuid=UUID(parsed["uuid"]),
@@ -234,7 +235,7 @@ class Dataset(BriefDataset):
             default_style=BriefGeonodeStyle(
                 name=parsed.get("default_style", {}).get("name", ""),
                 sld_url=parsed.get("default_style", {}).get("sld_url"),
-                sld=sld_named_layer,
+                sld=sld,
             ),
         )
 

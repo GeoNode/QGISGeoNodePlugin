@@ -8,6 +8,7 @@ import qgis.gui
 
 from qgis.PyQt import (
     QtCore,
+    QtGui,
     QtWidgets,
     QtXml,
 )
@@ -29,26 +30,10 @@ WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dial
 class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     download_style_pb: QtWidgets.QPushButton
     upload_style_pb: QtWidgets.QPushButton
+    message_bar: qgis.gui.QgsMessageBar
 
     network_task: typing.Optional[network.MultipleNetworkFetcherTask]
     _apply_geonode_style: bool
-
-    def get_dataset(self) -> typing.Optional[models.Dataset]:
-        serialized_dataset = self.layer.customProperty(
-            models.DATASET_CUSTOM_PROPERTY_KEY
-        )
-        if serialized_dataset is not None:
-            result = models.Dataset.from_json(
-                self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY)
-            )
-        else:
-            result = None
-        return result
-
-    def update_dataset(self, new_dataset: models.Dataset):
-        serialized = new_dataset.to_json()
-        log(f"inside update_dataset. serialized: {serialized}")
-        self.layer.setCustomProperty(models.DATASET_CUSTOM_PROPERTY_KEY, serialized)
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
@@ -88,13 +73,25 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def apply(self):
         self.message_bar.clearWidgets()
-        self.message_bar.pushMessage(
-            f"This is the apply slot, apply style: {self._apply_geonode_style}"
-        )
-        log(f"apply style: {self._apply_geonode_style}")
         if self._apply_geonode_style:
             self._apply_sld()
             self._apply_geonode_style = False
+
+    def get_dataset(self) -> typing.Optional[models.Dataset]:
+        serialized_dataset = self.layer.customProperty(
+            models.DATASET_CUSTOM_PROPERTY_KEY
+        )
+        if serialized_dataset is not None:
+            result = models.Dataset.from_json(
+                self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY)
+            )
+        else:
+            result = None
+        return result
+
+    def update_dataset(self, new_dataset: models.Dataset):
+        serialized = new_dataset.to_json()
+        self.layer.setCustomProperty(models.DATASET_CUSTOM_PROPERTY_KEY, serialized)
 
     def download_style(self):
         dataset = self.get_dataset()
@@ -104,10 +101,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         )
         self.network_task.all_finished.connect(self.handle_style_downloaded)
         self._toggle_style_controls(enabled=False)
-        progress_bar = QtWidgets.QProgressBar()
-        progress_bar.setMinimum(0)
-        progress_bar.setMaximum(0)
-        self.message_bar.pushWidget(progress_bar)
+        self._show_message(message="Retrieving style...", add_loading_widget=True)
         qgis.core.QgsApplication.taskManager().addTask(self.network_task)
 
     def handle_style_downloaded(self, task_result: bool):
@@ -123,12 +117,17 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 self._apply_geonode_style = True
                 self.apply()
             else:
-                self.message_bar.pushMessage(
-                    f"Unable to download and parse SLD style from "
-                    f"remote GeoNode: {error_message}"
+                self._show_message(
+                    message=(
+                        f"Unable to download and parse SLD style from remote "
+                        f"GeoNode: {error_message}"
+                    ),
+                    level=qgis.core.Qgis.Warning,
                 )
         else:
-            self.message_bar.pushMessage("Unable to retrieve GeoNode style")
+            self._show_message(
+                "Unable to retrieve GeoNode style", level=qgis.core.Qgis.Warning
+            )
 
     def upload_style(self):
         self.apply()
@@ -142,10 +141,25 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 [
                     network.RequestToPerform(
                         QtCore.QUrl(dataset.default_style.sld_url),
-                        payload=json.dumps(doc),
+                        payload=doc.toString(0),
+                        content_type="application/vnd.ogc.sld+xml",
                     )
                 ],
                 self.connection_settings.auth_config,
+            )
+            qgis.core.QgsApplication.taskManager().addTask(self.network_task)
+            self.network_task.all_finished.connect(self.handle_style_uploaded)
+            self._toggle_style_controls(enabled=False)
+            self._show_message(message="Uploading style...", add_loading_widget=True)
+
+    def handle_style_uploaded(self, task_result: bool):
+        self._toggle_style_controls(enabled=True)
+        if task_result:
+            self._show_message("Style uploaded successfully!")
+        else:
+            self._show_message(
+                f"Could not upload style: {self.network_task._exceptions_raised}",
+                level=qgis.core.Qgis.Warning,
             )
 
     def _apply_sld(self):
@@ -154,12 +168,32 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         sld_load_result = self.layer.readSld(
             dataset.default_style.sld, sld_load_error_msg
         )
-        log(
-            f"sld_load_result: {sld_load_result} - sld_load_error_msg: {sld_load_error_msg}"
-        )
         if sld_load_result:
             layer_properties_dialog = self._get_layer_properties_dialog()
             layer_properties_dialog.syncToLayer()
+        else:
+            self._show_message(
+                message=f"Could not load GeoNode style: {sld_load_error_msg}",
+                level=qgis.core.Qgis.Warning,
+            )
+
+    def _show_message(
+        self,
+        message: typing.Optional[str] = None,
+        widget: typing.Optional[QtWidgets.QWidget] = None,
+        level: typing.Optional[qgis.core.Qgis.MessageLevel] = qgis.core.Qgis.Info,
+        add_loading_widget: bool = False,
+    ):
+        self.message_bar.clearWidgets()
+        if message is not None:
+            self.message_bar.pushMessage(str(message), level=level)
+        if widget is not None:
+            self.message_bar.pushWidget(widget, level=level)
+        if add_loading_widget:
+            progress_bar = QtWidgets.QProgressBar()
+            progress_bar.setMinimum(0)
+            progress_bar.setMaximum(0)
+            self.message_bar.pushWidget(progress_bar)
 
     def _get_layer_properties_dialog(self):
         # FIXME: This is a very hacky way to get the layer properties dialog, and it
