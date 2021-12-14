@@ -40,19 +40,16 @@ class RequestToPerform:
 
 
 class AnotherNetworkRequestTask(qgis.core.QgsTask):
-    requests_to_perform: typing.List[RequestToPerform]
-
-    # stores the results
-    response_contents: typing.List[typing.Optional[ParsedNetworkReply]]
-
-    _pending_replies: typing.Dict[int, QtNetwork.QNetworkReply]
-    _finished_replies: typing.Dict[int, ParsedNetworkReply]
-    _current_request_index: typing.Optional[int]
-
+    REQUEST_ID: typing.Final = "requestId"
     network_access_manager: qgis.core.QgsNetworkAccessManager
+    requests_to_perform: typing.List[RequestToPerform]
+    response_contents: typing.List[typing.Optional[ParsedNetworkReply]]
+    _num_finished: int
+    _pending_replies: typing.Dict[
+        int, typing.Tuple[int, qgis.core.QgsNetworkReplyContent]
+    ]
 
     _all_requests_finished = QtCore.pyqtSignal()
-    task_done = QtCore.pyqtSignal()
 
     def __init__(
         self,
@@ -61,9 +58,9 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
     ):
         """A QGIS task to run a series of network requests in sequence."""
         super().__init__(description)
-        self.requests_to_perform = requests_to_perform
+        self.requests_to_perform = requests_to_perform[:]
         self.response_contents = [None] * len(requests_to_perform)
-        self._current_request_index = 0
+        self._num_finished = 0
         self._pending_replies = {}
         self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
         self.network_access_manager.finished.connect(self._handle_request_finished)
@@ -79,23 +76,22 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
         """
 
         with wait_for_signal(self._all_requests_finished) as event_loop_result:
-            try:
-                next_request = self._requests_todo[self._current_request_index]
-            except IndexError:  # there are no requests to perform
+            if len(self.requests_to_perform) == 0:
+                log("nothing to do")
                 self._all_requests_finished.emit()
             else:
-                self._dispatch_request(next_request)
+                for index, request_params in enumerate(self.requests_to_perform):
+                    reply = self._dispatch_request(request_params)
+                    self._pending_replies[reply.requestId()] = (index, reply)
+                log(f"self._pending_replies: {self._pending_replies}")
+        log(
+            f"About to leave task.run() method with a result of {event_loop_result.result}..."
+        )
         return event_loop_result.result
 
-    def finished(self, result: bool) -> None:
-        if result:
-            for index in self.requests_to_perform:
-                self.response_contents[index] = self._finished_replies.get(index)
-        else:
-            pass
-        self.task_done.emit()
-
-    def _dispatch_request(self, request_params: RequestToPerform) -> None:
+    def _dispatch_request(
+        self, request_params: RequestToPerform
+    ) -> qgis.core.QgsNetworkReplyContent:
         request = QtNetwork.QNetworkRequest(request_params.url)
         if request_params.content_type is not None:
             request.setHeader(
@@ -108,25 +104,23 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
             reply = self.network_access_manager.put(request, data_)
         else:
             raise NotImplementedError
-        request_id = reply.property("requestId")
-        self._pending_replies[request_id] = reply
+        return qgis.core.QgsNetworkReplyContent(reply)
 
-    def _handle_request_finished(self, reply: QtNetwork.QNetworkReply):
-        request_id = reply.property("requestId")
+    def _handle_request_finished(self, reply: qgis.core.QgsNetworkReplyContent):
+        request_id = reply.requestId()
+        log(f"request_id: {request_id}")
         if request_id in self._pending_replies.keys():
+            log(f"request_id matches")
+            index = self._pending_replies[request_id][0]
             parsed = parse_network_reply(reply)
-            self._finished_replies[self._current_request_index] = parsed
-            self._current_request_index += 1
+            log(f"parsed body: {parsed.response_body.data().decode()}")
+            self.response_contents[index] = parsed
             del self._pending_replies[request_id]
-            try:
-                next_request = self.requests_to_perform[self._current_request_index]
-            except IndexError:
-                pass  # there are no more requests to perform, we are done!
+            self._num_finished += 1
+            if self._num_finished == len(self.requests_to_perform):
                 self._all_requests_finished.emit()
-            else:
-                self._dispatch_request(next_request)
-            reply.deleteLater()
         else:
+            log(f"unknown request_id, ignoring...")
             pass  # this is some other request that we are not managing, ignore it
 
 
@@ -503,11 +497,13 @@ def parse_network_reply(reply: qgis.core.QgsNetworkReplyContent) -> ParsedNetwor
         qt_error = _get_qt_error(
             QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError, error
         )
+    body = reply.content()
+    log(f"body: {body.data().decode()}")
     return ParsedNetworkReply(
         http_status_code=http_status_code,
         http_status_reason=http_status_reason,
         qt_error=qt_error,
-        response_body=reply.content(),
+        response_body=body,
     )
 
 
