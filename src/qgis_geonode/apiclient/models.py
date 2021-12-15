@@ -38,8 +38,10 @@ class ApiClientCapability(enum.Enum):
     FILTER_BY_SPATIAL_EXTENT = enum.auto()
     LOAD_LAYER_METADATA = enum.auto()
     MODIFY_LAYER_METADATA = enum.auto()
-    LOAD_LAYER_STYLE = enum.auto()
-    MODIFY_LAYER_STYLE = enum.auto()
+    LOAD_VECTOR_LAYER_STYLE = enum.auto()
+    LOAD_RASTER_LAYER_STYLE = enum.auto()
+    MODIFY_VECTOR_LAYER_STYLE = enum.auto()
+    MODIFY_RASTER_LAYER_STYLE = enum.auto()
     LOAD_VECTOR_DATASET_VIA_WMS = enum.auto()
     LOAD_VECTOR_DATASET_VIA_WFS = enum.auto()
     LOAD_RASTER_DATASET_VIA_WMS = enum.auto()
@@ -257,3 +259,35 @@ class GeonodeApiSearchFilters:
     publication_date_start: typing.Optional[QtCore.QDateTime] = None
     publication_date_end: typing.Optional[QtCore.QDateTime] = None
     spatial_extent: typing.Optional[qgis.core.QgsRectangle] = None
+
+
+def loading_style_supported(
+    layer_type: qgis.core.QgsMapLayerType,
+    capabilities: typing.List[ApiClientCapability],
+) -> bool:
+    result = False
+    if layer_type == qgis.core.QgsMapLayerType.VectorLayer:
+        if ApiClientCapability.LOAD_VECTOR_LAYER_STYLE in capabilities:
+            result = True
+    elif layer_type == qgis.core.QgsMapLayerType.RasterLayer:
+        if ApiClientCapability.LOAD_RASTER_LAYER_STYLE in capabilities:
+            result = True
+    else:
+        pass
+    return result
+
+
+def modifying_style_supported(
+    layer_type: qgis.core.QgsMapLayerType,
+    capabilities: typing.List[ApiClientCapability],
+) -> bool:
+    result = False
+    if layer_type == qgis.core.QgsMapLayerType.VectorLayer:
+        if ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE in capabilities:
+            result = True
+    elif layer_type == qgis.core.QgsMapLayerType.RasterLayer:
+        if ApiClientCapability.MODIFY_RASTER_LAYER_STYLE in capabilities:
+            result = True
+    else:
+        pass
+    return result

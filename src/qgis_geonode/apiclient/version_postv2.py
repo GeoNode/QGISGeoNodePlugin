@@ -25,7 +25,11 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
         models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
         models.ApiClientCapability.LOAD_LAYER_METADATA,
-        models.ApiClientCapability.LOAD_LAYER_STYLE,
+        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE,
+        # NOTE: loading raster layer style is not present here
+        # because QGIS does not currently support loading SLD for raster layers
+        models.ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE,
+        models.ApiClientCapability.MODIFY_RASTER_LAYER_STYLE,
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
@@ -157,9 +161,14 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
                         current_page=deserialized_content.get("page") or 1,
                         page_size=deserialized_content.get("page_size") or 0,
                     )
-        # TODO: WIP - handle errors
+            else:
+                self.error_received[str, int, str].emit(
+                    response_content.qt_error,
+                    response_content.http_status_code,
+                    response_content.http_status_reason,
+                )
         else:
-            self.error_received.emit[str, int, str]
+            self.error_received[str].emit("Could not complete request")
         self.dataset_list_received.emit(brief_datasets, pagination_info)
 
     def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):

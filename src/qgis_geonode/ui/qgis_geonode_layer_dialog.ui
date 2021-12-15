@@ -13,24 +13,77 @@
   <property name="windowTitle">
    <string>Geonode Layer</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
-    <widget class="QgsCollapsibleGroupBox" name="style_gb">
+    <widget class="QgsCollapsibleGroupBox" name="links_gb">
      <property name="title">
-      <string>GeoNode Style</string>
+      <string>Links</string>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout">
+     <property name="collapsed">
+      <bool>false</bool>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
-       <widget class="QPushButton" name="download_style_pb">
+       <widget class="QPushButton" name="open_detail_url_pb">
         <property name="text">
-         <string>Reload default style</string>
+         <string>View dataset on GeoNode...</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="upload_style_pb">
+       <widget class="QPushButton" name="open_link_url_pb">
         <property name="text">
-         <string>Save current style as default</string>
+         <string>View dataset API details...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QgsCollapsibleGroupBox" name="style_gb">
+     <property name="title">
+      <string>Layer Style</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QPushButton" name="download_style_pb">
+          <property name="text">
+           <string>Reload default style from GeoNode</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="upload_style_pb">
+          <property name="text">
+           <string>Save current style to GeoNode</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="Line" name="line">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="style_export_warning_la">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NOTE: Uploading QGIS style to GeoNode uses SLD (Styled Layer Descriptor). &lt;/p&gt;&lt;p&gt;Due to differences between QGIS symbology and SLD, QGIS may not be able to convert the current style to an exact SLD representation. Saving the current style to GeoNode may result in the upload of a slightly different style to GeoNode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
         </property>
        </widget>
       </item>

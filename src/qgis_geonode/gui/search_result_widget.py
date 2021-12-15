@@ -38,9 +38,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     thumbnail_la: QtWidgets.QLabel
 
     dataset_loader_task: typing.Optional[qgis.core.QgsTask]
-    # thumbnail_fetcher_task fetches the thumbnail
+    # thumbnail_fetcher_task fetches the thumbnail over the network
     # thumbnail_loader_task then loads the thumbnail
-    thumbnail_fetcher_task: typing.Optional[network.MultipleNetworkFetcherTask]
+    thumbnail_fetcher_task: typing.Optional[network.AnotherNetworkRequestTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
@@ -154,15 +154,16 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
-        self.thumbnail_fetcher_task = network.MultipleNetworkFetcherTask(
+        self.thumbnail_fetcher_task = network.AnotherNetworkRequestTask(
             [
                 network.RequestToPerform(
                     url=QtCore.QUrl(self.brief_dataset.thumbnail_url)
                 )
             ],
             self.api_client.auth_config,
+            description=f"Get thumbnail for {self.brief_dataset.title!r}",
         )
-        self.thumbnail_fetcher_task.all_finished.connect(self.handle_thumbnail_response)
+        self.thumbnail_fetcher_task.task_done.connect(self.handle_thumbnail_response)
         qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_fetcher_task)
 
     def handle_thumbnail_response(self, fetch_result: bool):
@@ -226,15 +227,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         if ApiClientCapability.LOAD_LAYER_METADATA in self.api_client.capabilities:
             metadata = populate_metadata(self.layer.metadata(), dataset)
             self.layer.setMetadata(metadata)
-        if ApiClientCapability.LOAD_LAYER_STYLE in self.api_client.capabilities:
-            provider_name = self.layer.dataProvider().name()
-            if provider_name == "WFS" and dataset.default_style:
-                error_message = ""
-                loaded_sld = self.layer.readSld(
-                    dataset.default_style.sld, error_message
-                )
-                if not loaded_sld:
-                    log(f"Could not apply SLD to layer: {error_message}")
+        can_load_style = models.loading_style_supported(
+            self.layer.type(), self.api_client.capabilities
+        )
+        if can_load_style and dataset.default_style:
+            error_message = ""
+            loaded_sld = self.layer.readSld(dataset.default_style.sld, error_message)
+            if not loaded_sld:
+                log(f"Could not apply SLD to layer: {error_message}")
         self.add_layer_to_project()
 
     def add_layer_to_project(self):
@@ -353,11 +353,14 @@ class LayerLoaderTask(qgis.core.QgsTask):
     def _load_wms(self) -> qgis.core.QgsMapLayer:
         params = {
             "crs": f"EPSG:{self.brief_dataset.srid.postgisSrid()}",
+            "url": self.brief_dataset.service_urls[self.service_type],
             "format": "image/png",
             "layers": self.brief_dataset.name,
             "styles": "",
-            "url": self.brief_dataset.service_urls[self.service_type],
+            "version": "auto",
         }
+        if self.api_client.auth_config:
+            params["authcfg"] = self.api_client.auth_config
         return qgis.core.QgsRasterLayer(
             urllib.parse.unquote(urllib.parse.urlencode(params)),
             self.brief_dataset.title,
@@ -370,6 +373,8 @@ class LayerLoaderTask(qgis.core.QgsTask):
             "identifier": self.brief_dataset.name,
             "crs": f"EPSG:{self.brief_dataset.srid.postgisSrid()}",
         }
+        if self.api_client.auth_config:
+            params["authcfg"] = self.api_client.auth_config
         return qgis.core.QgsRasterLayer(
             urllib.parse.unquote(urllib.parse.urlencode(params)),
             self.brief_dataset.title,
@@ -378,18 +383,15 @@ class LayerLoaderTask(qgis.core.QgsTask):
 
     def _load_wfs(self) -> qgis.core.QgsMapLayer:
         params = {
-            "service": "WFS",
-            "version": "2.0.0",
-            "request": "GetFeature",
-            "typename": self.brief_dataset.name,
             "srsname": f"EPSG:{self.brief_dataset.srid.postgisSrid()}",
+            "typename": self.brief_dataset.name,
+            "url": self.brief_dataset.service_urls[self.service_type].rstrip("/"),
+            "version": "auto",
         }
-        base_url = self.brief_dataset.service_urls[self.service_type].rstrip("/")
-        return qgis.core.QgsVectorLayer(
-            f"{base_url}/?{urllib.parse.unquote(urllib.parse.urlencode(params))}",
-            self.brief_dataset.title,
-            "WFS",
-        )
+        if self.api_client.auth_config:
+            params["authcfg"] = self.api_client.auth_config
+        uri = " ".join(f"{key}='{value}'" for key, value in params.items())
+        return qgis.core.QgsVectorLayer(uri, self.brief_dataset.title, "WFS")
 
 
 def populate_metadata(metadata: qgis.core.QgsLayerMetadata, dataset: models.Dataset):

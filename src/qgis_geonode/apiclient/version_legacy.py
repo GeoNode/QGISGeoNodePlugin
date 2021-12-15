@@ -158,8 +158,16 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
                     pass
         self.dataset_detail_received.emit(dataset)
 
-    def _parse_dataset_detail(self) -> models.Dataset:
-        pass
+    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
+        properties = self._get_common_model_properties(raw_dataset)
+        properties.update(
+            language=raw_dataset.get("language"),
+            license=(raw_dataset.get("license") or {}).get("identifier", ""),
+            constraints=raw_dataset.get("raw_constraints_other", ""),
+            owner=raw_dataset.get("owner", {}).get("username", ""),
+            metadata_author=raw_dataset.get("metadata_author", {}).get("username", ""),
+        )
+        return models.Dataset(**properties)
 
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = _get_resource_type(raw_dataset)

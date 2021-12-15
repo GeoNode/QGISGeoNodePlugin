@@ -1,4 +1,3 @@
-import json
 import typing
 from pathlib import Path
 from uuid import UUID
@@ -19,7 +18,11 @@ from .. import (
     network,
     styles,
 )
-from ..apiclient import models
+from ..apiclient import (
+    base,
+    get_geonode_client,
+    models,
+)
 from ..utils import (
     log,
 )
@@ -30,9 +33,11 @@ WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dial
 class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     download_style_pb: QtWidgets.QPushButton
     upload_style_pb: QtWidgets.QPushButton
+    open_detail_url_pb: QtWidgets.QPushButton
+    open_link_url_pb: QtWidgets.QPushButton
     message_bar: qgis.gui.QgsMessageBar
 
-    network_task: typing.Optional[network.MultipleNetworkFetcherTask]
+    network_task: typing.Optional[network.AnotherNetworkRequestTask]
     _apply_geonode_style: bool
 
     @property
@@ -51,6 +56,15 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def __init__(self, layer, canvas, parent):
         super().__init__(layer, canvas, parent)
         self.setupUi(self)
+        self.open_detail_url_pb.setIcon(
+            QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
+        )
+        self.download_style_pb.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionRefresh.svg")
+        )
+        self.upload_style_pb.setIcon(
+            QtGui.QIcon(":/images/themes/default/mActionFileSave.svg")
+        )
         self.message_bar = qgis.gui.QgsMessageBar()
         self.message_bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
@@ -59,17 +73,18 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self.network_task = None
         self._apply_geonode_style = False
         self.layer = layer
+        self._toggle_style_controls(enabled=False)
+        self._toggle_link_controls(enabled=False)
         if self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY) is not None:
             # this layer came from GeoNode
-            # TODO: check if the API client has the relevant capabilities before enabling the GUI controls
-            self._toggle_style_controls(enabled=True)
             self.download_style_pb.clicked.connect(self.download_style)
             self.upload_style_pb.clicked.connect(self.upload_style)
-        else:
-            pass  # this is not a GeoNode layer, disable widgets
-
-    # def shouldTriggerLayerRepaint(self):
-    #     return True
+            self.open_detail_url_pb.clicked.connect(self.open_detail_url)
+            self.open_link_url_pb.clicked.connect(self.open_link_url)
+            self._toggle_style_controls(enabled=True)
+            self._toggle_link_controls(enabled=True)
+        else:  # this is not a GeoNode layer
+            pass
 
     def apply(self):
         self.message_bar.clearWidgets()
@@ -95,11 +110,12 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def download_style(self):
         dataset = self.get_dataset()
-        self.network_task = network.MultipleNetworkFetcherTask(
+        self.network_task = network.AnotherNetworkRequestTask(
             [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
             self.connection_settings.auth_config,
+            description="Get dataset style",
         )
-        self.network_task.all_finished.connect(self.handle_style_downloaded)
+        self.network_task.task_done.connect(self.handle_style_downloaded)
         self._toggle_style_controls(enabled=False)
         self._show_message(message="Retrieving style...", add_loading_widget=True)
         qgis.core.QgsApplication.taskManager().addTask(self.network_task)
@@ -135,34 +151,68 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         error_message = ""
         self.layer.exportSldStyle(doc, error_message)
         log(f"exportSldStyle error_message: {error_message!r}")
+        # QGIS exports SLD version 1.1.0. According to GeoServer docs here:
+        #
+        #     https://docs.geoserver.org/stable/en/user/rest/api/styles.html#styles-format
+        #
+        # updating an SLD v1.1.0 requires a content-type of application/vnd.ogc.se+xml
+        # I've not been able to find mention to this content-type in the OGC standards
+        # for Symbology (SE v1.1.0) nor Styled Layer Descriptor Profile for WMS v1.1.0
+        # though. However, it seems to work OK with GeoNode+GeoServer.
         if error_message == "":
             dataset = self.get_dataset()
-            self.network_task = network.MultipleNetworkFetcherTask(
+            self.network_task = network.AnotherNetworkRequestTask(
                 [
                     network.RequestToPerform(
                         QtCore.QUrl(dataset.default_style.sld_url),
+                        method=network.HttpMethod.PUT,
                         payload=doc.toString(0),
-                        content_type="application/vnd.ogc.sld+xml",
+                        content_type="application/vnd.ogc.se+xml",
                     )
                 ],
                 self.connection_settings.auth_config,
             )
             qgis.core.QgsApplication.taskManager().addTask(self.network_task)
-            self.network_task.all_finished.connect(self.handle_style_uploaded)
+            self.network_task.task_done.connect(self.handle_style_uploaded)
             self._toggle_style_controls(enabled=False)
             self._show_message(message="Uploading style...", add_loading_widget=True)
 
     def handle_style_uploaded(self, task_result: bool):
         self._toggle_style_controls(enabled=True)
         if task_result:
-            self._show_message("Style uploaded successfully!")
+            parsed_reply = self.network_task.response_contents[0]
+            if parsed_reply is not None:
+                if parsed_reply.http_status_code == 200:
+                    self._show_message("Style uploaded successfully!")
+                else:
+                    error_message_parts = [
+                        "Could not upload style",
+                        parsed_reply.qt_error,
+                        f"HTTP {parsed_reply.http_status_code}",
+                        parsed_reply.http_status_reason,
+                    ]
+                    error_message = " - ".join(i for i in error_message_parts if i)
+                    # if parsed_reply.qt_error:
+                    #     error_message += f" - {parsed_reply.qt_error}"
+                    # error_message += f" - HTTP {parsed_reply.http_status_code}"
+                    # if parsed_reply.http_status_reason:
+                    #     error_message += f" - {parsed_reply.http_status_reason}"
+                    self._show_message(error_message, level=qgis.core.Qgis.Warning)
         else:
             self._show_message(
                 f"Could not upload style: {self.network_task._exceptions_raised}",
                 level=qgis.core.Qgis.Warning,
             )
 
-    def _apply_sld(self):
+    def open_detail_url(self) -> None:
+        dataset = self.get_dataset()
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(dataset.detail_url))
+
+    def open_link_url(self) -> None:
+        dataset = self.get_dataset()
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(dataset.link))
+
+    def _apply_sld(self) -> None:
         dataset = self.get_dataset()
         sld_load_error_msg = ""
         sld_load_result = self.layer.readSld(
@@ -183,7 +233,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         widget: typing.Optional[QtWidgets.QWidget] = None,
         level: typing.Optional[qgis.core.Qgis.MessageLevel] = qgis.core.Qgis.Info,
         add_loading_widget: bool = False,
-    ):
+    ) -> None:
         self.message_bar.clearWidgets()
         if message is not None:
             self.message_bar.pushMessage(str(message), level=level)
@@ -201,10 +251,35 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         #  to find a more elegant way to retrieve it yet
         return self.parent().parent().parent().parent()
 
-    def _toggle_style_controls(self, enabled: bool):
+    def _toggle_link_controls(self, enabled: bool) -> None:
         widgets = (
-            self.upload_style_pb,
-            self.download_style_pb,
+            self.open_detail_url_pb,
+            self.open_link_url_pb,
         )
+        for widget in widgets:
+            widget.setEnabled(enabled)
+
+    def _toggle_style_controls(self, enabled: bool) -> None:
+        if enabled:
+            widgets = []
+            if self.connection_settings is not None:
+                api_client: base.BaseGeonodeClient = get_geonode_client(
+                    self.connection_settings
+                )
+                can_load_style = models.loading_style_supported(
+                    self.layer.type(), api_client.capabilities
+                )
+                can_modify_style = models.modifying_style_supported(
+                    self.layer.type(), api_client.capabilities
+                )
+                if can_load_style:
+                    widgets.append(self.download_style_pb)
+                if can_modify_style:
+                    widgets.append(self.upload_style_pb)
+        else:
+            widgets = [
+                self.upload_style_pb,
+                self.download_style_pb,
+            ]
         for widget in widgets:
             widget.setEnabled(enabled)

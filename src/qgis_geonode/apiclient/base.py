@@ -16,7 +16,7 @@ from .models import GeonodeApiSearchFilters
 class BaseGeonodeClient(QtCore.QObject):
     auth_config: str
     base_url: str
-    network_fetcher_task: typing.Optional[network.MultipleNetworkFetcherTask]
+    network_fetcher_task: typing.Optional[network.AnotherNetworkRequestTask]
     capabilities: typing.List[models.ApiClientCapability]
     page_size: int
 
@@ -61,11 +61,12 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_dataset_list(self, search_filters: GeonodeApiSearchFilters):
-        self.network_fetcher_task = network.MultipleNetworkFetcherTask(
+        self.network_fetcher_task = network.AnotherNetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_filters))],
             self.auth_config,
+            description="Get dataset list",
         )
-        self.network_fetcher_task.all_finished.connect(self.handle_dataset_list)
+        self.network_fetcher_task.task_done.connect(self.handle_dataset_list)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_list(self, result: bool):
@@ -83,10 +84,10 @@ class BaseGeonodeClient(QtCore.QObject):
             sld_url = QtCore.QUrl(brief_dataset.default_style.sld_url)
             requests_to_perform.append(network.RequestToPerform(url=sld_url))
 
-        self.network_fetcher_task = network.MultipleNetworkFetcherTask(
-            requests_to_perform, self.auth_config
+        self.network_fetcher_task = network.AnotherNetworkRequestTask(
+            requests_to_perform, self.auth_config, description="Get dataset detail"
         )
-        self.network_fetcher_task.all_finished.connect(
+        self.network_fetcher_task.task_done.connect(
             partial(self.handle_dataset_detail, brief_dataset)
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
@@ -94,30 +95,31 @@ class BaseGeonodeClient(QtCore.QObject):
     def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
         raise NotImplementedError
 
-    def get_layer_styles(self, layer_id: int):
-        request = QtNetwork.QNetworkRequest(
-            self.get_layer_styles_url_endpoint(layer_id)
-        )
-        self.network_fetcher_task = network.NetworkFetcherTask(
-            self, request, authcfg=self.auth_config
-        )
-        self.network_fetcher_task.request_finished.connect(self.handle_layer_style_list)
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+    #
+    # def get_layer_styles(self, layer_id: int):
+    #     request = QtNetwork.QNetworkRequest(
+    #         self.get_layer_styles_url_endpoint(layer_id)
+    #     )
+    #     self.network_fetcher_task = network.NetworkFetcherTask(
+    #         self, request, authcfg=self.auth_config
+    #     )
+    #     self.network_fetcher_task.request_finished.connect(self.handle_layer_style_list)
+    #     qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def get_layer_style(
-        self, layer: models.Dataset, style_name: typing.Optional[str] = None
-    ):
-        if style_name is None:
-            style_url = layer.default_style.sld_url
-        else:
-            style_details = [i for i in layer.styles if i.name == style_name][0]
-            style_url = style_details.sld_url
-        self.network_fetcher_task = network.NetworkFetcherTask(
-            self,
-            QtNetwork.QNetworkRequest(QtCore.QUrl(style_url)),
-            authcfg=self.auth_config,
-        )
-        self.network_fetcher_task.request_finished.connect(
-            self.handle_layer_style_detail
-        )
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+    # def get_layer_style(
+    #     self, layer: models.Dataset, style_name: typing.Optional[str] = None
+    # ):
+    #     if style_name is None:
+    #         style_url = layer.default_style.sld_url
+    #     else:
+    #         style_details = [i for i in layer.styles if i.name == style_name][0]
+    #         style_url = style_details.sld_url
+    #     self.network_fetcher_task = network.NetworkFetcherTask(
+    #         self,
+    #         QtNetwork.QNetworkRequest(QtCore.QUrl(style_url)),
+    #         authcfg=self.auth_config,
+    #     )
+    #     self.network_fetcher_task.request_finished.connect(
+    #         self.handle_layer_style_detail
+    #     )
+    #     qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
