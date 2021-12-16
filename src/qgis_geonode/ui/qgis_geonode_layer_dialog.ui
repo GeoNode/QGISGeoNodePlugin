@@ -80,7 +80,17 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NOTE: Uploading QGIS style to GeoNode uses SLD (Styled Layer Descriptor). &lt;/p&gt;&lt;p&gt;Due to differences between QGIS symbology and SLD, QGIS may not be able to convert the current style to an exact SLD representation. Saving the current style to GeoNode may result in the upload of a slightly different style to GeoNode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Note1&lt;/span&gt;: Uploading QGIS style to GeoNode uses SLD (Styled Layer Descriptor). &lt;/p&gt;&lt;p&gt;Due to differences between QGIS symbology and SLD, QGIS may not be able to convert the current style to an exact SLD representation. Saving the current style to GeoNode may result in the upload of a slightly different style to GeoNode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="raster_style_read_warning_la">
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Note2&lt;/span&gt;: At the moment QGIS is not able to apply SLD styles to raster layers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>

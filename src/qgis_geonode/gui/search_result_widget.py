@@ -40,7 +40,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     dataset_loader_task: typing.Optional[qgis.core.QgsTask]
     # thumbnail_fetcher_task fetches the thumbnail over the network
     # thumbnail_loader_task then loads the thumbnail
-    thumbnail_fetcher_task: typing.Optional[network.AnotherNetworkRequestTask]
+    thumbnail_fetcher_task: typing.Optional[network.NetworkRequestTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
@@ -154,13 +154,14 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
-        self.thumbnail_fetcher_task = network.AnotherNetworkRequestTask(
+        self.thumbnail_fetcher_task = network.NetworkRequestTask(
             [
                 network.RequestToPerform(
                     url=QtCore.QUrl(self.brief_dataset.thumbnail_url)
                 )
             ],
             self.api_client.auth_config,
+            network_task_timeout=self.api_client.network_requests_timeout,
             description=f"Get thumbnail for {self.brief_dataset.title!r}",
         )
         self.thumbnail_fetcher_task.task_done.connect(self.handle_thumbnail_response)
@@ -178,7 +179,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def handle_dataset_load_start(self):
         self.data_source_widget.toggle_search_controls(False)
-        self.data_source_widget.show_progress(tr("Loading layer..."))
+        self.data_source_widget.show_message(
+            tr("Loading layer..."), add_loading_widget=True
+        )
         self.toggle_service_url_buttons(False)
 
     def handle_layer_load_end(self, clear_message_bar: typing.Optional[bool] = True):
@@ -187,12 +190,6 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.toggle_service_url_buttons(True)
         if clear_message_bar:
             self.data_source_widget.message_bar.clearWidgets()
-
-    def handle_loading_error(self):
-        log("Inside handle_loading_error")
-        message = f"Unable to load layer {self.brief_dataset.title}: {self.dataset_loader_task._exception}"
-        self.data_source_widget.show_message(message, level=qgis.core.Qgis.Critical)
-        self.handle_layer_load_end(clear_message_bar=False)
 
     def load_dataset(self, service_type: models.GeonodeService):
         self.handle_dataset_load_start()
@@ -210,7 +207,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             log(self.dataset_loader_task._exception)
         self.layer = self.dataset_loader_task.layer
         self.api_client.dataset_detail_received.connect(self.handle_layer_detail)
-        self.api_client.error_received.connect(self.handle_loading_error)
+        self.api_client.dataset_detail_error_received.connect(self.handle_loading_error)
         self.api_client.get_dataset_detail(self.brief_dataset)
 
     def handle_layer_detail(self, dataset: typing.Optional[models.Dataset]):
@@ -237,8 +234,15 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                 log(f"Could not apply SLD to layer: {error_message}")
         self.add_layer_to_project()
 
+    def handle_loading_error(self):
+        message = f"Unable to load layer {self.brief_dataset.title}: {self.dataset_loader_task._exception}"
+        self.data_source_widget.show_message(message, level=qgis.core.Qgis.Critical)
+        self.handle_layer_load_end(clear_message_bar=False)
+
     def add_layer_to_project(self):
-        self.api_client.error_received.disconnect(self.handle_loading_error)
+        self.api_client.dataset_detail_error_received.disconnect(
+            self.handle_loading_error
+        )
         self.project.addMapLayer(self.layer)
         self.handle_layer_load_end()
 

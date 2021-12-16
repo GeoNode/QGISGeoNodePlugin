@@ -17,6 +17,7 @@ from .. import (
     conf,
     network,
     styles,
+    utils,
 )
 from ..apiclient import (
     base,
@@ -37,7 +38,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     open_link_url_pb: QtWidgets.QPushButton
     message_bar: qgis.gui.QgsMessageBar
 
-    network_task: typing.Optional[network.AnotherNetworkRequestTask]
+    network_task: typing.Optional[network.NetworkRequestTask]
     _apply_geonode_style: bool
 
     @property
@@ -49,6 +50,15 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             result = conf.settings_manager.get_connection_settings(
                 UUID(connection_settings_id)
             )
+        else:
+            result = None
+        return result
+
+    @property
+    def api_client(self) -> typing.Optional[base.BaseGeonodeClient]:
+        connection_settings = self.connection_settings
+        if connection_settings is not None:
+            result = get_geonode_client(connection_settings)
         else:
             result = None
         return result
@@ -110,9 +120,10 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def download_style(self):
         dataset = self.get_dataset()
-        self.network_task = network.AnotherNetworkRequestTask(
+        self.network_task = network.NetworkRequestTask(
             [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
             self.connection_settings.auth_config,
+            network_task_timeout=self.api_client.network_requests_timeout,
             description="Get dataset style",
         )
         self.network_task.task_done.connect(self.handle_style_downloaded)
@@ -161,7 +172,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         # though. However, it seems to work OK with GeoNode+GeoServer.
         if error_message == "":
             dataset = self.get_dataset()
-            self.network_task = network.AnotherNetworkRequestTask(
+            self.network_task = network.NetworkRequestTask(
                 [
                     network.RequestToPerform(
                         QtCore.QUrl(dataset.default_style.sld_url),
@@ -171,6 +182,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                     )
                 ],
                 self.connection_settings.auth_config,
+                network_task_timeout=self.api_client.network_requests_timeout,
+                description="Upload dataset style to GeoNode",
             )
             qgis.core.QgsApplication.taskManager().addTask(self.network_task)
             self.network_task.task_done.connect(self.handle_style_uploaded)
@@ -192,11 +205,6 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                         parsed_reply.http_status_reason,
                     ]
                     error_message = " - ".join(i for i in error_message_parts if i)
-                    # if parsed_reply.qt_error:
-                    #     error_message += f" - {parsed_reply.qt_error}"
-                    # error_message += f" - HTTP {parsed_reply.http_status_code}"
-                    # if parsed_reply.http_status_reason:
-                    #     error_message += f" - {parsed_reply.http_status_reason}"
                     self._show_message(error_message, level=qgis.core.Qgis.Warning)
         else:
             self._show_message(
@@ -229,21 +237,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def _show_message(
         self,
-        message: typing.Optional[str] = None,
-        widget: typing.Optional[QtWidgets.QWidget] = None,
+        message: str,
         level: typing.Optional[qgis.core.Qgis.MessageLevel] = qgis.core.Qgis.Info,
         add_loading_widget: bool = False,
     ) -> None:
-        self.message_bar.clearWidgets()
-        if message is not None:
-            self.message_bar.pushMessage(str(message), level=level)
-        if widget is not None:
-            self.message_bar.pushWidget(widget, level=level)
-        if add_loading_widget:
-            progress_bar = QtWidgets.QProgressBar()
-            progress_bar.setMinimum(0)
-            progress_bar.setMaximum(0)
-            self.message_bar.pushWidget(progress_bar)
+        utils.show_message(self.message_bar, message, level, add_loading_widget)
 
     def _get_layer_properties_dialog(self):
         # FIXME: This is a very hacky way to get the layer properties dialog, and it
@@ -263,14 +261,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         if enabled:
             widgets = []
             if self.connection_settings is not None:
-                api_client: base.BaseGeonodeClient = get_geonode_client(
-                    self.connection_settings
-                )
                 can_load_style = models.loading_style_supported(
-                    self.layer.type(), api_client.capabilities
+                    self.layer.type(), self.api_client.capabilities
                 )
                 can_modify_style = models.modifying_style_supported(
-                    self.layer.type(), api_client.capabilities
+                    self.layer.type(), self.api_client.capabilities
                 )
                 if can_load_style:
                     widgets.append(self.download_style_pb)

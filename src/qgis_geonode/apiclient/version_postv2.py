@@ -128,79 +128,111 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
     def get_layer_style_list_url(self, layer_id: int):
         return QtCore.QUrl(f"{self.dataset_list_url}{layer_id}/styles/")
 
-    def handle_dataset_list(self, result: bool):
-        brief_datasets = []
-        pagination_info = models.GeonodePaginationInfo(
-            total_records=0, current_page=1, page_size=0
-        )
+    def handle_dataset_list(self, result: bool) -> None:
         if result:
             response_content: network.ParsedNetworkReply = (
                 self.network_fetcher_task.response_contents[0]
             )
             if response_content.qt_error is None:
-                deserialized_content = network.deserialize_json_response(
-                    response_content.response_body
-                )
-                if deserialized_content is not None:
-                    for raw_brief_dataset in deserialized_content.get("datasets", []):
-                        try:
-                            parsed_properties = _get_common_model_properties(
-                                raw_brief_dataset
-                            )
-                            brief_dataset = models.BriefDataset(**parsed_properties)
-                        except ValueError:
-                            log(
-                                f"Could not parse {raw_brief_dataset!r} into "
-                                f"a valid item",
-                                debug=False,
-                            )
-                        else:
-                            brief_datasets.append(brief_dataset)
-                    pagination_info = models.GeonodePaginationInfo(
-                        total_records=deserialized_content.get("total") or 0,
-                        current_page=deserialized_content.get("page") or 1,
-                        page_size=deserialized_content.get("page_size") or 0,
+                if not response_content.response_body.isEmpty():
+                    deserialized_content = network.deserialize_json_response(
+                        response_content.response_body
+                    )
+                    if deserialized_content is not None:
+                        brief_datasets = []
+                        for raw_brief_dataset in deserialized_content.get(
+                            "datasets", []
+                        ):
+                            try:
+                                parsed_properties = _get_common_model_properties(
+                                    raw_brief_dataset
+                                )
+                                brief_dataset = models.BriefDataset(**parsed_properties)
+                            except ValueError:
+                                log(
+                                    f"Could not parse {raw_brief_dataset!r} into "
+                                    f"a valid item",
+                                    debug=False,
+                                )
+                            else:
+                                brief_datasets.append(brief_dataset)
+                        pagination_info = models.GeonodePaginationInfo(
+                            total_records=deserialized_content.get("total") or 0,
+                            current_page=deserialized_content.get("page") or 1,
+                            page_size=deserialized_content.get("page_size") or 0,
+                        )
+                        self.dataset_list_received.emit(brief_datasets, pagination_info)
+                    else:
+                        self.search_error_received[str].emit(
+                            "Could not parse dataset list returned from remote GeoNode"
+                        )
+                else:
+                    self.search_error_received[str, int, str].emit(
+                        response_content.qt_error,
+                        response_content.http_status_code,
+                        response_content.http_status_reason,
                     )
             else:
-                self.error_received[str, int, str].emit(
+                self.search_error_received[str, int, str].emit(
                     response_content.qt_error,
                     response_content.http_status_code,
                     response_content.http_status_reason,
                 )
         else:
-            self.error_received[str].emit("Could not complete request")
-        self.dataset_list_received.emit(brief_datasets, pagination_info)
+            self.search_error_received[str].emit(
+                "Could not complete request for dataset list"
+            )
 
-    def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
-        dataset = None
+    def handle_dataset_detail(
+        self, brief_dataset: models.BriefDataset, result: bool
+    ) -> None:
         if result:
             detail_response_content: network.ParsedNetworkReply = (
                 self.network_fetcher_task.response_contents[0]
             )
-            deserialized_resource = network.deserialize_json_response(
-                detail_response_content.response_body
-            )
-            if deserialized_resource is not None:
-                try:
-                    dataset = parse_dataset_detail(deserialized_resource["dataset"])
-                except KeyError as exc:
-                    log(
-                        f"Could not parse server response into a dataset: {str(exc)}",
-                        debug=False,
-                    )
-                else:
-                    is_vector = (
-                        brief_dataset.dataset_sub_type
-                        == models.GeonodeResourceType.VECTOR_LAYER
-                    )
-                    if is_vector:
-                        sld_named_layer, error_message = geonode_styles.get_usable_sld(
-                            self.network_fetcher_task.response_contents[1]
+            empty_body = detail_response_content.response_body.isEmpty()
+            if detail_response_content.qt_error is None and not empty_body:
+                deserialized_resource = network.deserialize_json_response(
+                    detail_response_content.response_body
+                )
+                if deserialized_resource is not None:
+                    try:
+                        dataset = parse_dataset_detail(deserialized_resource["dataset"])
+                    except KeyError as exc:
+                        log(
+                            f"Could not parse server response into a dataset: {str(exc)}",
+                            debug=False,
                         )
-                        if sld_named_layer is None:
-                            raise RuntimeError(error_message)
-                        dataset.default_style.sld = sld_named_layer
-        self.dataset_detail_received.emit(dataset)
+                    else:
+                        is_vector = (
+                            brief_dataset.dataset_sub_type
+                            == models.GeonodeResourceType.VECTOR_LAYER
+                        )
+                        if is_vector:
+                            (
+                                sld_named_layer,
+                                error_message,
+                            ) = geonode_styles.get_usable_sld(
+                                self.network_fetcher_task.response_contents[1]
+                            )
+                            if sld_named_layer is None:
+                                raise RuntimeError(error_message)
+                            dataset.default_style.sld = sld_named_layer
+                        self.dataset_detail_received.emit(dataset)
+                else:
+                    self.dataset_detail_error_received[str].emit(
+                        "Could not parse dataset detail returned from remote GeoNode"
+                    )
+            else:
+                self.dataset_detail_error_received[str, int, str].emit(
+                    detail_response_content.qt_error,
+                    detail_response_content.http_status_code,
+                    detail_response_content.http_status_reason,
+                )
+        else:
+            self.dataset_detail_error_received[str].emit(
+                "Could not complete request for dataset detail"
+            )
 
 
 def parse_dataset_detail(raw_dataset: typing.Dict) -> models.Dataset:

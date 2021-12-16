@@ -13,7 +13,7 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
-from .. import network
+from .. import network, utils
 from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
@@ -27,6 +27,16 @@ DialogUi, _ = loadUiType(
 
 
 class ConnectionDialog(QtWidgets.QDialog, DialogUi):
+    name_le: QtWidgets.QLineEdit
+    url_le: QtWidgets.QLineEdit
+    authcfg_acs: qgis.gui.QgsAuthConfigSelect
+    page_size_sb: QtWidgets.QSpinBox
+    network_timeout_sb: QtWidgets.QSpinBox
+    test_connection_pb: QtWidgets.QPushButton
+    buttonBox: QtWidgets.QDialogButtonBox
+    options_gb: QtWidgets.QGroupBox
+    bar: qgis.gui.QgsMessageBar
+
     connection_id: uuid.UUID
     api_client_class_path: typing.Optional[str]
     discovery_task: typing.Optional[network.ApiClientDiscovererTask]
@@ -36,7 +46,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         super().__init__()
         self.setupUi(self)
         self._widgets_to_toggle_during_connection_test = [
-            self.test_connection_btn,
+            self.test_connection_pb,
             self.buttonBox,
             self.authcfg_acs,
             self.options_gb,
@@ -71,7 +81,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         ]
         for signal in ok_signals:
             signal.connect(self.update_ok_buttons)
-        self.test_connection_btn.clicked.connect(self.test_connection)
+        self.test_connection_pb.clicked.connect(self.test_connection)
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
         self.name_le.setValidator(
@@ -141,7 +151,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     def update_ok_buttons(self):
         enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(enabled_state)
-        self.test_connection_btn.setEnabled(enabled_state)
+        self.test_connection_pb.setEnabled(enabled_state)
 
     def show_progress(
         self,
@@ -149,14 +159,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         message_level: typing.Optional[qgis.core.Qgis] = qgis.core.Qgis.Info,
         include_progress_bar: typing.Optional[bool] = False,
     ):
-        message_bar_item = self.bar.createMessage(message)
-        if include_progress_bar:
-            progress_bar = QtWidgets.QProgressBar()
-            progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            progress_bar.setMinimum(0)
-            progress_bar.setMaximum(0)
-            message_bar_item.layout().addWidget(progress_bar)
-        self.bar.pushWidget(message_bar_item, message_level)
+        return utils.show_message(
+            self.bar, message, message_level, add_loading_widget=include_progress_bar
+        )
 
 
 def _clear_layout(layout: QtWidgets.QLayout):

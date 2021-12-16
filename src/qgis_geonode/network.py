@@ -39,9 +39,45 @@ class RequestToPerform:
     content_type: typing.Optional[str] = None
 
 
-class AnotherNetworkRequestTask(qgis.core.QgsTask):
+@dataclasses.dataclass()
+class EventLoopResult:
+    result: typing.Optional[bool]
+
+
+@contextmanager
+def wait_for_signal(
+    signal, timeout: int = 10000
+) -> typing.ContextManager[EventLoopResult]:
+    """Fire up a custom event loop and wait for the input signal to be emitted
+
+    This function allows running QT async code in a blocking fashion. It works by
+    spawning a Qt event loop. This custom loop has its `quit()` slot bound to the
+    input `signal`. The event loop is `exec_`'ed, thus blocking the current
+    thread until the the input `signal` is emitted.
+
+    The main purpose for this context manager is to allow using Qt network requests
+    inside a QgsTask. Since QgsTask is already running in the background, we simplify
+    the handling of network requests and responses in order to make the code easier to
+    grasp.
+
+    """
+
+    loop = QtCore.QEventLoop()
+    signal.connect(loop.quit)
+    loop_result = EventLoopResult(result=None)
+    yield loop_result
+    QtCore.QTimer.singleShot(timeout, partial(_forcibly_terminate_loop, loop))
+    loop_result.result = not bool(loop.exec_())
+
+
+def _forcibly_terminate_loop(loop: QtCore.QEventLoop):
+    log("Forcibly ending event loop...")
+    loop.exit(1)
+
+
+class NetworkRequestTask(qgis.core.QgsTask):
     authcfg: typing.Optional[str]
-    timed_out: bool
+    network_task_timeout: int
     network_access_manager: qgis.core.QgsNetworkAccessManager
     requests_to_perform: typing.List[RequestToPerform]
     response_contents: typing.List[typing.Optional[ParsedNetworkReply]]
@@ -56,18 +92,19 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
         requests_to_perform: typing.List[RequestToPerform],
         authcfg: typing.Optional[str] = None,
         description: typing.Optional[str] = "AnotherNetworkRequestTask",
+        network_task_timeout: typing.Optional[int] = 10,
     ):
         """A QGIS task to run a series of network requests in sequence."""
         super().__init__(description)
         self.authcfg = authcfg
-        self.timed_out = False
+        self.network_task_timeout = network_task_timeout
         self.requests_to_perform = requests_to_perform[:]
         self.response_contents = [None] * len(requests_to_perform)
         self._num_finished = 0
         self._pending_replies = {}
         self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        self.network_access_manager.authBrowserAborted.connect(
-            self._handle_auth_aborted
+        self.network_access_manager.requestTimedOut.connect(
+            self._handle_request_timed_out
         )
         self.network_access_manager.finished.connect(self._handle_request_finished)
 
@@ -84,7 +121,10 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
         if len(self.requests_to_perform) == 0:  # there is nothing to do
             result = False
         else:
-            with wait_for_signal(self._all_requests_finished) as event_loop_result:
+            with wait_for_signal(
+                self._all_requests_finished,
+                timeout=self.network_task_timeout * len(self.requests_to_perform),
+            ) as event_loop_result:
                 for index, request_params in enumerate(self.requests_to_perform):
                     qt_reply = self._dispatch_request(request_params)
                     # QGIS adds a custom `requestId` property to all requests made by
@@ -100,11 +140,18 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
         # deal with the various types of errors that can arise. The alternative would
         # have been to rely on the base class' `taskCompleted` and `taskTerminated`
         # signals
-        if not result:
-            self.timed_out = True
+        if result:
+            for response in self.response_contents:
+                if response is None:
+                    final_result = False
+                    break
+            else:
+                final_result = result
+        else:
+            final_result = result
         for _, qt_reply in self._pending_replies.values():
             qt_reply.deleteLater()
-        self.task_done.emit(result)
+        self.task_done.emit(final_result)
 
     def _dispatch_request(
         self, request_params: RequestToPerform
@@ -141,245 +188,27 @@ class AnotherNetworkRequestTask(qgis.core.QgsTask):
         try:
             index, qt_reply = self._pending_replies[qgis_reply.requestId()]
         except KeyError:
-            log(f"unknown request_id, ignoring...")
+            pass  # we are not managing this request, ignore
         else:
             parsed = parse_qt_network_reply(qt_reply)
             self.response_contents[index] = parsed
             self._num_finished += 1
-            if self._num_finished == len(self.requests_to_perform):
+            if self._num_finished >= len(self.requests_to_perform):
                 self._all_requests_finished.emit()
 
-    def _handle_auth_aborted(self):
-        log("Authentication aborted")
-        self._all_requests_finished.emit()
-
-
-class MultipleNetworkFetcherTask(qgis.core.QgsTask):
-
-    network_access_manager: qgis.core.QgsNetworkAccessManager
-    requests_to_perform: typing.List[RequestToPerform]
-    response_contents: typing.List[ParsedNetworkReply]
-    _exceptions_raised: typing.List[str]
-
-    all_finished = QtCore.pyqtSignal(bool)
-
-    def __init__(
-        self,
-        requests_to_perform: typing.List[RequestToPerform],
-        authcfg: typing.Optional[str],
-        description: typing.Optional[str] = "MyMultipleNetworkfetcherTask",
-    ):
-        """QGIS Task that is able to perform network requests
-
-        Implementation uses QgsNetworkAccessManager's blocking GET and POST in order
-        to perform blocking requests inside the task's run() method.
-
-        """
-
-        super().__init__(description)
-        self.requests_to_perform = requests_to_perform
-        self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        self.authcfg = authcfg
-        self.response_contents = []
-        self._exceptions_raised = []
-
-    def run(self) -> bool:
-        result = True
-        self.network_access_manager.requestTimedOut.connect(
-            self._handle_request_timeout
-        )
-        self.network_access_manager.authBrowserAborted.connect(
-            self._handle_auth_browser_aborted
-        )
-        self.network_access_manager.requestRequiresAuth.connect(
-            self._handle_request_requires_auth
-        )
-        self.network_access_manager.requestRequiresAuth.connect(
-            self._handle_request_requires_auth
-        )
-        self.network_access_manager.requestAboutToBeCreated.connect(
-            self._handle_request_about_to_be_created
-        )
-        for request_params in self.requests_to_perform:
-            log(f"Performing request for {request_params.url}...")
-            request = QtNetwork.QNetworkRequest(request_params.url)
-            if request_params.content_type is not None:
-                request.setHeader(
-                    QtNetwork.QNetworkRequest.ContentTypeHeader,
-                    request_params.content_type,
-                )
-            if request_params.payload is None:
-                reply_content = self.network_access_manager.blockingGet(
-                    request, self.authcfg
-                )
-            else:
-                reply_content = self.network_access_manager.blockingPost(
-                    request,
-                    QtCore.QByteArray(request_params.payload.encode()),
-                    self.authcfg,
-                )
-            try:
-                parsed_reply = parse_network_reply(reply_content)
-            except AttributeError as exc:
-                result = False
-                self._exceptions_raised.append(str(exc))
-            else:
-                if parsed_reply.qt_error is not None:
-                    result = False
-                self.response_contents.append(parsed_reply)
-        return result
-
-    def _handle_request_about_to_be_created(
+    def _handle_request_timed_out(
         self, request_params: qgis.core.QgsNetworkRequestParameters
-    ):
-        log("inside _handle_request_about_to_be_created")
-
-    def _handle_request_requires_auth(self, request_id: int, realm: str):
-        log(f"Inside _request_requires_auth - locals: {locals()}")
-
-    def _handle_auth_browser_aborted(self):
-        log(f"Inside _handle_auth_browser_aborted")
-        self._exceptions_raised.append("Authentication aborted")
-
-    def _handle_request_timeout(
-        self, request_params: qgis.core.QgsNetworkRequestParameters
-    ):
-        log(
-            f"Inside _handle_request_timeout - request id is: {request_params.requestId()}"
-        )
-
-    def finished(self, result: bool):
-        for index, exception_text in enumerate(self._exceptions_raised):
-            log(
-                f"There was a problem running request "
-                f"{self.requests_to_perform[index]!r}: {exception_text}"
-            )
-        self.all_finished.emit(result)
-
-
-@dataclasses.dataclass()
-class EventLoopResult:
-    result: typing.Optional[bool]
-
-
-@contextmanager
-def wait_for_signal(
-    signal, timeout: int = 10000
-) -> typing.ContextManager[EventLoopResult]:
-    """Fire up a custom event loop and wait for the input signal to be emitted
-
-    This function allows running QT async code in a blocking fashion. It works by
-    spawning a Qt event loop. This custom loop has its `quit()` slot bound to the
-    input `signal`. The event loop is `exec_`'ed, thus blocking the current
-    thread until the the input `signal` is emitted.
-
-    The main purpose for this context manager is to allow using Qt network requests
-    inside a QgsTask. Since QgsTask is already running in the background, we simplify
-    the handling of network requests and responses in order to make the code easier to
-    grasp.
-
-    """
-
-    loop = QtCore.QEventLoop()
-    signal.connect(loop.quit)
-    loop_result = EventLoopResult(result=None)
-    yield loop_result
-    QtCore.QTimer.singleShot(timeout, partial(_forcibly_terminate_loop, loop))
-    log(f"About to start custom event loop...")
-    loop_result.result = not bool(loop.exec_())
-    log(f"Custom event loop ended, resuming...")
-
-
-def _forcibly_terminate_loop(loop: QtCore.QEventLoop):
-    log("Forcibly ending event loop...")
-    loop.exit(1)
-
-
-class SimplerNetworkFetcherTask(qgis.core.QgsTask):
-    def __init__(
-        self,
-        request: QtNetwork.QNetworkRequest,
-        request_payload: typing.Optional[str] = None,
-    ):
-        """
-        Custom QgsTask that performs network requests
-
-        This class is able to perform both GET and POST HTTP requests.
-
-        It is needed because:
-
-        - QgsNetworkContentFetcherTask only performs GET requests
-        - QgsNetworkAcessManager.blockingPost() does not seem to handle redirects
-          correctly
-
-        Implementation is based on QgsNetworkContentFetcher. The run() method performs
-        a normal async request using QtNetworkAccessManager's get() or post() methods.
-        The resulting QNetworkReply instance has its `finished` signal be connected to
-        a custom handler. The request is executed in scope of a custom Qt event loop,
-        which blocks the current thread while the request is being processed.
-
-        """
-
-        super().__init__("QgisGeonodeNetworkFetcherTask")
-        self.request = request
-        self.request_payload = request_payload
-        self.reply_content = None
-        self.parsed_reply = None
-        self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        # self.network_access_manager.setRedirectPolicy(
-        #     QtNetwork.QNetworkRequest.NoLessSafeRedirectPolicy)
-        self.network_access_manager.finished.connect(self._request_done)
-        self._reply = None
-
-    def run(self):
-        with wait_for_signal(self.request_parsed) as loop_result:
-            if self.request_payload is None:
-                self._reply = self.network_access_manager.get(self.request)
-            else:
-                self._reply = self.network_access_manager.post(
-                    self.request,
-                    QtCore.QByteArray(self.request_payload.encode("utf-8")),
-                )
+    ) -> None:
+        log(f"Request with id: {request_params.requestId()} has timed out")
         try:
-            if loop_result.result:
-                result = self.parsed_reply.qt_error is None
-            else:
-                result = False
-            self._reply.deleteLater()
-            self._reply = None
-        except AttributeError:
-            result = False
-        return result
-
-    def finished(self, result: bool):
-        self.network_access_manager.finished.disconnect(self._request_done)
-        log(f"Inside finished. Result: {result}")
-        self.request_finished.emit()
-        if not result:
-            if self.parsed_reply is not None:
-                self.api_client.error_received[str, int, str].emit(
-                    self.parsed_reply.qt_error,
-                    self.parsed_reply.http_status_code,
-                    self.parsed_reply.http_status_reason,
-                )
-            else:
-                self.api_client.error_received.emit("Problem parsing network reply")
-
-    def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
-        log(f"requested_url: {qgis_reply.request().url().toString()}")
-        if self._reply is None:
-            log(
-                "Some other request was completed, probably authentication, "
-                "ignoring..."
-            )
-        elif reply_matches(qgis_reply, self._reply):
-            self.reply_content = self._reply.readAll()
-            self.parsed_reply = parse_network_reply(qgis_reply)
-            log(f"http_status_code: {self.parsed_reply.http_status_code}")
-            log(f"qt_error: {self.parsed_reply.qt_error}")
-            self.request_parsed.emit()
+            index, qt_reply = self._pending_replies[request_params.requestId()]
+        except KeyError:
+            pass  # we are not managing this request, ignore
         else:
-            log(f"qgis_reply did not match the original reply id, ignoring...")
+            self.response_contents[index] = None
+            self._num_finished += 1
+            if self._num_finished >= len(self.requests_to_perform):
+                self._all_requests_finished.emit()
 
 
 def deserialize_json_response(
@@ -389,128 +218,10 @@ def deserialize_json_response(
     try:
         contents = json.loads(decoded_contents)
     except json.JSONDecodeError as exc:
-        log(f"decoded_contents: {decoded_contents}")
+        log(f"JSON decode error - decoded_contents: {decoded_contents}")
         log(exc, debug=False)
         contents = None
     return contents
-
-
-class NetworkFetcherTask(qgis.core.QgsTask):
-    api_client: "BaseGeonodeClient"
-    authcfg: typing.Optional[str]
-    description: str
-    request: QtNetwork.QNetworkRequest
-    request_payload: typing.Optional[str]
-    reply_content: typing.Optional[QtCore.QByteArray]
-    parsed_reply: typing.Optional[ParsedNetworkReply]
-    redirect_policy: QtNetwork.QNetworkRequest.RedirectPolicy
-    _reply: typing.Optional[QtNetwork.QNetworkReply]
-
-    request_finished = QtCore.pyqtSignal()
-    request_parsed = QtCore.pyqtSignal()
-
-    def __init__(
-        self,
-        api_client: "BaseGeonodeClient",
-        request: QtNetwork.QNetworkRequest,
-        request_payload: typing.Optional[str] = None,
-        authcfg: typing.Optional[str] = None,
-        description: typing.Optional[str] = "MyNetworkfetcherTask",
-        redirect_policy: typing.Optional[QtNetwork.QNetworkRequest.RedirectPolicy] = (
-            QtNetwork.QNetworkRequest.NoLessSafeRedirectPolicy
-        ),
-    ):
-        """
-        Custom QgsTask that performs network requests
-
-        This class is able to perform both GET and POST HTTP requests.
-
-        It is needed because:
-
-        - QgsNetworkContentFetcherTask only performs GET requests
-        - QgsNetworkAcessManager.blockingPost() does not seem to handle redirects
-          correctly
-
-        Implementation is based on QgsNetworkContentFetcher. The run() method performs
-        a normal async request using QtNetworkAccessManager's get() or post() methods.
-        The resulting QNetworkReply instance has its `finished` signal be connected to
-        a custom handler. The request is executed in scope of a custom Qt event loop,
-        which blocks the current thread while the request is being processed.
-
-        """
-
-        super().__init__(description)
-        self.api_client = api_client
-        self.authcfg = authcfg
-        self.request = request
-        self.request_payload = request_payload
-        self.reply_content = None
-        self.parsed_reply = None
-        self.redirect_policy = redirect_policy
-        self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        self.network_access_manager.setRedirectPolicy(self.redirect_policy)
-        self.network_access_manager.finished.connect(self._request_done)
-        self._reply = None
-
-    def run(self):
-        if self.authcfg is not None:
-            auth_manager = qgis.core.QgsApplication.authManager()
-            auth_manager.updateNetworkRequest(self.request, self.authcfg)
-        with wait_for_signal(self.request_parsed) as loop_result:
-            if self.request_payload is None:
-                self._reply = self.network_access_manager.get(self.request)
-            else:
-                self._reply = self.network_access_manager.post(
-                    self.request,
-                    QtCore.QByteArray(self.request_payload.encode("utf-8")),
-                )
-        try:
-            if loop_result.result:
-                result = self.parsed_reply.qt_error is None
-            else:
-                result = False
-            self._reply.deleteLater()
-            self._reply = None
-        except AttributeError:
-            result = False
-        return result
-
-    def finished(self, result: bool):
-        self.network_access_manager.finished.disconnect(self._request_done)
-        log(f"Inside finished. Result: {result}")
-        self.request_finished.emit()
-        if not result:
-            if self.parsed_reply is not None:
-                self.api_client.error_received[str, int, str].emit(
-                    self.parsed_reply.qt_error,
-                    self.parsed_reply.http_status_code,
-                    self.parsed_reply.http_status_reason,
-                )
-            else:
-                self.api_client.error_received.emit("Problem parsing network reply")
-
-    def _request_done(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
-        log(f"requested_url: {qgis_reply.request().url().toString()}")
-        if self._reply is None:
-            log(
-                "Some other request was completed, probably authentication, "
-                "ignoring..."
-            )
-        elif reply_matches(qgis_reply, self._reply):
-            self.reply_content = self._reply.readAll()
-            self.parsed_reply = parse_network_reply(qgis_reply)
-            log(f"http_status_code: {self.parsed_reply.http_status_code}")
-            log(f"qt_error: {self.parsed_reply.qt_error}")
-            self.request_parsed.emit()
-        else:
-            log(f"qgis_reply did not match the original reply id, ignoring...")
-
-
-def reply_matches(
-    qgis_reply: qgis.core.QgsNetworkReplyContent, qt_reply: QtNetwork.QNetworkReply
-) -> bool:
-    reply_id = int(qt_reply.property("requestId"))
-    return qgis_reply.requestId() == reply_id
 
 
 def parse_qt_network_reply(reply: QtNetwork.QNetworkReply) -> ParsedNetworkReply:

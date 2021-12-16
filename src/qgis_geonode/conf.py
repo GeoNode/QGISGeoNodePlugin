@@ -27,6 +27,13 @@ def qgis_settings(group_root: str):
         settings.endGroup()
 
 
+def _get_network_requests_timeout():
+    settings = QgsSettings()
+    return settings.value(
+        "qgis/networkAndProxy/networkTimeout", type=int, defaultValue=5000
+    )
+
+
 @dataclasses.dataclass
 class ConnectionSettings:
     """Helper class to manage settings for a Connection"""
@@ -35,6 +42,9 @@ class ConnectionSettings:
     name: str
     base_url: str
     page_size: int
+    network_requests_timeout: int = dataclasses.field(
+        default_factory=_get_network_requests_timeout, init=False
+    )
     api_client_class_path: typing.Optional[str] = None
     auth_config: typing.Optional[str] = None
 
