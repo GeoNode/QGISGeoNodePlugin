@@ -8,7 +8,7 @@ from qgis.PyQt import (
     QtXml,
 )
 
-from .. import network
+from .. import network, conf
 from . import models
 from .models import GeonodeApiSearchFilters
 
@@ -16,34 +16,40 @@ from .models import GeonodeApiSearchFilters
 class BaseGeonodeClient(QtCore.QObject):
     auth_config: str
     base_url: str
-    network_fetcher_task: typing.Optional[network.MultipleNetworkFetcherTask]
+    network_fetcher_task: typing.Optional[network.NetworkRequestTask]
     capabilities: typing.List[models.ApiClientCapability]
     page_size: int
+    network_requests_timeout: int
 
     dataset_list_received = QtCore.pyqtSignal(list, models.GeonodePaginationInfo)
     dataset_detail_received = QtCore.pyqtSignal(object)
     style_detail_received = QtCore.pyqtSignal(QtXml.QDomElement)
     keyword_list_received = QtCore.pyqtSignal(list)
-    error_received = QtCore.pyqtSignal([str], [str, int, str])
+
+    search_error_received = QtCore.pyqtSignal([str], [str, int, str])
+    dataset_detail_error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(
         self,
         base_url: str,
         page_size: int,
+        network_requests_timeout: int,
         auth_config: typing.Optional[str] = None,
     ):
         super().__init__()
         self.auth_config = auth_config or ""
         self.base_url = base_url.rstrip("/")
         self.page_size = page_size
+        self.network_requests_timeout = network_requests_timeout
         self.network_fetcher_task = None
 
     @classmethod
-    def from_connection_settings(cls, connection_settings: "ConnectionSettings"):
+    def from_connection_settings(cls, connection_settings: conf.ConnectionSettings):
         return cls(
             base_url=connection_settings.base_url,
             page_size=connection_settings.page_size,
             auth_config=connection_settings.auth_config,
+            network_requests_timeout=connection_settings.network_requests_timeout,
         )
 
     def get_ordering_fields(self) -> typing.List[typing.Tuple[str, str]]:
@@ -61,11 +67,13 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_dataset_list(self, search_filters: GeonodeApiSearchFilters):
-        self.network_fetcher_task = network.MultipleNetworkFetcherTask(
+        self.network_fetcher_task = network.NetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_filters))],
             self.auth_config,
+            network_task_timeout=self.network_requests_timeout,
+            description="Get dataset list",
         )
-        self.network_fetcher_task.all_finished.connect(self.handle_dataset_list)
+        self.network_fetcher_task.task_done.connect(self.handle_dataset_list)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_list(self, result: bool):
@@ -83,50 +91,16 @@ class BaseGeonodeClient(QtCore.QObject):
             sld_url = QtCore.QUrl(brief_dataset.default_style.sld_url)
             requests_to_perform.append(network.RequestToPerform(url=sld_url))
 
-        self.network_fetcher_task = network.MultipleNetworkFetcherTask(
-            requests_to_perform, self.auth_config
+        self.network_fetcher_task = network.NetworkRequestTask(
+            requests_to_perform,
+            self.auth_config,
+            network_task_timeout=self.network_requests_timeout,
+            description="Get dataset detail",
         )
-        self.network_fetcher_task.all_finished.connect(
+        self.network_fetcher_task.task_done.connect(
             partial(self.handle_dataset_detail, brief_dataset)
         )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
         raise NotImplementedError
-
-    def get_layer_styles(self, layer_id: int):
-        request = QtNetwork.QNetworkRequest(
-            self.get_layer_styles_url_endpoint(layer_id)
-        )
-        self.network_fetcher_task = network.NetworkFetcherTask(
-            self, request, authcfg=self.auth_config
-        )
-        self.network_fetcher_task.request_finished.connect(self.handle_layer_style_list)
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
-    def get_layer_style(
-        self, layer: models.Dataset, style_name: typing.Optional[str] = None
-    ):
-        if style_name is None:
-            style_url = layer.default_style.sld_url
-        else:
-            style_details = [i for i in layer.styles if i.name == style_name][0]
-            style_url = style_details.sld_url
-        self.network_fetcher_task = network.NetworkFetcherTask(
-            self,
-            QtNetwork.QNetworkRequest(QtCore.QUrl(style_url)),
-            authcfg=self.auth_config,
-        )
-        self.network_fetcher_task.request_finished.connect(
-            self.handle_layer_style_detail
-        )
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-
-    def deserialize_sld_style(self, raw_sld: QtCore.QByteArray) -> QtXml.QDomDocument:
-        sld_doc = QtXml.QDomDocument()
-        # in the line below, `True` means use XML namespaces and it is crucial for
-        # QGIS to be able to load the SLD
-        sld_loaded = sld_doc.setContent(raw_sld, True)
-        if not sld_loaded:
-            raise RuntimeError("Could not load downloaded SLD document")
-        return sld_doc

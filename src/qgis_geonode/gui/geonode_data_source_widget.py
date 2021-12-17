@@ -16,18 +16,20 @@ from ..apiclient import (
     get_geonode_client,
     models,
 )
-from .. import conf
-from ..apiclient.models import ApiClientCapability
+from .. import (
+    conf,
+    utils,
+)
+from ..apiclient.models import ApiClientCapability, IsoTopicCategory
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
 from .. import network
 from ..utils import (
-    IsoTopicCategory,
     log,
     tr,
 )
 
-WidgetUi, _ = loadUiType(Path(__file__).parent / "../ui/geonode_datasource_widget.ui")
+WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/geonode_datasource_widget.ui")
 
 _INVALID_CONNECTION_MESSAGE = (
     "Current connection is invalid. Please review connection settings."
@@ -288,7 +290,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.toggle_search_buttons(enable=False)
         else:
             conf.settings_manager.set_current_connection(current_connection.id)
-            if current_connection.api_client_class_path == models.UNSUPPORTED_REMOTE:
+            if current_connection.api_client_class_path == network.UNSUPPORTED_REMOTE:
                 self.show_message(
                     tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
                 )
@@ -299,7 +301,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                     self.api_client.dataset_list_received.connect(
                         self.handle_dataset_list
                     )
-                    self.api_client.error_received.connect(self.show_search_error)
+                    self.api_client.search_error_received.connect(
+                        self.handle_search_error
+                    )
                 else:
                     # don't know if current config is valid or not yet, need to detect it
                     pass
@@ -394,18 +398,15 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         )
         return confirmation == QtWidgets.QMessageBox.Yes
 
-    def show_progress(self, message):
-        message_bar_item = self.message_bar.createMessage(message)
-        progress_bar = QtWidgets.QProgressBar()
-        progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        progress_bar.setMinimum(0)
-        progress_bar.setMaximum(0)
-        message_bar_item.layout().addWidget(progress_bar)
-        self.message_bar.pushWidget(message_bar_item, qgis.core.Qgis.Info)
-
-    def show_message(self, message: str, level=qgis.core.Qgis.Warning):
-        self.message_bar.clearWidgets()
-        self.message_bar.pushMessage(message, level=level)
+    def show_message(
+        self, message: str, level=qgis.core.Qgis.Info, add_loading_widget: bool = False
+    ) -> None:
+        utils.show_message(
+            self.message_bar,
+            message,
+            level=level,
+            add_loading_widget=add_loading_widget,
+        )
 
     def request_next_page(self):
         self.current_page += 1
@@ -461,7 +462,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     def handle_search_start(self):
         self.toggle_search_controls(False)
         self.clear_search_results()
-        self.show_progress(tr("Searching..."))
+        self.show_message(tr("Searching..."), add_loading_widget=True)
 
     def handle_search_end(self, message: str):
         self.message_bar.clearWidgets()
@@ -470,17 +471,19 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.toggle_search_controls(True)
         self.toggle_search_buttons()
 
-    def show_search_error(
+    def handle_search_error(
         self,
         qt_error_message: str,
         http_status_code: int = 0,
         http_status_reason: str = None,
     ):
-        if http_status_code != 0:
-            http_error = f"{http_status_code!r} - {http_status_reason!r}"
-        else:
-            http_error = ""
-        error_message = f"Request error: {' '.join((qt_error_message, http_error))}"
+        message_fragments = [
+            "Search ended with error",
+            qt_error_message,
+            f"HTTP {http_status_code}" if http_status_code != 0 else None,
+            http_status_reason,
+        ]
+        error_message = " - ".join(i for i in message_fragments if i)
         self.search_finished.emit(error_message)
 
     def handle_dataset_list(

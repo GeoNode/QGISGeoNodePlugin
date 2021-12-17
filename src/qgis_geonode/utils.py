@@ -1,38 +1,11 @@
-import enum
 import typing
 
-from PyQt5 import (
-    QtCore,
-)
-
+import qgis.gui
+from PyQt5 import QtCore, QtWidgets
 from qgis.core import (
     Qgis,
     QgsMessageLog,
 )
-
-
-# NOTE: for simplicity, this enum's variants are named directly after the GeoNode
-# topic_category ids.
-class IsoTopicCategory(enum.Enum):
-    biota = "Biota"
-    boundaries = "Boundaries"
-    climatologyMeteorologyAtmosphere = "Climatology Meteorology Atmosphere"
-    economy = "Economy"
-    elevation = "Elevation"
-    environment = "Environment"
-    farming = "Farming"
-    geoscientificInformation = "Geoscientific Information"
-    health = "Health"
-    imageryBaseMapsEarthCover = "Imagery Base Maps Earth Cover"
-    inlandWaters = "Inland Waters"
-    intelligenceMilitary = "Intelligence Military"
-    location = "Location"
-    oceans = "Oceans"
-    planningCadastre = "Planning Cadastre"
-    society = "Society"
-    structure = "Structure"
-    transportation = "Transportation"
-    utilitiesCommunication = "Utilities Communication"
 
 
 def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):
@@ -47,3 +20,20 @@ def tr(text):
     if type(text) != str:
         text = str(text)
     return QtCore.QCoreApplication.translate("QgisGeoNode", text)
+
+
+def show_message(
+    message_bar: qgis.gui.QgsMessageBar,
+    message: str,
+    level: typing.Optional[qgis.core.Qgis.MessageLevel] = qgis.core.Qgis.Info,
+    add_loading_widget: bool = False,
+) -> None:
+    message_bar.clearWidgets()
+    message_item = message_bar.createMessage(message)
+    if add_loading_widget:
+        progress_bar = QtWidgets.QProgressBar()
+        progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(0)
+        message_item.layout().addWidget(progress_bar)
+    message_bar.pushWidget(message_item, level=level)

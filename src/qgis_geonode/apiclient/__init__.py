@@ -2,8 +2,6 @@ import dataclasses
 import importlib
 import typing
 
-from .models import UNSUPPORTED_REMOTE
-
 
 def get_geonode_client(
     connection_settings: "ConnectionSettings",

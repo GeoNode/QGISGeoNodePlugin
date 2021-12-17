@@ -7,9 +7,9 @@ from qgis.PyQt import QtCore
 
 from .. import network
 from ..utils import (
-    IsoTopicCategory,
     log,
 )
+from .models import IsoTopicCategory
 
 from . import models
 from .base import BaseGeonodeClient
@@ -98,20 +98,18 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
     def get_dataset_detail_url(self, dataset_id: int) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.dataset_list_url}{dataset_id}/")
 
-    def handle_dataset_list(self, result: bool):
-        brief_datasets = []
-        pagination_info = models.GeonodePaginationInfo(
-            total_records=0, current_page=1, page_size=0
-        )
+    def handle_dataset_list(self, result: bool) -> None:
         if result:
             response_content: network.ParsedNetworkReply = (
                 self.network_fetcher_task.response_contents[0]
             )
-            if response_content.qt_error is None:
+            emtpy_body = response_content.response_body.isEmpty()
+            if response_content.qt_error is None and not emtpy_body:
                 deserialized_content = network.deserialize_json_response(
                     response_content.response_body
                 )
                 if deserialized_content is not None:
+                    brief_datasets = []
                     for raw_brief_dataset in deserialized_content.get("objects", []):
                         try:
                             parsed_properties = self._get_common_model_properties(
@@ -134,32 +132,69 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
                         current_page=current_page,
                         page_size=page_size,
                     )
-        self.dataset_list_received.emit(brief_datasets, pagination_info)
+                    self.dataset_list_received.emit(brief_datasets, pagination_info)
+                else:
+                    self.search_error_received[str].emit(
+                        "Could not parse dataset list returned from remote GeoNode"
+                    )
+            else:
+                self.search_error_received[str, int, str].emit(
+                    response_content.qt_error,
+                    response_content.http_status_code,
+                    response_content.http_status_reason,
+                )
+        else:
+            self.search_error_received[str].emit(
+                "Could not complete request for dataset list"
+            )
 
-    def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
-        dataset = None
+    def handle_dataset_detail(
+        self, brief_dataset: models.BriefDataset, result: bool
+    ) -> None:
         if result:
             detail_response_content: network.ParsedNetworkReply = (
                 self.network_fetcher_task.response_contents[0]
             )
-            deserialized_response = network.deserialize_json_response(
-                detail_response_content.response_body
-            )
-            if deserialized_response is not None:
-                try:
-                    dataset = self._parse_dataset_detail(deserialized_response)
-                except KeyError as exc:
-                    log(
-                        f"Could not parse server response into a dataset: {str(exc)}",
-                        debug=False,
-                    )
+            empty_body = detail_response_content.response_body.isEmpty()
+            if detail_response_content.qt_error is None and not empty_body:
+                deserialized_response = network.deserialize_json_response(
+                    detail_response_content.response_body
+                )
+                if deserialized_response is not None:
+                    try:
+                        dataset = self._parse_dataset_detail(deserialized_response)
+                    except KeyError as exc:
+                        log(
+                            f"Could not parse server response into a dataset: {str(exc)}",
+                            debug=False,
+                        )
+                    else:
+                        self.dataset_detail_received.emit(dataset)
                 else:
-                    # TODO: maybe we also have the SLD to parse fetch
-                    pass
-        self.dataset_detail_received.emit(dataset)
+                    self.dataset_detail_error_received[str].emit(
+                        "Could not parse dataset detail returned from remote GeoNode"
+                    )
+            else:
+                self.dataset_detail_error_received[str, int, str].emit(
+                    detail_response_content.qt_error,
+                    detail_response_content.http_status_code,
+                    detail_response_content.http_status_reason,
+                )
+        else:
+            self.dataset_detail_error_received[str].emit(
+                "Could not complete request for dataset detail"
+            )
 
-    def _parse_dataset_detail(self) -> models.Dataset:
-        pass
+    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
+        properties = self._get_common_model_properties(raw_dataset)
+        properties.update(
+            language=raw_dataset.get("language"),
+            license=(raw_dataset.get("license") or {}).get("identifier", ""),
+            constraints=raw_dataset.get("raw_constraints_other", ""),
+            owner=raw_dataset.get("owner", {}).get("username", ""),
+            metadata_author=raw_dataset.get("metadata_author", {}).get("username", ""),
+        )
+        return models.Dataset(**properties)
 
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = _get_resource_type(raw_dataset)

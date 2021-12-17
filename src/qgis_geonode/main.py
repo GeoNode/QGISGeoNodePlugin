@@ -20,8 +20,8 @@ from qgis.PyQt.QtWidgets import QAction
 from .resources import *
 
 from .gui.geonode_source_select_provider import GeonodeSourceSelectProvider
-from .gui.layer_properties_config_widget import (
-    LayerPropertiesConfigWidgetFactory,
+from .gui.geonode_maplayer_config_widget_factory import (
+    GeonodeMapLayerConfigWidgetFactory,
 )
 
 
@@ -42,7 +42,10 @@ class QgisGeoNode:
         self.actions = []
         self.menu = self.tr(u"&QGIS GeoNode Plugin")
         # TODO: We are going to let the user set this up in a future iteration
-        self.layerPropertiesConfigWidgetFactory = LayerPropertiesConfigWidgetFactory()
+        self.layer_properties_config_widget_factory = (
+            GeonodeMapLayerConfigWidgetFactory()
+        )
+
         self.pluginIsActive = False
         self.geonodeSourceSelectProvider = GeonodeSourceSelectProvider()
 
@@ -136,7 +139,7 @@ class QgisGeoNode:
         )
 
         self.iface.registerMapLayerConfigWidgetFactory(
-            self.layerPropertiesConfigWidgetFactory
+            self.layer_properties_config_widget_factory
         )
         QgsGui.sourceSelectProviderRegistry().addProvider(
             self.geonodeSourceSelectProvider
@@ -153,7 +156,7 @@ class QgisGeoNode:
             self.iface.removeToolBarIcon(action)
 
         self.iface.unregisterMapLayerConfigWidgetFactory(
-            self.layerPropertiesConfigWidgetFactory
+            self.layer_properties_config_widget_factory
         )
         QgsGui.sourceSelectProviderRegistry().removeProvider(
             self.geonodeSourceSelectProvider
