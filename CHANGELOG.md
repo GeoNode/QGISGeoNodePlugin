@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2021-12-17
+
+### Added
+- Modify style of GeoNode layer and save it on the remote GeoNode
+
+### Changed
+- Network fetcher task is now able to perform PUT requests
+- Better handling of network errors
+
+
 ## [0.3.3] - 2021-11-22
 
 ### Fixed
@@ -117,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.3...main
+[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.4...main
+[0.3.4]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.4...main
 [0.3.3]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.3...main
 [0.3.2]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.2...main
 [0.3.1]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.1...main
