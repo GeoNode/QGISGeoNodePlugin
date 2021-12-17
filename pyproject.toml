@@ -33,7 +33,7 @@ exclude = """\
 
 [tool.qgis-plugin.metadata]
 name = "QGIS GeoNode"
-qgisMinimumVersion = "3.10"
+qgisMinimumVersion = "3.18"
 icon = "mIconGeonode.svg"
 experimental = "True"
 deprecated = "False"
@@ -42,6 +42,9 @@ tracker = "https://github.com/kartoza/qgis_geonode/issues"
 repository = "https://github.com/kartoza/qgis_geonode"
 tags = [
     "geonode",
+    "wms",
+    "wfs",
+    "wcs",
 ]
 category = "plugins"
 hasProcessingProvider = "no"
