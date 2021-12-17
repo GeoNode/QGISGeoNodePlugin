@@ -318,10 +318,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                     self.layer.type(), self.api_client.capabilities
                 )
                 dataset = self.get_dataset()
+                is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
                 has_style_url = dataset.default_style.sld_url is not None
-                if can_load_style and has_style_url:
+                if can_load_style and has_style_url and is_service:
                     widgets.append(self.download_style_pb)
-                if can_modify_style and has_style_url:
+                if can_modify_style and has_style_url and is_service:
                     widgets.append(self.upload_style_pb)
         else:
             widgets = [
