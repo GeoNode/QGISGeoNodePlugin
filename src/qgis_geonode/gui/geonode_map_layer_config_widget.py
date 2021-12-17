@@ -1,4 +1,5 @@
 import typing
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from uuid import UUID
 
@@ -158,27 +159,17 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def upload_style(self):
         self.apply()
-        doc = QtXml.QDomDocument()
-        error_message = ""
-        self.layer.exportSldStyle(doc, error_message)
-        log(f"exportSldStyle error_message: {error_message!r}")
-        # QGIS exports SLD version 1.1.0. According to GeoServer docs here:
-        #
-        #     https://docs.geoserver.org/stable/en/user/rest/api/styles.html#styles-format
-        #
-        # updating an SLD v1.1.0 requires a content-type of application/vnd.ogc.se+xml
-        # I've not been able to find mention to this content-type in the OGC standards
-        # for Symbology (SE v1.1.0) nor Styled Layer Descriptor Profile for WMS v1.1.0
-        # though. However, it seems to work OK with GeoNode+GeoServer.
-        if error_message == "":
+        sld_data = self._prepare_style_for_upload()
+        if sld_data is not None:
+            serialized_sld, content_type = sld_data
             dataset = self.get_dataset()
             self.network_task = network.NetworkRequestTask(
                 [
                     network.RequestToPerform(
                         QtCore.QUrl(dataset.default_style.sld_url),
                         method=network.HttpMethod.PUT,
-                        payload=doc.toString(0),
-                        content_type="application/vnd.ogc.se+xml",
+                        payload=serialized_sld,
+                        content_type=content_type,
                     )
                 ],
                 self.connection_settings.auth_config,
@@ -189,6 +180,65 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self.network_task.task_done.connect(self.handle_style_uploaded)
             self._toggle_style_controls(enabled=False)
             self._show_message(message="Uploading style...", add_loading_widget=True)
+
+    def _prepare_style_for_upload(self) -> typing.Optional[typing.Tuple[str, str]]:
+        doc = QtXml.QDomDocument()
+        error_message = ""
+        self.layer.exportSldStyle(doc, error_message)
+        log(f"exportSldStyle error_message: {error_message!r}")
+        if error_message == "":
+            serialized_sld = doc.toString(0)
+            if self.layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
+                # For vector layers QGIS exports SLD version 1.1.0.
+                #
+                # According to GeoServer docs here:
+                #
+                #     https://docs.geoserver.org/stable/en/user/rest/api/styles.html#styles-format
+                #
+                # updating an SLD v1.1.0 requires a content-type of
+                # `application/vnd.ogc.se+xml`. I've not been able to find mention to
+                # this content-type in the OGC standards for Symbology (SE v1.1.0)
+                # nor Styled Layer Descriptor Profile for WMS v1.1.0 though (I
+                # probably missed it). However, it seems to work OK
+                # with GeoNode+GeoServer.
+                result = (serialized_sld, "application/vnd.ogc.se+xml")
+            elif self.layer.type() == qgis.core.QgsMapLayerType.RasterLayer:
+                result = self._prepare_raster_style_for_upload(serialized_sld)
+            else:
+                raise NotImplementedError("Unknown layer type")
+        else:
+            result = None
+        return result
+
+    def _prepare_raster_style_for_upload(
+        self, sld_generated_by_qgis: str
+    ) -> typing.Tuple[str, str]:
+        """Prepare raster SLD for uploading to remote GeoNode.
+
+        For raster layers, QGIS exports SLD version 1.0.0 with an element of
+        `sld:UserLayer`. We modify to `sld:NamedLayer` and adjust the content-type
+        accordingly.
+
+        """
+
+        nsmap = {
+            "sld": "http://www.opengis.net/sld",
+            "ogc": "http://www.opengis.net/ogc",
+            "xlink": "http://www.w3.org/1999/xlink",
+            "se": "http://www.opengis.net/se",
+        }
+        old_root = ET.fromstring(sld_generated_by_qgis)
+        old_user_style_el = old_root.find(f".//{{{nsmap['sld']}}}UserStyle")
+        old_name_el = old_user_style_el.find(f"./{{{nsmap['sld']}}}Name")
+        new_root = ET.Element(f"{{{nsmap['sld']}}}StyledLayerDescriptor")
+        new_root.set("version", "1.0.0")
+        named_layer_el = ET.SubElement(new_root, f"{{{nsmap['sld']}}}NamedLayer")
+        name_el = ET.SubElement(named_layer_el, f"{{{nsmap['sld']}}}Name")
+        name_el.text = old_name_el.text
+        named_layer_el.append(old_user_style_el)
+        new_serialized = ET.tostring(new_root, encoding="unicode", xml_declaration=True)
+        content_type = "application/vnd.ogc.sld+xml"
+        return new_serialized, content_type
 
     def handle_style_uploaded(self, task_result: bool):
         self._toggle_style_controls(enabled=True)
@@ -208,7 +258,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                     self._show_message(error_message, level=qgis.core.Qgis.Warning)
         else:
             self._show_message(
-                f"Could not upload style: {self.network_task._exceptions_raised}",
+                f"Could not upload style",
                 level=qgis.core.Qgis.Warning,
             )
 
@@ -267,9 +317,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 can_modify_style = models.modifying_style_supported(
                     self.layer.type(), self.api_client.capabilities
                 )
-                if can_load_style:
+                dataset = self.get_dataset()
+                has_style_url = dataset.default_style.sld_url is not None
+                if can_load_style and has_style_url:
                     widgets.append(self.download_style_pb)
-                if can_modify_style:
+                if can_modify_style and has_style_url:
                     widgets.append(self.upload_style_pb)
         else:
             widgets = [

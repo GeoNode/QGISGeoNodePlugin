@@ -27,7 +27,7 @@ class HttpMethod(enum.Enum):
 class ParsedNetworkReply:
     http_status_code: int
     http_status_reason: str
-    qt_error: str
+    qt_error: typing.Optional[str]
     response_body: QtCore.QByteArray
 
 
@@ -42,6 +42,26 @@ class RequestToPerform:
 @dataclasses.dataclass()
 class EventLoopResult:
     result: typing.Optional[bool]
+
+
+def _get_qt_network_reply_error_mapping() -> typing.Dict:
+    """Workaround for accessing unsubscriptable enum types of QNetworkReply.NetworkError
+
+    adapted from https://stackoverflow.com/a/39677321
+
+    """
+
+    result = {}
+    for property_name in dir(QtNetwork.QNetworkReply):
+        value = getattr(QtNetwork.QNetworkReply, property_name)
+        if isinstance(value, QtNetwork.QNetworkReply.NetworkError):
+            result[value] = property_name
+    return result
+
+
+_Q_NETWORK_REPLY_ERROR_MAP: typing.Final[
+    typing.Dict[QtNetwork.QNetworkReply.NetworkError, str]
+] = _get_qt_network_reply_error_mapping()
 
 
 @contextmanager
@@ -107,6 +127,9 @@ class NetworkRequestTask(qgis.core.QgsTask):
             self._handle_request_timed_out
         )
         self.network_access_manager.finished.connect(self._handle_request_finished)
+        self.network_access_manager.authBrowserAborted.connect(
+            self._handle_auth_browser_aborted
+        )
 
     def run(self) -> bool:
         """Run the QGIS task
@@ -126,23 +149,47 @@ class NetworkRequestTask(qgis.core.QgsTask):
                 timeout=self.network_task_timeout * len(self.requests_to_perform),
             ) as event_loop_result:
                 for index, request_params in enumerate(self.requests_to_perform):
-                    qt_reply = self._dispatch_request(request_params)
-                    # QGIS adds a custom `requestId` property to all requests made by
-                    # its network access manager - this can be used to keep track of
-                    # replies
-                    request_id = qt_reply.property("requestId")
-                    self._pending_replies[request_id] = (index, qt_reply)
-            result = event_loop_result.result
+                    request = self._create_request(
+                        request_params.url, request_params.content_type
+                    )
+                    if self.authcfg:
+                        auth_manager = qgis.core.QgsApplication.authManager()
+                        auth_added, _ = auth_manager.updateNetworkRequest(
+                            request, self.authcfg
+                        )
+                    else:
+                        auth_added = True
+                    log(f"auth_added: {auth_added}")
+                    if auth_added:
+                        qt_reply = self._dispatch_request(
+                            request, request_params.method, request_params.payload
+                        )
+                        # QGIS adds a custom `requestId` property to all requests made by
+                        # its network access manager - this can be used to keep track of
+                        # replies
+                        request_id = qt_reply.property("requestId")
+                        self._pending_replies[request_id] = (index, qt_reply)
+                    else:
+                        self._all_requests_finished.emit()
+            loop_forcibly_ended = not bool(event_loop_result.result)
+            if loop_forcibly_ended:
+                result = False
+            else:
+                result = self._num_finished >= len(self.requests_to_perform)
         return result
 
     def finished(self, result: bool) -> None:
+        """This method is called by the QGIS task manager when this task is finished"""
         # This class emits the `task_done` signal in order to have a unified way to
         # deal with the various types of errors that can arise. The alternative would
         # have been to rely on the base class' `taskCompleted` and `taskTerminated`
         # signals
         if result:
-            for response in self.response_contents:
+            for index, response in enumerate(self.response_contents):
                 if response is None:
+                    final_result = False
+                    break
+                elif response.qt_error is not None:
                     final_result = False
                     break
             else:
@@ -153,20 +200,24 @@ class NetworkRequestTask(qgis.core.QgsTask):
             qt_reply.deleteLater()
         self.task_done.emit(final_result)
 
+    def _create_request(
+        self, url: QtCore.QUrl, content_type: typing.Optional[str] = None
+    ) -> QtNetwork.QNetworkRequest:
+        request = QtNetwork.QNetworkRequest(url)
+        if content_type is not None:
+            request.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
+        return request
+
     def _dispatch_request(
-        self, request_params: RequestToPerform
+        self,
+        request: QtNetwork.QNetworkRequest,
+        method: HttpMethod,
+        payload: typing.Optional[str],
     ) -> QtNetwork.QNetworkReply:
-        request = QtNetwork.QNetworkRequest(request_params.url)
-        if request_params.content_type is not None:
-            request.setHeader(
-                QtNetwork.QNetworkRequest.ContentTypeHeader, request_params.content_type
-            )
-        auth_manager = qgis.core.QgsApplication.authManager()
-        auth_manager.updateNetworkRequest(request, self.authcfg)
-        if request_params.method == HttpMethod.GET:
+        if method == HttpMethod.GET:
             reply = self.network_access_manager.get(request)
-        elif request_params.method == HttpMethod.PUT:
-            data_ = QtCore.QByteArray(request_params.payload.encode())
+        elif method == HttpMethod.PUT:
+            data_ = QtCore.QByteArray(payload.encode())
             reply = self.network_access_manager.put(request, data_)
         else:
             raise NotImplementedError
@@ -210,6 +261,9 @@ class NetworkRequestTask(qgis.core.QgsTask):
             if self._num_finished >= len(self.requests_to_perform):
                 self._all_requests_finished.emit()
 
+    def _handle_auth_browser_aborted(self):
+        log("inside _handle_auth_browser_aborted")
+
 
 def deserialize_json_response(
     contents: QtCore.QByteArray,
@@ -235,9 +289,7 @@ def parse_qt_network_reply(reply: QtNetwork.QNetworkReply) -> ParsedNetworkReply
     if error == QtNetwork.QNetworkReply.NoError:
         qt_error = None
     else:
-        qt_error = _get_qt_error(
-            QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError, error
-        )
+        qt_error = _Q_NETWORK_REPLY_ERROR_MAP[error]
     body = reply.readAll()
     return ParsedNetworkReply(
         http_status_code=http_status_code,
@@ -258,9 +310,7 @@ def parse_network_reply(reply: qgis.core.QgsNetworkReplyContent) -> ParsedNetwor
     if error == QtNetwork.QNetworkReply.NoError:
         qt_error = None
     else:
-        qt_error = _get_qt_error(
-            QtNetwork.QNetworkReply, QtNetwork.QNetworkReply.NetworkError, error
-        )
+        qt_error = _Q_NETWORK_REPLY_ERROR_MAP[error]
     body = reply.content()
     log(f"body: {body.data().decode()}")
     return ParsedNetworkReply(
@@ -269,22 +319,6 @@ def parse_network_reply(reply: qgis.core.QgsNetworkReplyContent) -> ParsedNetwor
         qt_error=qt_error,
         response_body=body,
     )
-
-
-def _get_qt_error(cls, enum, error: QtNetwork.QNetworkReply.NetworkError) -> str:
-    """workaround for accessing unsubscriptable sip enum types
-
-    from https://stackoverflow.com/a/39677321
-
-    """
-
-    mapping = {}
-    for key in dir(cls):
-        value = getattr(cls, key)
-        if isinstance(value, enum):
-            mapping[key] = value
-            mapping[value] = key
-    return mapping[error]
 
 
 class ApiClientDiscovererTask(qgis.core.QgsTask):

@@ -105,9 +105,9 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
         is_raster = models.GeonodeResourceType.RASTER_LAYER in types
         if is_vector:
-            query.addQueryItem("filter{subtype}", "vector")
+            query.addQueryItem("filter{subtype.in}", "vector")
         if is_raster:
-            query.addQueryItem("filter{subtype}", "raster")
+            query.addQueryItem("filter{subtype.in}", "raster")
         if search_filters.ordering_field is not None:
             query.addQueryItem(
                 "sort[]", f"{'-' if search_filters.reverse_ordering else ''}name"
@@ -129,6 +129,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         return QtCore.QUrl(f"{self.dataset_list_url}{layer_id}/styles/")
 
     def handle_dataset_list(self, result: bool) -> None:
+        log(f"inside apiclient.handle_dataset_list with a result of {result!r}")
         if result:
             response_content: network.ParsedNetworkReply = (
                 self.network_fetcher_task.response_contents[0]
