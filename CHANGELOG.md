@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Bump minimum QGIS version to 3.18
+
 ## [0.3.4] - 2021-12-17
 
 ### Added
