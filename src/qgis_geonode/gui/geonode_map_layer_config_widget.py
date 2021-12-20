@@ -1,3 +1,4 @@
+import json
 import typing
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -25,6 +26,7 @@ from ..apiclient import (
     get_geonode_client,
     models,
 )
+from ..metadata import populate_metadata
 from ..utils import (
     log,
 )
@@ -35,12 +37,15 @@ WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dial
 class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     download_style_pb: QtWidgets.QPushButton
     upload_style_pb: QtWidgets.QPushButton
+    download_metadata_pb: QtWidgets.QPushButton
+    upload_metadata_pb: QtWidgets.QPushButton
     open_detail_url_pb: QtWidgets.QPushButton
     open_link_url_pb: QtWidgets.QPushButton
     message_bar: qgis.gui.QgsMessageBar
 
     network_task: typing.Optional[network.NetworkRequestTask]
     _apply_geonode_style: bool
+    _apply_geonode_metadata: bool
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
@@ -83,17 +88,22 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self.layout().insertWidget(0, self.message_bar)
         self.network_task = None
         self._apply_geonode_style = False
+        self._apply_geonode_metadata = False
         self.layer = layer
         self._toggle_style_controls(enabled=False)
         self._toggle_link_controls(enabled=False)
+        self._toggle_metadata_controls(enabled=False)
         if self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY) is not None:
             # this layer came from GeoNode
             self.download_style_pb.clicked.connect(self.download_style)
             self.upload_style_pb.clicked.connect(self.upload_style)
             self.open_detail_url_pb.clicked.connect(self.open_detail_url)
             self.open_link_url_pb.clicked.connect(self.open_link_url)
+            self.download_metadata_pb.clicked.connect(self.download_metadata)
+            self.upload_metadata_pb.clicked.connect(self.upload_metadata)
             self._toggle_style_controls(enabled=True)
             self._toggle_link_controls(enabled=True)
+            self._toggle_metadata_controls(enabled=True)
         else:  # this is not a GeoNode layer
             pass
 
@@ -102,6 +112,9 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         if self._apply_geonode_style:
             self._apply_sld()
             self._apply_geonode_style = False
+        if self._apply_geonode_metadata:
+            self._apply_metadata()
+            self._apply_geonode_metadata = False
 
     def get_dataset(self) -> typing.Optional[models.Dataset]:
         serialized_dataset = self.layer.customProperty(
@@ -115,7 +128,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             result = None
         return result
 
-    def update_dataset(self, new_dataset: models.Dataset):
+    def update_dataset(self, new_dataset: models.Dataset) -> None:
         serialized = new_dataset.to_json()
         self.layer.setCustomProperty(models.DATASET_CUSTOM_PROPERTY_KEY, serialized)
 
@@ -176,10 +189,10 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 network_task_timeout=self.api_client.network_requests_timeout,
                 description="Upload dataset style to GeoNode",
             )
-            qgis.core.QgsApplication.taskManager().addTask(self.network_task)
             self.network_task.task_done.connect(self.handle_style_uploaded)
             self._toggle_style_controls(enabled=False)
             self._show_message(message="Uploading style...", add_loading_widget=True)
+            qgis.core.QgsApplication.taskManager().addTask(self.network_task)
 
     def _prepare_style_for_upload(self) -> typing.Optional[typing.Tuple[str, str]]:
         doc = QtXml.QDomDocument()
@@ -240,7 +253,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         content_type = "application/vnd.ogc.sld+xml"
         return new_serialized, content_type
 
-    def handle_style_uploaded(self, task_result: bool):
+    def handle_style_uploaded(self, task_result: bool) -> None:
         self._toggle_style_controls(enabled=True)
         if task_result:
             parsed_reply = self.network_task.response_contents[0]
@@ -260,6 +273,97 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self._show_message(
                 f"Could not upload style",
                 level=qgis.core.Qgis.Warning,
+            )
+
+    def download_metadata(self) -> None:
+        """Initiate download of metadata from the remote GeoNode.
+
+        The process of updating a QGIS layer's metadata from the corresponding GeoNode
+        dataset involves the following steps:
+
+        1. Perform a network request in order to retrieve the updated metadata.
+        2. Update our internal representation of the remote dataset with the retrieved
+           metadata.
+        3. When the QGIS layer properties dialogue has its apply button clicked, update
+           the QGIS layer metadata with the relevant information.
+
+        """
+
+        dataset = self.get_dataset()
+        api_client = self.api_client
+        api_client.dataset_detail_received.connect(self.handle_metadata_downloaded)
+        api_client.dataset_detail_error_received.connect(
+            self.handle_metadata_downloaded
+        )
+        self._toggle_metadata_controls(enabled=False)
+        self._show_message("Retrieving metadata...", add_loading_widget=True)
+        api_client.get_dataset_detail(dataset)
+
+    def handle_metadata_download_error(self) -> None:
+        log("inside handle_metadata_download_error")
+
+    def handle_metadata_downloaded(self, downloaded_dataset: models.Dataset) -> None:
+        self._toggle_metadata_controls(enabled=True)
+        self.update_dataset(downloaded_dataset)
+        self._apply_geonode_metadata = True
+        self.apply()
+
+    def _apply_metadata(self) -> None:
+        dataset = self.get_dataset()
+        updated_metadata = populate_metadata(self.layer.metadata(), dataset)
+        self.layer.setMetadata(updated_metadata)
+        layer_properties_dialog = self._get_layer_properties_dialog()
+        layer_properties_dialog.syncToLayer()
+
+    def upload_metadata(self) -> None:
+        self.apply()
+        current_metadata = self.layer.metadata()
+        self.network_task = network.NetworkRequestTask(
+            [
+                network.RequestToPerform(
+                    QtCore.QUrl(self.get_dataset().link),
+                    method=network.HttpMethod.PATCH,
+                    payload=json.dumps(
+                        {
+                            "title": current_metadata.title(),
+                            "abstract": current_metadata.abstract(),
+                        }
+                    ),
+                    content_type="application/json",
+                )
+            ],
+            self.api_client.auth_config,
+            network_task_timeout=self.api_client.network_requests_timeout,
+            description="Upload metadata",
+        )
+        self.network_task.task_done.connect(self.handle_metadata_uploaded)
+        self._toggle_metadata_controls(enabled=False)
+        self._show_message(message="Uploading metadata...", add_loading_widget=True)
+        qgis.core.QgsApplication.taskManager().addTask(self.network_task)
+
+    def handle_metadata_uploaded(self, task_result: bool) -> None:
+        self._toggle_metadata_controls(enabled=True)
+        if task_result:
+            parsed_reply = self.network_task.response_contents[0]
+            if parsed_reply is not None:
+                if parsed_reply.http_status_code == 200:
+                    self._show_message("Metadata uploaded successfully!")
+                else:
+                    error_message_parts = [
+                        "Could not upload metadata",
+                        parsed_reply.qt_error,
+                        f"HTTP {parsed_reply.http_status_code}",
+                        parsed_reply.http_status_reason,
+                    ]
+                    error_message = " - ".join(i for i in error_message_parts if i)
+                    self._show_message(error_message, level=qgis.core.Qgis.Warning)
+            else:
+                self._show_message(
+                    "Could not upload metadata", level=qgis.core.Qgis.Warning
+                )
+        else:
+            self._show_message(
+                "Could not upload metadata", level=qgis.core.Qgis.Warning
             )
 
     def open_detail_url(self) -> None:
@@ -294,9 +398,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         utils.show_message(self.message_bar, message, level, add_loading_widget)
 
     def _get_layer_properties_dialog(self):
-        # FIXME: This is a very hacky way to get the layer properties dialog, and it
-        #  may not even work for layers that are not vector, but I've not been able
-        #  to find a more elegant way to retrieve it yet
+        # FIXME: This is a very hacky way to get the layer properties dialog
+        #  but I've not been able to find a more elegant way to retrieve it yet
         return self.parent().parent().parent().parent()
 
     def _toggle_link_controls(self, enabled: bool) -> None:
@@ -328,6 +431,30 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             widgets = [
                 self.upload_style_pb,
                 self.download_style_pb,
+            ]
+        for widget in widgets:
+            widget.setEnabled(enabled)
+
+    def _toggle_metadata_controls(self, enabled: bool) -> None:
+        if enabled:
+            widgets = []
+            if self.connection_settings is not None:
+                can_load_metadata = (
+                    models.ApiClientCapability.LOAD_LAYER_METADATA
+                    in self.api_client.capabilities
+                )
+                if can_load_metadata:
+                    widgets.append(self.download_metadata_pb)
+                can_modify_metadata = (
+                    models.ApiClientCapability.MODIFY_LAYER_METADATA
+                    in self.api_client.capabilities
+                )
+                if can_modify_metadata:
+                    widgets.append(self.upload_metadata_pb)
+        else:
+            widgets = [
+                self.upload_metadata_pb,
+                self.download_metadata_pb,
             ]
         for widget in widgets:
             widget.setEnabled(enabled)

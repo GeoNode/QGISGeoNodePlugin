@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>664</width>
-    <height>333</height>
+    <height>366</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Geonode Layer</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="verticalLayout_3">
    <item>
     <widget class="QgsCollapsibleGroupBox" name="links_gb">
      <property name="title">
@@ -86,6 +86,36 @@
          <bool>true</bool>
         </property>
        </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QgsCollapsibleGroupBox" name="metadata_gb">
+     <property name="title">
+      <string>Metadata</string>
+     </property>
+     <property name="collapsed">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QPushButton" name="download_metadata_pb">
+          <property name="text">
+           <string>Reload metadata from GeoNode</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="upload_metadata_pb">
+          <property name="text">
+           <string>Save current metadata to GeoNode</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>

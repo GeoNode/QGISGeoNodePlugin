@@ -23,11 +23,10 @@ class BaseGeonodeClient(QtCore.QObject):
 
     dataset_list_received = QtCore.pyqtSignal(list, models.GeonodePaginationInfo)
     dataset_detail_received = QtCore.pyqtSignal(object)
+    dataset_detail_error_received = QtCore.pyqtSignal([str], [str, int, str])
     style_detail_received = QtCore.pyqtSignal(QtXml.QDomElement)
     keyword_list_received = QtCore.pyqtSignal(list)
-
     search_error_received = QtCore.pyqtSignal([str], [str, int, str])
-    dataset_detail_error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(
         self,
