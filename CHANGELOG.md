@@ -6,7 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.4.0] - 2021-12-20
+
+### Added
+- Allow loading and saving layer title and abstract from/to GeoNode
+
+### Changed
 - Bump minimum QGIS version to 3.18
+
 
 ## [0.3.4] - 2021-12-17
 
@@ -129,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.4...main
+[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.4.0...main
+[0.4.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.4.0...main
 [0.3.4]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.4...main
 [0.3.3]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.3...main
 [0.3.2]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.2...main
