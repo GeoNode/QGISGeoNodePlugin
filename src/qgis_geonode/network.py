@@ -18,9 +18,10 @@ UNSUPPORTED_REMOTE = "unsupported"
 
 
 class HttpMethod(enum.Enum):
-    GET = "get"
-    POST = "post"
-    PUT = "put"
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
 
 
 @dataclasses.dataclass()
@@ -219,6 +220,12 @@ class NetworkRequestTask(qgis.core.QgsTask):
         elif method == HttpMethod.PUT:
             data_ = QtCore.QByteArray(payload.encode())
             reply = self.network_access_manager.put(request, data_)
+        elif method == HttpMethod.PATCH:
+            data_ = QtCore.QByteArray(payload.encode())
+            # QNetworkAccess manager does not have a patch() method
+            reply = self.network_access_manager.sendCustomRequest(
+                request, QtCore.QByteArray(HttpMethod.PATCH.value.encode()), data_
+            )
         else:
             raise NotImplementedError
         return reply
