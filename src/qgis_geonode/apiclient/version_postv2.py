@@ -26,6 +26,7 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
         models.ApiClientCapability.LOAD_LAYER_METADATA,
         models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE,
+        models.ApiClientCapability.MODIFY_LAYER_METADATA,
         # NOTE: loading raster layer style is not present here
         # because QGIS does not currently support loading SLD for raster layers
         models.ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE,
@@ -265,7 +266,7 @@ def _get_common_model_properties(raw_dataset: typing.Dict) -> typing.Dict:
         "title": raw_dataset.get("title", ""),
         "abstract": raw_dataset.get("raw_abstract", ""),
         "thumbnail_url": raw_dataset["thumbnail_url"],
-        "link": raw_dataset.get("link"),
+        "link": raw_dataset["link"],
         "detail_url": raw_dataset["detail_url"],
         "dataset_sub_type": type_,
         "service_urls": service_urls,
