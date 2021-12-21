@@ -1,9 +1,11 @@
 import dataclasses
 import enum
 import json
+import tempfile
 import typing
 from contextlib import contextmanager
 from functools import partial
+from pathlib import Path
 
 import qgis.core
 from PyQt5 import QtNetwork
@@ -150,7 +152,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
                 timeout=self.network_task_timeout * len(self.requests_to_perform),
             ) as event_loop_result:
                 for index, request_params in enumerate(self.requests_to_perform):
-                    request = self._create_request(
+                    request = create_request(
                         request_params.url, request_params.content_type
                     )
                     if self.authcfg:
@@ -200,14 +202,6 @@ class NetworkRequestTask(qgis.core.QgsTask):
         for _, qt_reply in self._pending_replies.values():
             qt_reply.deleteLater()
         self.task_done.emit(final_result)
-
-    def _create_request(
-        self, url: QtCore.QUrl, content_type: typing.Optional[str] = None
-    ) -> QtNetwork.QNetworkRequest:
-        request = QtNetwork.QNetworkRequest(url)
-        if content_type is not None:
-            request.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
-        return request
 
     def _dispatch_request(
         self,
@@ -270,6 +264,153 @@ class NetworkRequestTask(qgis.core.QgsTask):
 
     def _handle_auth_browser_aborted(self):
         log("inside _handle_auth_browser_aborted")
+
+
+class LayerUploaderTask(qgis.core.QgsTask):
+    VECTOR_UPLOAD_FORMAT: typing.Final[str] = "GPKG"
+    RASTER_UPLOAD_FORMAT: typing.Final[str] = "tif"
+
+    layer: qgis.core.QgsMapLayer
+    network_access_manager: qgis.core.QgsNetworkAccessManager
+    network_timeout: int
+
+    _temporary_directory: typing.Optional[Path]
+    _pending_upload_request: typing.Optional[QtNetwork.QNetworkReply]
+
+    _upload_finished = QtCore.pyqtSignal(bool)
+
+    def __init__(
+        self,
+        layer: qgis.core.QgsMapLayer,
+        description: str = "LayerUploaderTask",
+        network_timeout: typing.Optional[int] = 10,
+    ):
+        super().__init__(description)
+        self.layer = layer
+        self.network_timeout = network_timeout
+        self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
+        self.network_access_manager.requestTimedOut.connect(
+            self._handle_network_request_timed_out
+        )
+        self.network_access_manager.finished.connect(
+            self._handle_network_request_finished
+        )
+        self._temporary_directory = None
+        self._pending_upload_request = None
+
+    def run(self) -> bool:
+        if self._is_layer_uploadable():
+            source_path = self.layer.dataProvider().dataSourceUri().partition("|")[0]
+        else:  # we need to export the layer first
+            source_path = self._export_layer_to_temp_dir()
+        # TODO: check if source path is an actual path
+        # now we need to perform the upload request to GeoNode and then monitor the status
+        with wait_for_signal(
+            self._upload_finished, timeout=self.network_timeout
+        ) as event_loop_result:
+            upload_request = create_request(
+                request_params.url, request_params.content_type
+            )
+            if self.authcfg:
+                auth_manager = qgis.core.QgsApplication.authManager()
+                auth_added, _ = auth_manager.updateNetworkRequest(
+                    upload_request, self.authcfg
+                )
+            else:
+                auth_added = True
+            if auth_added:
+                qt_reply = seld._dispatch_request(
+                    upload_request, request_params.method, request_params.payload
+                )
+                request_id = qt_reply.property("requestId")
+                self._pending_upload_request = qt_reply
+
+    def _is_layer_uploadable(self) -> bool:
+        ds_uri = self.layer.dataProvider().dataSourceUri()
+        fragment = ds_uri.split("|")[0]
+        extension = fragment.rpartition(".")[-1]
+        return extension in (self.VECTOR_UPLOAD_FORMAT, self.RASTER_UPLOAD_FORMAT)
+
+    def _export_layer_to_temp_dir(self) -> str:
+        target_dir = Path(tempfile.mkdtemp(prefix="qgis_geonode_"))
+        if self.layer.type() == qgis.core.QgsMapLayerType.VectorLayer():
+            exported_path, error_message = self._export_vector_layer(target_dir)
+        elif self.layer.type() == qgis.core.QgsMapLayerType.RasterLayer():
+            exported_path, export_error = self._export_raster_layer(target_dir)
+        else:
+            raise NotImplementedError()
+
+    def _export_vector_layer(
+        self, target_dir: Path
+    ) -> typing.Tuple[typing.Optional[str], str]:
+        chars_to_replace = [
+            ">",
+            "<",
+            "|",
+            " ",
+        ]
+        sanitized_layer_name = self._sanitize_layer_name()
+        target_uri = target_dir / f"{sanitized_layer_name}.{self.VECTOR_UPLOAD_FORMAT}"
+        export_code, error_message = qgis.core.QgsVectorLayerExporter.exportLayer(
+            layer=self.layer,
+            uri=str(target_uri),
+            providerKey="ogr",
+            destCRS=qgis.core.QgsCoordinateReferenceSystem(),
+            onlySelected=True,
+            options={
+                "driverName": self.VECTOR_UPLOAD_FORMAT,
+                "layerName": sanitized_layer_name,
+            },
+        )
+        if export_code == qgis.core.Qgis.VectorExportResult.Success:
+            result = (f"{target_uri}|layername={sanitized_layer_name}", error_message)
+        else:
+            result = (None, error_message)
+        return result
+
+    def _export_raster_layer(
+        self, target_dir: Path
+    ) -> typing.Tuple[typing.Optional[str], typing.Optional[int]]:
+        sanitized_layer_name = self._sanitize_layer_name()
+        target_path = target_dir / f"{sanitized_layer_name}.tif"
+        writer = qgis.core.QgsRasterFileWriter(str(target_path))
+        writer.setOutputFormat("GTiff")
+        pipe = self.layer.pipe()
+        raster_interface = self.layer.dataProvider()
+        write_error = writer.writeRaster(
+            pipe,
+            raster_interface.xSize(),
+            raster_interface.ySize(),
+            raster_interface.extent(),
+            raster_interface.crs(),
+            qgis.core.QgsCoordinateTransformContext(),
+        )
+        if write_error == qgis.core.QgsRasterFileWriter.NoError:
+            result = (str(target_path), None)
+        else:
+            result = None, write_error
+        return result
+
+    def _sanitize_layer_name(self) -> str:
+        chars_to_replace = [
+            ">",
+            "<",
+            "|",
+            " ",
+        ]
+        return "".join(
+            c if c not in chars_to_replace else "_" for c in self.layer.name()
+        )
+
+    def _handle_network_request_timed_out(
+        self, request_params: qgis.core.QgsNetworkRequestParameters
+    ):
+        log("inside _handle_network_request_timed_out")
+
+    def _handle_network_request_finished(
+        self, qgis_reply: qgis.core.QgsNetworkReplyContent
+    ):
+        log("inside _handle_network_request_finished")
 
 
 def deserialize_json_response(
@@ -372,3 +513,12 @@ class ApiClientDiscovererTask(qgis.core.QgsTask):
 
     def finished(self, result: bool):
         self.discovery_finished.emit(self.discovery_result)
+
+
+def create_request(
+    url: QtCore.QUrl, content_type: typing.Optional[str] = None
+) -> QtNetwork.QNetworkRequest:
+    request = QtNetwork.QNetworkRequest(url)
+    if content_type is not None:
+        request.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
+    return request
