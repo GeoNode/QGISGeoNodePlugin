@@ -46,6 +46,8 @@ class ApiClientCapability(enum.Enum):
     LOAD_VECTOR_DATASET_VIA_WFS = enum.auto()
     LOAD_RASTER_DATASET_VIA_WMS = enum.auto()
     LOAD_RASTER_DATASET_VIA_WCS = enum.auto()
+    UPLOAD_VECTOR_LAYER = enum.auto()
+    UPLOAD_RASTER_LAYER = enum.auto()
 
 
 # NOTE: for simplicity, this enum's variants are named directly after the GeoNode

@@ -35,6 +35,8 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
+        models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
+        models.ApiClientCapability.UPLOAD_RASTER_LAYER,
     ]
 
     @property
@@ -128,6 +130,9 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
 
     def get_layer_style_list_url(self, layer_id: int):
         return QtCore.QUrl(f"{self.dataset_list_url}{layer_id}/styles/")
+
+    def get_dataset_upload_url(self) -> QtCore.QUrl:
+        return QtCore.QUrl(f"{self.api_url}/uploads/upload/")
 
     def handle_dataset_list(self, result: bool) -> None:
         log(f"inside apiclient.handle_dataset_list with a result of {result!r}")
@@ -234,6 +239,27 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
         else:
             self.dataset_detail_error_received[str].emit(
                 "Could not complete request for dataset detail"
+            )
+
+    def handle_layer_upload(self, result: bool):
+        if result:
+            response_contents = self.network_fetcher_task.response_contents[0]
+            if response_contents.http_status_code == 201:
+                deserialized = network.deserialize_json_response(
+                    response_contents.response_body
+                )
+                catalogue_url = deserialized["catalogue_url"]
+                dataset_pk = catalogue_url.rsplit("/")[-1]
+                self.dataset_uploaded.emit(int(dataset_pk))
+            else:
+                self.dataset_upload_error_received[str, int, str].emit(
+                    response_contents.qt_error,
+                    response_contents.http_status_code,
+                    response_contents.http_status_reason,
+                )
+        else:
+            self.dataset_upload_error_received[str].emit(
+                "Could not upload layer to GeoNode"
             )
 
 

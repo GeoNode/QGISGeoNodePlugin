@@ -4,11 +4,12 @@ from functools import partial
 import qgis.core
 from qgis.PyQt import (
     QtCore,
-    QtNetwork,
     QtXml,
 )
 
 from .. import network, conf
+from ..utils import log
+
 from . import models
 from .models import GeonodeApiSearchFilters
 
@@ -27,6 +28,8 @@ class BaseGeonodeClient(QtCore.QObject):
     style_detail_received = QtCore.pyqtSignal(QtXml.QDomElement)
     keyword_list_received = QtCore.pyqtSignal(list)
     search_error_received = QtCore.pyqtSignal([str], [str, int, str])
+    dataset_uploaded = QtCore.pyqtSignal(int)
+    dataset_upload_error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(
         self,
@@ -65,7 +68,10 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_dataset_detail_url(self, dataset_id: int) -> QtCore.QUrl:
         raise NotImplementedError
 
-    def get_dataset_list(self, search_filters: GeonodeApiSearchFilters):
+    def get_dataset_upload_url(self) -> QtCore.QUrl:
+        raise NotImplementedError
+
+    def get_dataset_list(self, search_filters: GeonodeApiSearchFilters) -> None:
         self.network_fetcher_task = network.NetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_filters))],
             self.auth_config,
@@ -82,7 +88,7 @@ class BaseGeonodeClient(QtCore.QObject):
         """
         raise NotImplementedError
 
-    def get_dataset_detail(self, brief_dataset: models.BriefDataset):
+    def get_dataset_detail(self, brief_dataset: models.BriefDataset) -> None:
         requests_to_perform = [
             network.RequestToPerform(url=self.get_dataset_detail_url(brief_dataset.pk))
         ]
@@ -102,4 +108,30 @@ class BaseGeonodeClient(QtCore.QObject):
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
+        raise NotImplementedError
+
+    def upload_layer(
+        self, layer: qgis.core.QgsMapLayer, allow_public_access: bool
+    ) -> None:
+        log("inside apiclient upload_layer...")
+        self.network_fetcher_task = network.LayerUploaderTask(
+            layer,
+            self.get_dataset_upload_url(),
+            allow_public_access=allow_public_access,
+            authcfg=self.auth_config,
+            description="Upload layer to GeoNode",
+            network_timeout=60,
+        )
+        self.network_fetcher_task.task_done.connect(self.handle_layer_upload)
+        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+        log("leaving apiclient upload_layer...")
+
+    def handle_layer_upload(self, result: bool):
+        """Handle layer upload outcome.
+
+        This method should emit either `dataset_uploaded` or
+        `dataset_upload_error_received`.
+
+        """
+
         raise NotImplementedError
