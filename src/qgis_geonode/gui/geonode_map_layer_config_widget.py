@@ -53,6 +53,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     network_task: typing.Optional[network.NetworkRequestTask]
     _apply_geonode_style: bool
     _apply_geonode_metadata: bool
+    _layer_upload_api_client: typing.Optional[base.BaseGeonodeClient]
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
@@ -97,6 +98,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self.network_task = None
         self._apply_geonode_style = False
         self._apply_geonode_metadata = False
+        self._layer_upload_api_client = None
         self.layer = layer
         self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
         suitable_connections = self._get_suitable_upload_connections()
@@ -396,10 +398,14 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         connection_settings: conf.ConnectionSettings = (
             self.geonode_connection_cb.currentData()
         )
-        api_client: base.BaseGeonodeClient = get_geonode_client(connection_settings)
-        api_client.dataset_uploaded.connect(self.handle_layer_uploaded)
-        api_client.dataset_upload_error_received.connect(self.handle_layer_upload_error)
-        api_client.upload_layer(
+        self._layer_upload_api_client = get_geonode_client(connection_settings)
+        self._layer_upload_api_client.dataset_uploaded.connect(
+            self.handle_layer_uploaded
+        )
+        self._layer_upload_api_client.dataset_upload_error_received.connect(
+            self.handle_layer_upload_error
+        )
+        self._layer_upload_api_client.upload_layer(
             self.layer, allow_public_access=self.public_access_chb.isChecked()
         )
 
@@ -407,11 +413,15 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._toggle_upload_controls(enabled=True)
         self._show_message("Layer uploaded successfully!")
         log("inside handle_layer_uploaded")
+        self._layer_upload_api_client = None
 
-    def handle_layer_upload_error(self):
+    def handle_layer_upload_error(self, *args):
         log("inside handle_layer_upload_error")
         self._toggle_upload_controls(enabled=True)
-        self._show_message("Could not upload layer to GeoNode")
+        self._show_message(
+            " - ".join(str(i) for i in args), level=qgis.core.Qgis.Critical
+        )
+        self._layer_upload_api_client = None
 
     def _get_suitable_upload_connections(self) -> typing.List[conf.ConnectionSettings]:
         result = []

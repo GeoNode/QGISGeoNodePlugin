@@ -188,7 +188,6 @@ class NetworkRequestTask(qgis.core.QgsTask):
         # deal with the various types of errors that can arise. The alternative would
         # have been to rely on the base class' `taskCompleted` and `taskTerminated`
         # signals
-        log("inside the finished method of NetworkRequestTask")
         if result:
             for index, response in enumerate(self.response_contents):
                 if response is None:
@@ -203,9 +202,8 @@ class NetworkRequestTask(qgis.core.QgsTask):
             final_result = result
         for _, qt_reply in self._pending_replies.values():
             qt_reply.deleteLater()
-        log("about to emit the task_done signal...")
         self.task_done.emit(final_result)
-        log("emitted the task_done signal")
+        log(f"emitted the task_done signal with a result of {final_result}")
 
     def _dispatch_request(
         self,
@@ -304,15 +302,12 @@ class LayerUploaderTask(NetworkRequestTask):
             network_task_timeout=network_task_timeout,
         )
         self.response_contents = [None]
-        log("inside LayerUploaderTask.__init__()...")
         self.layer = layer
         self.allow_public_access = allow_public_access
         self._upload_url = upload_url
         self._temporary_directory = None
-        log("leaving LayerUploaderTask.__init__()...")
 
     def run(self) -> bool:
-        log("inside LayerUploaderTask.run()...")
         if self._is_layer_uploadable():
             log("Layer is in a format natively supported, no need to export.")
             source_path = self.layer.dataProvider().dataSourceUri().partition("|")[0]
@@ -323,22 +318,20 @@ class LayerUploaderTask(NetworkRequestTask):
                 "the upload..."
             )
             source_path, export_error = self._export_layer_to_temp_dir()
-            log(f"source_path: {source_path}")
-            log(f"export_error: {export_error}")
         if export_error is None:
             log(f"exported data is in {source_path}")
             # TODO: check if source path is an actual path
-            # source_file = QtCore.QFile(str(source_path))
-            # source_file.open(QtCore.QIODevice.ReadOnly)
-            # payload = self._build_multipart(source_file, Path(source_path).name)
-            # source_file.setParent(payload)
-            payload = None
+            source_file = QtCore.QFile(str(source_path))
+            source_file.open(QtCore.QIODevice.ReadOnly)
+            payload = self._build_multipart(source_file, Path(source_path).name)
+            source_file.setParent(payload)
             with wait_for_signal(
                 self._all_requests_finished, timeout=self.network_task_timeout
             ) as event_loop_result:
                 request = QtNetwork.QNetworkRequest(self._upload_url)
                 request.setHeader(
-                    QtNetwork.QNetworkRequest.ContentTypeHeader, "multipart/form-data"
+                    QtNetwork.QNetworkRequest.ContentTypeHeader,
+                    f"multipart/form-data; boundary={payload.boundary().data().decode()}",
                 )
                 if self.authcfg:
                     auth_manager = qgis.core.QgsApplication.authManager()
@@ -349,7 +342,7 @@ class LayerUploaderTask(NetworkRequestTask):
                     auth_added = True
                 if auth_added:
                     qt_reply = self._dispatch_request(request, HttpMethod.POST, payload)
-                    # payload.setParent(qt_reply)
+                    payload.setParent(qt_reply)
                     request_id = qt_reply.property("requestId")
                     self._pending_replies[request_id] = (0, qt_reply)
                 else:
@@ -362,41 +355,16 @@ class LayerUploaderTask(NetworkRequestTask):
                 result = self._num_finished >= len(self.requests_to_perform)
         else:
             result = False
-        log(f"about to return result: {result}")
         return result
 
     def finished(self, result: bool) -> None:
-        log(
-            f"inside finished method that does not call the superclass' finish, with result: {result}"
-        )
-        if result:
-            for index, response in enumerate(self.response_contents):
-                if response is None:
-                    final_result = False
-                    break
-                elif response.qt_error is not None:
-                    final_result = False
-                    break
-            else:
-                final_result = result
-        else:
-            final_result = result
-        # for _, qt_reply in self._pending_replies.values():
-        #     qt_reply.deleteLater()
-        log(f"about to emit the task_done signal with a result of {result}")
-        self.task_done.emit(final_result)
-        log(f"emitted the task_done signal with a result of {result}")
-
-    # def finished(self, result: bool) -> None:
-    #     log(f"inside finished method, with result: {result}")
-    #     if self._temporary_directory is not None:
-    #         log(
-    #             f"About to delete the temporary directory at {self._temporary_directory} ..."
-    #         )
-    #         # shutil.rmtree(self._temporary_directory, ignore_errors=True)
-    #     log(f"before calling base class finished()")
-    #     super().finished(result)
-    #     log(f"after calling base class finished()")
+        if self._temporary_directory is not None:
+            log(
+                f"About to delete the temporary directory "
+                f"at {self._temporary_directory} ..."
+            )
+            # shutil.rmtree(self._temporary_directory, ignore_errors=True)
+        super().finished(result)
 
     def _is_layer_uploadable(self) -> bool:
         ds_uri = self.layer.dataProvider().dataSourceUri()
@@ -480,7 +448,7 @@ class LayerUploaderTask(NetworkRequestTask):
         self, dataset_contents: QtCore.QIODevice, dataset_filename: str
     ) -> QtNetwork.QHttpMultiPart:
         encoding = "utf-8"
-        result = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
+        multipart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
         metadata = self.layer.metadata()
         title_part = QtNetwork.QHttpPart()
         title_part.setHeader(
@@ -488,14 +456,14 @@ class LayerUploaderTask(NetworkRequestTask):
             'form-data; name="dataset_title"',
         )
         title_part.setBody(metadata.title().encode(encoding))
-        result.append(title_part)
+        multipart.append(title_part)
         abstract_part = QtNetwork.QHttpPart()
         abstract_part.setHeader(
             QtNetwork.QNetworkRequest.ContentDispositionHeader,
             'form-data; name="abstract"',
         )
         abstract_part.setBody(metadata.abstract().encode(encoding))
-        result.append(abstract_part)
+        multipart.append(abstract_part)
         false_items = (
             "time",
             "mosaic",
@@ -510,7 +478,7 @@ class LayerUploaderTask(NetworkRequestTask):
                 f'form-data; name="{item}"',
             )
             part.setBody("false".encode("utf-8"))
-            result.append(part)
+            multipart.append(part)
         permissions_part = QtNetwork.QHttpPart()
         permissions_part.setHeader(
             QtNetwork.QNetworkRequest.ContentDispositionHeader,
@@ -526,7 +494,7 @@ class LayerUploaderTask(NetworkRequestTask):
                 "download_resourcebase",
             ]
         permissions_part.setBody(json.dumps(permissions).encode(encoding))
-        result.append(permissions_part)
+        multipart.append(permissions_part)
         file_part = QtNetwork.QHttpPart()
         file_part.setHeader(
             QtNetwork.QNetworkRequest.ContentDispositionHeader,
@@ -536,8 +504,8 @@ class LayerUploaderTask(NetworkRequestTask):
             QtNetwork.QNetworkRequest.ContentTypeHeader, "application/x-qgis"
         )
         file_part.setBodyDevice(dataset_contents)
-        result.append(file_part)
-        return result
+        multipart.append(file_part)
+        return multipart
 
 
 def deserialize_json_response(
