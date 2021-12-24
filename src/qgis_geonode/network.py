@@ -114,9 +114,9 @@ class NetworkRequestTask(qgis.core.QgsTask):
     def __init__(
         self,
         requests_to_perform: typing.List[RequestToPerform],
+        network_task_timeout: int,
         authcfg: typing.Optional[str] = None,
         description: typing.Optional[str] = "AnotherNetworkRequestTask",
-        network_task_timeout: typing.Optional[int] = 10,
     ):
         """A QGIS task to run a series of network requests in sequence."""
         super().__init__(description)
@@ -188,6 +188,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
         # deal with the various types of errors that can arise. The alternative would
         # have been to rely on the base class' `taskCompleted` and `taskTerminated`
         # signals
+        log("inside the finished method of NetworkRequestTask")
         if result:
             for index, response in enumerate(self.response_contents):
                 if response is None:
@@ -202,7 +203,9 @@ class NetworkRequestTask(qgis.core.QgsTask):
             final_result = result
         for _, qt_reply in self._pending_replies.values():
             qt_reply.deleteLater()
+        log("about to emit the task_done signal...")
         self.task_done.emit(final_result)
+        log("emitted the task_done signal")
 
     def _dispatch_request(
         self,
@@ -240,15 +243,22 @@ class NetworkRequestTask(qgis.core.QgsTask):
 
         """
 
+        log(f"inside _handle_request_finished, request_id: {qgis_reply.requestId()}")
         try:
             index, qt_reply = self._pending_replies[qgis_reply.requestId()]
+            log(f"index: {index}")
         except KeyError:
+            log(f"got a key error")
             pass  # we are not managing this request, ignore
         else:
             parsed = parse_qt_network_reply(qt_reply)
+            log(f"parsed: {parsed}")
             self.response_contents[index] = parsed
             self._num_finished += 1
+            log(f"self._num_finished: {self._num_finished}")
+            log(f"len(self.requests_to_perform): {len(self.requests_to_perform)}")
             if self._num_finished >= len(self.requests_to_perform):
+                log(f"emitting _all_requests_finished...")
                 self._all_requests_finished.emit()
 
     def _handle_request_timed_out(
@@ -270,12 +280,10 @@ class NetworkRequestTask(qgis.core.QgsTask):
 
 
 class LayerUploaderTask(NetworkRequestTask):
-    VECTOR_UPLOAD_FORMAT: typing.Final[str] = "GPKG"
+    VECTOR_UPLOAD_FORMAT: typing.Final[str] = "gpkg"
     RASTER_UPLOAD_FORMAT: typing.Final[str] = "tif"
 
     layer: qgis.core.QgsMapLayer
-    network_access_manager: qgis.core.QgsNetworkAccessManager
-    network_timeout: int
     allow_public_access: bool
     _upload_url: QtCore.QUrl
     _temporary_directory: typing.Optional[Path]
@@ -286,15 +294,16 @@ class LayerUploaderTask(NetworkRequestTask):
         upload_url: QtCore.QUrl,
         allow_public_access: bool,
         authcfg: str,
+        network_task_timeout: int,
         description: str = "LayerUploaderTask",
-        network_timeout: typing.Optional[int] = 10,
     ):
         super().__init__(
             requests_to_perform=[],
             authcfg=authcfg,
             description=description,
-            network_task_timeout=network_timeout,
+            network_task_timeout=network_task_timeout,
         )
+        self.response_contents = [None]
         log("inside LayerUploaderTask.__init__()...")
         self.layer = layer
         self.allow_public_access = allow_public_access
@@ -316,15 +325,16 @@ class LayerUploaderTask(NetworkRequestTask):
             source_path, export_error = self._export_layer_to_temp_dir()
             log(f"source_path: {source_path}")
             log(f"export_error: {export_error}")
-        if export_error is not None:
+        if export_error is None:
             log(f"exported data is in {source_path}")
             # TODO: check if source path is an actual path
-            source_file = QtCore.QFile(str(source_path))
-            source_file.open(QtCore.QIODevice.ReadOnly)
-            payload = self._build_multipart(source_file, Path(source_path).name)
-            source_file.setParent(payload)
+            # source_file = QtCore.QFile(str(source_path))
+            # source_file.open(QtCore.QIODevice.ReadOnly)
+            # payload = self._build_multipart(source_file, Path(source_path).name)
+            # source_file.setParent(payload)
+            payload = None
             with wait_for_signal(
-                self._all_requests_finished, timeout=self.network_timeout
+                self._all_requests_finished, timeout=self.network_task_timeout
             ) as event_loop_result:
                 request = QtNetwork.QNetworkRequest(self._upload_url)
                 request.setHeader(
@@ -339,27 +349,54 @@ class LayerUploaderTask(NetworkRequestTask):
                     auth_added = True
                 if auth_added:
                     qt_reply = self._dispatch_request(request, HttpMethod.POST, payload)
-                    payload.setParent(qt_reply)
+                    # payload.setParent(qt_reply)
                     request_id = qt_reply.property("requestId")
                     self._pending_replies[request_id] = (0, qt_reply)
                 else:
                     self._all_requests_finished.emit()
             loop_forcibly_ended = not bool(event_loop_result.result)
+            log(f"loop_forcibly_ended: {loop_forcibly_ended}")
             if loop_forcibly_ended:
                 result = False
             else:
                 result = self._num_finished >= len(self.requests_to_perform)
         else:
             result = False
+        log(f"about to return result: {result}")
         return result
 
     def finished(self, result: bool) -> None:
-        if self._temporary_directory is not None:
-            log(
-                f"About to delete the temporary directory at {self._temporary_directory} ..."
-            )
-            # shutil.rmtree(self._temporary_directory, ignore_errors=True)
-        super().finished(result)
+        log(
+            f"inside finished method that does not call the superclass' finish, with result: {result}"
+        )
+        if result:
+            for index, response in enumerate(self.response_contents):
+                if response is None:
+                    final_result = False
+                    break
+                elif response.qt_error is not None:
+                    final_result = False
+                    break
+            else:
+                final_result = result
+        else:
+            final_result = result
+        # for _, qt_reply in self._pending_replies.values():
+        #     qt_reply.deleteLater()
+        log(f"about to emit the task_done signal with a result of {result}")
+        self.task_done.emit(final_result)
+        log(f"emitted the task_done signal with a result of {result}")
+
+    # def finished(self, result: bool) -> None:
+    #     log(f"inside finished method, with result: {result}")
+    #     if self._temporary_directory is not None:
+    #         log(
+    #             f"About to delete the temporary directory at {self._temporary_directory} ..."
+    #         )
+    #         # shutil.rmtree(self._temporary_directory, ignore_errors=True)
+    #     log(f"before calling base class finished()")
+    #     super().finished(result)
+    #     log(f"after calling base class finished()")
 
     def _is_layer_uploadable(self) -> bool:
         ds_uri = self.layer.dataProvider().dataSourceUri()
@@ -383,7 +420,7 @@ class LayerUploaderTask(NetworkRequestTask):
         else:
             log("is unknown - panic!")
             raise NotImplementedError()
-        return exported_path, error_message
+        return exported_path, error_message or None
 
     def _export_vector_layer(self) -> typing.Tuple[typing.Optional[Path], str]:
         sanitized_layer_name = sanitize_layer_name(self.layer.name())
@@ -400,7 +437,7 @@ class LayerUploaderTask(NetworkRequestTask):
             destCRS=qgis.core.QgsCoordinateReferenceSystem(),
             onlySelected=True,
             options={
-                "driverName": self.VECTOR_UPLOAD_FORMAT,
+                "driverName": self.VECTOR_UPLOAD_FORMAT.upper(),
                 "layerName": sanitized_layer_name,
             },
         )
@@ -414,10 +451,13 @@ class LayerUploaderTask(NetworkRequestTask):
         return result
 
     def _export_raster_layer(
-        self, target_dir: Path
+        self,
     ) -> typing.Tuple[typing.Optional[Path], typing.Optional[int]]:
         sanitized_layer_name = sanitize_layer_name(self.layer.name())
-        target_path = target_dir / f"{sanitized_layer_name}.{self.RASTER_UPLOAD_FORMAT}"
+        target_path = (
+            self._temporary_directory
+            / f"{sanitized_layer_name}.{self.RASTER_UPLOAD_FORMAT}"
+        )
         writer = qgis.core.QgsRasterFileWriter(str(target_path))
         writer.setOutputFormat("GTiff")
         pipe = self.layer.pipe()

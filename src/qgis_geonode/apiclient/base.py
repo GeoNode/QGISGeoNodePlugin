@@ -74,8 +74,8 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_dataset_list(self, search_filters: GeonodeApiSearchFilters) -> None:
         self.network_fetcher_task = network.NetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_filters))],
+            self.network_requests_timeout,
             self.auth_config,
-            network_task_timeout=self.network_requests_timeout,
             description="Get dataset list",
         )
         self.network_fetcher_task.task_done.connect(self.handle_dataset_list)
@@ -98,8 +98,8 @@ class BaseGeonodeClient(QtCore.QObject):
 
         self.network_fetcher_task = network.NetworkRequestTask(
             requests_to_perform,
+            self.network_requests_timeout,
             self.auth_config,
-            network_task_timeout=self.network_requests_timeout,
             description="Get dataset detail",
         )
         self.network_fetcher_task.task_done.connect(
@@ -120,7 +120,7 @@ class BaseGeonodeClient(QtCore.QObject):
             allow_public_access=allow_public_access,
             authcfg=self.auth_config,
             description="Upload layer to GeoNode",
-            network_timeout=60,
+            network_task_timeout=60 * 1000,
         )
         self.network_fetcher_task.task_done.connect(self.handle_layer_upload)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)

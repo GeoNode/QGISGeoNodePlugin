@@ -151,8 +151,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         dataset = self.get_dataset()
         self.network_task = network.NetworkRequestTask(
             [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
+            self.api_client.network_requests_timeout,
             self.connection_settings.auth_config,
-            network_task_timeout=self.api_client.network_requests_timeout,
             description="Get dataset style",
         )
         self.network_task.task_done.connect(self.handle_style_downloaded)
@@ -200,8 +200,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                         content_type=content_type,
                     )
                 ],
+                self.api_client.network_requests_timeout,
                 self.connection_settings.auth_config,
-                network_task_timeout=self.api_client.network_requests_timeout,
                 description="Upload dataset style to GeoNode",
             )
             self.network_task.task_done.connect(self.handle_style_uploaded)
@@ -348,8 +348,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                     content_type="application/json",
                 )
             ],
+            self.api_client.network_requests_timeout,
             self.api_client.auth_config,
-            network_task_timeout=self.api_client.network_requests_timeout,
             description="Upload metadata",
         )
         self.network_task.task_done.connect(self.handle_metadata_uploaded)

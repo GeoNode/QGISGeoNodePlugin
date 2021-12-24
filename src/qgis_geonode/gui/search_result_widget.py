@@ -161,8 +161,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
                     url=QtCore.QUrl(self.brief_dataset.thumbnail_url)
                 )
             ],
+            self.api_client.network_requests_timeout,
             self.api_client.auth_config,
-            network_task_timeout=self.api_client.network_requests_timeout,
             description=f"Get thumbnail for {self.brief_dataset.title!r}",
         )
         self.thumbnail_fetcher_task.task_done.connect(self.handle_thumbnail_response)
