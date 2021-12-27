@@ -1,6 +1,7 @@
 import json
 import typing
 import xml.etree.ElementTree as ET
+from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -412,8 +413,26 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def handle_layer_uploaded(self, dataset_pk: int):
         self._toggle_upload_controls(enabled=True)
         self._show_message("Layer uploaded successfully!")
-        log("inside handle_layer_uploaded")
-        self._layer_upload_api_client = None
+        # self.message_bar.clearWidgets()
+        # message_item = self.message_bar.createMessage("Layer uploaded successfully!")
+        # load_layer_pb = QtWidgets.QPushButton("Load layer")
+        # load_layer_pb.clicked.connect(
+        #     partial(
+        #         self.get_newly_uploaded_layer_details,
+        #         dataset_pk,
+        #         self._layer_upload_api_client
+        #     )
+        # )
+        # message_item.layout().addWidget(load_layer_pb)
+        # self.message_bar.pushWidget(message_item, level=qgis.core.Qgis.Info)
+
+    # def get_newly_uploaded_layer_details(self, dataset_pk: int):
+    #     self._layer_upload_api_client.dataset_detail_received.connect(
+    #         self.load_newly_uploaded_layer)
+    #     self._layer_upload_api_client.get_dataset_detail_from_id(dataset_pk)
+    #
+    # def load_newly_uploaded_layer(self, dataset: models.Dataset) -> None:
+    #     pass
 
     def handle_layer_upload_error(self, *args):
         log("inside handle_layer_upload_error")
