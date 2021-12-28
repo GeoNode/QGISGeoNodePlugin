@@ -125,6 +125,13 @@ class LayerUploaderTask(network.NetworkRequestTask):
             shx_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.shx"))
             shx_file.open(QtCore.QIODevice.ReadOnly)
             sidecar_files.append(("shx_file", shx_file))
+        elif self.layer.type() == qgis.core.QgsMapLayerType.RasterLayer:
+            # when uploading tif files GeoNode seems to want the same file be uploaded
+            # twice - one under the `base_file` form field and another under the
+            # `tif_file` form field. This seems like a bug in GeoNode though
+            tif_file = QtCore.QFile(str(source_path))
+            tif_file.open(QtCore.QIODevice.ReadOnly)
+            sidecar_files.append(("tif_file", tif_file))
         permissions = {
             "users": {},
             "groups": {},
@@ -259,20 +266,24 @@ def build_multipart(
 ) -> QtNetwork.QHttpMultiPart:
     encoding = "utf-8"
     multipart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
-    title_part = QtNetwork.QHttpPart()
-    title_part.setHeader(
-        QtNetwork.QNetworkRequest.ContentDispositionHeader,
-        'form-data; name="dataset_title"',
-    )
-    title_part.setBody(layer_metadata.title().encode(encoding))
-    multipart.append(title_part)
-    abstract_part = QtNetwork.QHttpPart()
-    abstract_part.setHeader(
-        QtNetwork.QNetworkRequest.ContentDispositionHeader,
-        'form-data; name="abstract"',
-    )
-    abstract_part.setBody(layer_metadata.abstract().encode(encoding))
-    multipart.append(abstract_part)
+    title = layer_metadata.title()
+    if title:
+        title_part = QtNetwork.QHttpPart()
+        title_part.setHeader(
+            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            'form-data; name="dataset_title"',
+        )
+        title_part.setBody(layer_metadata.title().encode(encoding))
+        multipart.append(title_part)
+    abstract = layer_metadata.abstract()
+    if abstract:
+        abstract_part = QtNetwork.QHttpPart()
+        abstract_part.setHeader(
+            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            'form-data; name="abstract"',
+        )
+        abstract_part.setBody(layer_metadata.abstract().encode(encoding))
+        multipart.append(abstract_part)
     false_items = (
         "time",
         "mosaic",
@@ -305,9 +316,11 @@ def build_multipart(
             QtNetwork.QNetworkRequest.ContentDispositionHeader,
             f'form-data; name="{form_element_name}"; filename="{file_name}"',
         )
-        part.setHeader(
-            QtNetwork.QNetworkRequest.ContentTypeHeader, "application/x-qgis"
-        )
+        if file_name.rpartition(".")[-1] == "tif":
+            content_type = "image/tiff"
+        else:
+            content_type = "application/qgis"
+        part.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
         part.setBodyDevice(file_handler)
         multipart.append(part)
     return multipart
