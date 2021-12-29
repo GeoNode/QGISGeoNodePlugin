@@ -1,9 +1,12 @@
 import dataclasses
 import enum
 import json
+import tempfile
+import shutil
 import typing
 from contextlib import contextmanager
 from functools import partial
+from pathlib import Path
 
 import qgis.core
 from PyQt5 import QtNetwork
@@ -111,11 +114,11 @@ class NetworkRequestTask(qgis.core.QgsTask):
     def __init__(
         self,
         requests_to_perform: typing.List[RequestToPerform],
+        network_task_timeout: int,
         authcfg: typing.Optional[str] = None,
         description: typing.Optional[str] = "AnotherNetworkRequestTask",
-        network_task_timeout: typing.Optional[int] = 10,
     ):
-        """A QGIS task to run a series of network requests in sequence."""
+        """A QGIS task to run multiple network requests in parallel."""
         super().__init__(description)
         self.authcfg = authcfg
         self.network_task_timeout = network_task_timeout
@@ -138,7 +141,8 @@ class NetworkRequestTask(qgis.core.QgsTask):
         This method is called by the QGIS task manager.
 
         Implementation uses a custom Qt event loop that waits until
-        all of the task's requests have been performed.
+        all of the HTTP requests have been performed. This is done by waiting on the
+        `self._all_requests_finished` signal to be emitted.
 
         """
 
@@ -150,7 +154,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
                 timeout=self.network_task_timeout * len(self.requests_to_perform),
             ) as event_loop_result:
                 for index, request_params in enumerate(self.requests_to_perform):
-                    request = self._create_request(
+                    request = create_request(
                         request_params.url, request_params.content_type
                     )
                     if self.authcfg:
@@ -160,7 +164,6 @@ class NetworkRequestTask(qgis.core.QgsTask):
                         )
                     else:
                         auth_added = True
-                    log(f"auth_added: {auth_added}")
                     if auth_added:
                         qt_reply = self._dispatch_request(
                             request, request_params.method, request_params.payload
@@ -197,26 +200,20 @@ class NetworkRequestTask(qgis.core.QgsTask):
                 final_result = result
         else:
             final_result = result
-        for _, qt_reply in self._pending_replies.values():
-            qt_reply.deleteLater()
+        # for _, qt_reply in self._pending_replies.values():
+        #     qt_reply.deleteLater()
         self.task_done.emit(final_result)
-
-    def _create_request(
-        self, url: QtCore.QUrl, content_type: typing.Optional[str] = None
-    ) -> QtNetwork.QNetworkRequest:
-        request = QtNetwork.QNetworkRequest(url)
-        if content_type is not None:
-            request.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
-        return request
 
     def _dispatch_request(
         self,
         request: QtNetwork.QNetworkRequest,
         method: HttpMethod,
-        payload: typing.Optional[str],
+        payload: typing.Optional[typing.Union[str, QtNetwork.QHttpMultiPart]],
     ) -> QtNetwork.QNetworkReply:
         if method == HttpMethod.GET:
             reply = self.network_access_manager.get(request)
+        elif method == HttpMethod.POST:
+            reply = self.network_access_manager.post(request, payload)
         elif method == HttpMethod.PUT:
             data_ = QtCore.QByteArray(payload.encode())
             reply = self.network_access_manager.put(request, data_)
@@ -319,7 +316,6 @@ def parse_network_reply(reply: qgis.core.QgsNetworkReplyContent) -> ParsedNetwor
     else:
         qt_error = _Q_NETWORK_REPLY_ERROR_MAP[error]
     body = reply.content()
-    log(f"body: {body.data().decode()}")
     return ParsedNetworkReply(
         http_status_code=http_status_code,
         http_status_reason=http_status_reason,
@@ -372,3 +368,22 @@ class ApiClientDiscovererTask(qgis.core.QgsTask):
 
     def finished(self, result: bool):
         self.discovery_finished.emit(self.discovery_result)
+
+
+def create_request(
+    url: QtCore.QUrl, content_type: typing.Optional[str] = None
+) -> QtNetwork.QNetworkRequest:
+    request = QtNetwork.QNetworkRequest(url)
+    if content_type is not None:
+        request.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
+    return request
+
+
+def sanitize_layer_name(name: str) -> str:
+    chars_to_replace = [
+        ">",
+        "<",
+        "|",
+        " ",
+    ]
+    return "".join(c if c not in chars_to_replace else "_" for c in name)
