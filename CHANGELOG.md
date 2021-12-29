@@ -6,7 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+
+## [0.5.0] - 2021-12-29
+
+### Added
 - Allow uploading QGIS layers to GeoNode as new datasets
+
+### Fixed
+- QGIS plugins menu no longer shows empy reference to this plugin
 
 
 ## [0.4.0] - 2021-12-20
@@ -139,18 +147,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.4.0...main
-[0.4.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.4.0...main
-[0.3.4]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.4...main
-[0.3.3]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.3...main
-[0.3.2]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.2...main
-[0.3.1]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.1...main
-[0.3.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.3.0...main
-[0.2.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.2.0...main
-[0.1.1]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.1.1...main
-[0.1.0]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.1.0...main
-[0.0.9]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.9...main
-[0.0.8]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.8...main
-[0.0.7]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.7...main
-[0.0.6]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.6...main
-[0.0.5]: https://github.com/kartoza/qgis_checklist_checker/compare/v0.0.5...main
+[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.5.0...main
+[0.5.0]: https://github.com/kartoza/qgis_geonode/compare/v0.5.0...main
+[0.4.0]: https://github.com/kartoza/qgis_geonode/compare/v0.4.0...main
+[0.3.4]: https://github.com/kartoza/qgis_geonode/compare/v0.3.4...main
+[0.3.3]: https://github.com/kartoza/qgis_geonode/compare/v0.3.3...main
+[0.3.2]: https://github.com/kartoza/qgis_geonode/compare/v0.3.2...main
+[0.3.1]: https://github.com/kartoza/qgis_geonode/compare/v0.3.1...main
+[0.3.0]: https://github.com/kartoza/qgis_geonode/compare/v0.3.0...main
+[0.2.0]: https://github.com/kartoza/qgis_geonode/compare/v0.2.0...main
+[0.1.1]: https://github.com/kartoza/qgis_geonode/compare/v0.1.1...main
+[0.1.0]: https://github.com/kartoza/qgis_geonode/compare/v0.1.0...main
+[0.0.9]: https://github.com/kartoza/qgis_geonode/compare/v0.0.9...main
+[0.0.8]: https://github.com/kartoza/qgis_geonode/compare/v0.0.8...main
+[0.0.7]: https://github.com/kartoza/qgis_geonode/compare/v0.0.7...main
+[0.0.6]: https://github.com/kartoza/qgis_geonode/compare/v0.0.6...main
+[0.0.5]: https://github.com/kartoza/qgis_geonode/compare/v0.0.5...main
