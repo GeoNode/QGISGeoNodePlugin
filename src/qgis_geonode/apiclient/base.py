@@ -10,9 +10,7 @@ from qgis.PyQt import (
 from .. import (
     conf,
     network,
-    uploader,
 )
-from ..utils import log
 
 from . import models
 from .models import GeonodeApiSearchFilters
@@ -161,21 +159,19 @@ class BaseGeonodeClient(QtCore.QObject):
     def handle_dataset_detail_from_id(self, task_result: bool):
         raise NotImplementedError
 
+    def get_uploader_task(
+        self, layer: qgis.core.QgsMapLayer, allow_public_access: bool, timeout: int
+    ) -> qgis.core.QgsTask:
+        raise NotImplementedError
+
     def upload_layer(
         self, layer: qgis.core.QgsMapLayer, allow_public_access: bool
     ) -> None:
-        log("inside apiclient upload_layer...")
-        self.network_fetcher_task = uploader.LayerUploaderTask(
-            layer,
-            self.get_dataset_upload_url(),
-            allow_public_access=allow_public_access,
-            authcfg=self.auth_config,
-            description="Upload layer to GeoNode",
-            network_task_timeout=60 * 1000,
-        )
+        self.network_fetcher_task = self.get_uploader_task(
+            layer, allow_public_access, timeout=10 * 60 * 1000
+        )  # the GeoNode GUI also uses a 10 minute timeout for uploads
         self.network_fetcher_task.task_done.connect(self.handle_layer_upload)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
-        log("leaving apiclient upload_layer...")
 
     def handle_layer_upload(self, result: bool):
         """Handle layer upload outcome.

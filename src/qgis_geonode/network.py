@@ -118,7 +118,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
         authcfg: typing.Optional[str] = None,
         description: typing.Optional[str] = "AnotherNetworkRequestTask",
     ):
-        """A QGIS task to run a series of network requests in sequence."""
+        """A QGIS task to run multiple network requests in parallel."""
         super().__init__(description)
         self.authcfg = authcfg
         self.network_task_timeout = network_task_timeout
@@ -141,7 +141,8 @@ class NetworkRequestTask(qgis.core.QgsTask):
         This method is called by the QGIS task manager.
 
         Implementation uses a custom Qt event loop that waits until
-        all of the task's requests have been performed.
+        all of the HTTP requests have been performed. This is done by waiting on the
+        `self._all_requests_finished` signal to be emitted.
 
         """
 
@@ -163,7 +164,6 @@ class NetworkRequestTask(qgis.core.QgsTask):
                         )
                     else:
                         auth_added = True
-                    log(f"auth_added: {auth_added}")
                     if auth_added:
                         qt_reply = self._dispatch_request(
                             request, request_params.method, request_params.payload
@@ -200,10 +200,9 @@ class NetworkRequestTask(qgis.core.QgsTask):
                 final_result = result
         else:
             final_result = result
-        for _, qt_reply in self._pending_replies.values():
-            qt_reply.deleteLater()
+        # for _, qt_reply in self._pending_replies.values():
+        #     qt_reply.deleteLater()
         self.task_done.emit(final_result)
-        log(f"emitted the task_done signal with a result of {final_result}")
 
     def _dispatch_request(
         self,
@@ -241,22 +240,15 @@ class NetworkRequestTask(qgis.core.QgsTask):
 
         """
 
-        log(f"inside _handle_request_finished, request_id: {qgis_reply.requestId()}")
         try:
             index, qt_reply = self._pending_replies[qgis_reply.requestId()]
-            log(f"index: {index}")
         except KeyError:
-            log(f"got a key error")
             pass  # we are not managing this request, ignore
         else:
             parsed = parse_qt_network_reply(qt_reply)
-            log(f"parsed: {parsed}")
             self.response_contents[index] = parsed
             self._num_finished += 1
-            log(f"self._num_finished: {self._num_finished}")
-            log(f"len(self.requests_to_perform): {len(self.requests_to_perform)}")
             if self._num_finished >= len(self.requests_to_perform):
-                log(f"emitting _all_requests_finished...")
                 self._all_requests_finished.emit()
 
     def _handle_request_timed_out(
@@ -324,7 +316,6 @@ def parse_network_reply(reply: qgis.core.QgsNetworkReplyContent) -> ParsedNetwor
     else:
         qt_error = _Q_NETWORK_REPLY_ERROR_MAP[error]
     body = reply.content()
-    log(f"body: {body.data().decode()}")
     return ParsedNetworkReply(
         http_status_code=http_status_code,
         http_status_reason=http_status_reason,

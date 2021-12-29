@@ -7,6 +7,7 @@ from uuid import UUID
 
 import qgis.core
 import qgis.gui
+import qgis.utils
 
 from qgis.PyQt import (
     QtCore,
@@ -413,29 +414,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def handle_layer_uploaded(self, dataset_pk: int):
         self._toggle_upload_controls(enabled=True)
         self._show_message("Layer uploaded successfully!")
-        # self.message_bar.clearWidgets()
-        # message_item = self.message_bar.createMessage("Layer uploaded successfully!")
-        # load_layer_pb = QtWidgets.QPushButton("Load layer")
-        # load_layer_pb.clicked.connect(
-        #     partial(
-        #         self.get_newly_uploaded_layer_details,
-        #         dataset_pk,
-        #         self._layer_upload_api_client
-        #     )
-        # )
-        # message_item.layout().addWidget(load_layer_pb)
-        # self.message_bar.pushWidget(message_item, level=qgis.core.Qgis.Info)
-
-    # def get_newly_uploaded_layer_details(self, dataset_pk: int):
-    #     self._layer_upload_api_client.dataset_detail_received.connect(
-    #         self.load_newly_uploaded_layer)
-    #     self._layer_upload_api_client.get_dataset_detail_from_id(dataset_pk)
-    #
-    # def load_newly_uploaded_layer(self, dataset: models.Dataset) -> None:
-    #     pass
 
     def handle_layer_upload_error(self, *args):
-        log("inside handle_layer_upload_error")
         self._toggle_upload_controls(enabled=True)
         self._show_message(
             " - ".join(str(i) for i in args), level=qgis.core.Qgis.Critical
@@ -489,16 +469,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         return self.parent().parent().parent().parent()
 
     def _toggle_link_controls(self, enabled: bool) -> None:
-        widgets = (
-            self.open_detail_url_pb,
-            self.open_link_url_pb,
-        )
-        for widget in widgets:
-            widget.setEnabled(enabled)
+        self.links_gb.setEnabled(enabled)
 
     def _toggle_style_controls(self, enabled: bool) -> None:
+        widgets = [self.style_gb]
         if enabled:
-            widgets = []
             if self.connection_settings is not None:
                 can_load_style = models.loading_style_supported(
                     self.layer.type(), self.api_client.capabilities
@@ -514,16 +489,13 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 if can_modify_style and has_style_url and is_service:
                     widgets.append(self.upload_style_pb)
         else:
-            widgets = [
-                self.upload_style_pb,
-                self.download_style_pb,
-            ]
+            widgets.extend((self.upload_style_pb, self.download_style_pb))
         for widget in widgets:
             widget.setEnabled(enabled)
 
     def _toggle_metadata_controls(self, enabled: bool) -> None:
+        widgets = [self.metadata_gb]
         if enabled:
-            widgets = []
             if self.connection_settings is not None:
                 can_load_metadata = (
                     models.ApiClientCapability.LOAD_LAYER_METADATA
@@ -538,10 +510,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 if can_modify_metadata:
                     widgets.append(self.upload_metadata_pb)
         else:
-            widgets = [
-                self.upload_metadata_pb,
-                self.download_metadata_pb,
-            ]
+            widgets.extend((self.upload_metadata_pb, self.download_metadata_pb))
         for widget in widgets:
             widget.setEnabled(enabled)
 
