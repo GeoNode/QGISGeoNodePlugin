@@ -23,6 +23,7 @@ pymdown-extensions = "^8.1.1"
 pytest-custom-exit-code = "^0.3.0"
 mypy = "^0.930"
 qgis-stubs = "^0.1.0"
+PyQt5-stubs = "^5.15.2"
 
 [tool.poetry.dev-dependencies]
 
