@@ -9,3 +9,10 @@ A QGIS plugin that provides integration with GeoNode.
 Check out the plugin documentation at:
 
 <https://kartoza.github.io/qgis_geonode/>
+
+
+## Vendorized dependencies
+
+This plugin uses part of the code of the 
+[packaging](https://packaging.pypa.io/en/latest/index.html) package. Check the
+`src/qgis_geonode/vendor/README.md` for more details.

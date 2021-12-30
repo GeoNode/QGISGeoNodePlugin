@@ -15,6 +15,7 @@ from ..apiclient import (
     base,
     get_geonode_client,
     models,
+    select_client_class_path,
 )
 from .. import (
     conf,
@@ -38,7 +39,7 @@ _INVALID_CONNECTION_MESSAGE = (
 
 class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     api_client: typing.Optional[base.BaseGeonodeClient] = None
-    discovery_task: typing.Optional[network.ApiClientDiscovererTask]
+    discovery_task: typing.Optional[network.NetworkRequestTask]
     abstract_la: QtWidgets.QLabel
     abstract_le: QtWidgets.QLineEdit
     category_la: QtWidgets.QLabel
@@ -418,20 +419,34 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def discover_api_client(self, next_: typing.Callable, *next_args, **next_kwargs):
         current_connection = conf.settings_manager.get_current_connection_settings()
-        self.discovery_task = network.ApiClientDiscovererTask(
-            current_connection.base_url
+        self.discovery_task = network.NetworkRequestTask(
+            [
+                network.RequestToPerform(
+                    QtCore.QUrl(f"{current_connection.base_url}/version.txt")
+                )
+            ],
+            current_connection.network_requests_timeout,
+            current_connection.auth_config,
+            description="Test GeoNode connection",
         )
-        self.discovery_task.discovery_finished.connect(
+        self.discovery_task.task_done.connect(
             partial(self.handle_api_client_discovery, next_, *next_args, **next_kwargs)
         )
         qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
     def handle_api_client_discovery(
-        self, next_: typing.Callable, discovery_result, *next_args, **next_kwargs
+        self, next_: typing.Callable, task_result: bool, *next_args, **next_kwargs
     ):
-        log(f"inside handle_api_client_discovery. locals: {locals()}")
+        geonode_version = network.handle_discovery_test(
+            task_result, self.discovery_task
+        )
+        if geonode_version is not None:
+            api_class_path = select_client_class_path(geonode_version)
+        else:
+            api_class_path = network.UNSUPPORTED_REMOTE
         current_connection = conf.settings_manager.get_current_connection_settings()
-        current_connection.api_client_class_path = discovery_result
+        current_connection.api_client_class_path = api_class_path
+        current_connection.geonode_version = geonode_version
         conf.settings_manager.save_connection_settings(current_connection)
         self.update_connections_combobox()
         next_(*next_args, **next_kwargs)

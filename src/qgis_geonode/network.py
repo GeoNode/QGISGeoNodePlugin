@@ -16,6 +16,7 @@ from qgis.PyQt import (
 )
 
 from .utils import log
+from .vendor.packaging import version as packaging_version
 
 UNSUPPORTED_REMOTE = "unsupported"
 
@@ -324,52 +325,6 @@ def parse_network_reply(reply: qgis.core.QgsNetworkReplyContent) -> ParsedNetwor
     )
 
 
-class ApiClientDiscovererTask(qgis.core.QgsTask):
-    discovery_result: typing.Optional[str]
-
-    discovery_finished = QtCore.pyqtSignal(str)
-
-    def __init__(
-        self, base_url: str, description: typing.Optional[str] = "MyApiDiscovererTask"
-    ):
-        """A task to autodetect the best API client to use for the provided base_url."""
-        super().__init__(description)
-        self.base_url = base_url
-        self.discovery_result = None
-
-    def run(self) -> bool:
-        network_manager = qgis.core.QgsNetworkAccessManager()
-        # DO NOT CHANGE THE ORDER OF THE LIST BELOW! Otherwise detection will not work OK
-        urls_to_try = [
-            (
-                f"{self.base_url}/api/v2/datasets/",
-                "qgis_geonode.apiclient.version_postv2.GeonodePostV2ApiClient",
-            ),
-            # TODO: Implement the other api clients
-            (f"{self.base_url}/api/v2/", "qgis_geonode.apiclient.apiv2"),
-            (
-                f"{self.base_url}/api/",
-                "qgis_geonode.apiclient.version_legacy.GeonodeLegacyApiClient",
-            ),
-        ]
-        for url, client_class_path in urls_to_try:
-            log(f"Performing request for {url!r}...")
-            request = QtNetwork.QNetworkRequest(QtCore.QUrl(url))
-            reply_content = network_manager.blockingGet(request)
-            parsed_reply = parse_network_reply(reply_content)
-            if parsed_reply.http_status_code == 200:
-                self.discovery_result = client_class_path
-                result = True
-                break
-        else:
-            self.discovery_result = UNSUPPORTED_REMOTE
-            result = False
-        return result
-
-    def finished(self, result: bool):
-        self.discovery_finished.emit(self.discovery_result)
-
-
 def create_request(
     url: QtCore.QUrl, content_type: typing.Optional[str] = None
 ) -> QtNetwork.QNetworkRequest:
@@ -387,3 +342,17 @@ def sanitize_layer_name(name: str) -> str:
         " ",
     ]
     return "".join(c if c not in chars_to_replace else "_" for c in name)
+
+
+def handle_discovery_test(
+    finished_task_result: bool, finished_task: qgis.core.QgsTask
+) -> typing.Optional[packaging_version.Version]:
+    geonode_version = None
+    if finished_task_result:
+        response_contents = finished_task.response_contents[0]
+        if response_contents is not None and response_contents.qt_error is None:
+            raw_version = response_contents.response_body.data().decode()
+            geonode_version = packaging_version.parse(
+                response_contents.response_body.data().decode()
+            )
+    return geonode_version

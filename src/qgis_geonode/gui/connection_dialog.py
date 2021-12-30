@@ -13,13 +13,14 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
-from .. import network, utils
+from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
     settings_manager,
 )
 from ..utils import tr
+from ..vendor.packaging import version as packaging_version
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
@@ -39,7 +40,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     connection_id: uuid.UUID
     api_client_class_path: typing.Optional[str]
-    discovery_task: typing.Optional[network.ApiClientDiscovererTask]
+    remote_geonode_version: typing.Optional[packaging_version.Version]
+    discovery_task: typing.Optional[network.NetworkRequestTask]
     geonode_client: BaseGeonodeClient = None
 
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
@@ -62,6 +64,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         if connection_settings is not None:
             self.connection_id = connection_settings.id
             self.api_client_class_path = connection_settings.api_client_class_path
+            self.remote_geonode_version = connection_settings.geonode_version
             self.name_le.setText(connection_settings.name)
             self.url_le.setText(connection_settings.base_url)
             self.authcfg_acs.setConfigId(connection_settings.auth_config)
@@ -74,6 +77,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         else:
             self.connection_id = uuid.uuid4()
             self.api_client_class_path = None
+            self.remote_geonode_version = None
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
         ok_signals = [
             self.name_le.textChanged,
@@ -97,29 +101,44 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             auth_config=self.authcfg_acs.configId(),
             page_size=self.page_size_sb.value(),
             api_client_class_path=self.api_client_class_path,
+            geonode_version=self.remote_geonode_version,
         )
 
     def test_connection(self):
         for widget in self._widgets_to_toggle_during_connection_test:
             widget.setEnabled(False)
         current_settings = self.get_connection_settings()
-        self.discovery_task = network.ApiClientDiscovererTask(current_settings.base_url)
-        self.discovery_task.discovery_finished.connect(self.handle_discovery_test)
-        self.discovery_task.discovery_finished.connect(
-            self.enable_post_test_connection_buttons
+        self.discovery_task = network.NetworkRequestTask(
+            [
+                network.RequestToPerform(
+                    QtCore.QUrl(f"{current_settings.base_url}/version.txt")
+                )
+            ],
+            network_task_timeout=current_settings.network_requests_timeout,
+            authcfg=current_settings.auth_config,
+            description="Test GeoNode connection",
         )
+        self.discovery_task.task_done.connect(self.handle_discovery_test)
         self.show_progress(tr("Testing connection..."), include_progress_bar=True)
         qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
-    def handle_discovery_test(self, discovered_api_client_class_path: str):
-        self.bar.clearWidgets()
-        self.api_client_class_path = discovered_api_client_class_path
-        if self.api_client_class_path != network.UNSUPPORTED_REMOTE:
-            self.bar.pushMessage("Connection is valid", level=qgis.core.Qgis.Info)
-        else:
-            self.bar.pushMessage(
-                "Connection is not valid", level=qgis.core.Qgis.Critical
+    def handle_discovery_test(self, task_result: bool):
+        self.enable_post_test_connection_buttons()
+        geonode_version = network.handle_discovery_test(
+            task_result, self.discovery_task
+        )
+        if geonode_version is not None:
+            self.remote_geonode_version = geonode_version
+            self.api_client_class_path = apiclient.select_client_class_path(
+                geonode_version
             )
+            message = "Connection is valid"
+            level = qgis.core.Qgis.Info
+        else:
+            message = "Connection is not valid"
+            level = qgis.core.Qgis.Critical
+            self.api_client_class_path = network.UNSUPPORTED_REMOTE
+        utils.show_message(self.bar, message, level)
 
     def enable_post_test_connection_buttons(self):
         for widget in self._widgets_to_toggle_during_connection_test:
@@ -162,11 +181,3 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         return utils.show_message(
             self.bar, message, message_level, add_loading_widget=include_progress_bar
         )
-
-
-def _clear_layout(layout: QtWidgets.QLayout):
-    while layout.count() > 0:
-        child = layout.takeAt(0)
-        widget = child.widget()
-        if widget is not None:
-            widget.deleteLater()

@@ -1,7 +1,6 @@
 import contextlib
 import dataclasses
 import json
-import logging
 import typing
 import uuid
 
@@ -12,8 +11,8 @@ from qgis.core import QgsRectangle, QgsSettings
 
 from .apiclient import models
 from .apiclient.models import GeonodeResourceType, IsoTopicCategory
-
-logger = logging.getLogger(__name__)
+from .utils import log
+from .vendor.packaging import version as packaging_version
 
 
 @contextlib.contextmanager
@@ -46,6 +45,7 @@ class ConnectionSettings:
         default_factory=_get_network_requests_timeout, init=False
     )
     api_client_class_path: typing.Optional[str] = None
+    geonode_version: typing.Optional[packaging_version.Version] = None
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -54,6 +54,11 @@ class ConnectionSettings:
             reported_auth_cfg = settings.value("auth_config").strip()
         except AttributeError:
             reported_auth_cfg = None
+        raw_geonode_version = settings.value("geonode_version") or None
+        if raw_geonode_version is not None:
+            geonode_version = packaging_version.parse(raw_geonode_version)
+        else:
+            geonode_version = None
         return cls(
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
@@ -61,6 +66,7 @@ class ConnectionSettings:
             page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg,
             api_client_class_path=settings.value("api_client_class_path") or None,
+            geonode_version=geonode_version,
         )
 
     def to_json(self):
@@ -72,6 +78,9 @@ class ConnectionSettings:
                 "page_size": self.page_size,
                 "auth_config": self.auth_config,
                 "api_client_class_path": self.api_client_class_path,
+                "geonode_version": str(self.geonode_version)
+                if self.geonode_version is not None
+                else None,
             }
         )
 
@@ -148,6 +157,14 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("auth_config", connection_settings.auth_config)
             settings.setValue(
                 "api_client_class_path", connection_settings.api_client_class_path or ""
+            )
+            settings.setValue(
+                "geonode_version",
+                (
+                    str(connection_settings.geonode_version)
+                    if connection_settings.geonode_version is not None
+                    else ""
+                ),
             )
 
     def delete_connection(self, connection_id: uuid.UUID):
