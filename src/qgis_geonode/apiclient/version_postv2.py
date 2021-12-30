@@ -358,7 +358,14 @@ class LayerUploaderTask(network.NetworkRequestTask):
             source_path, export_error = self._export_layer_to_temp_dir()
         log(f"source_path: {source_path}")
         if export_error is None:
-            multipart = self._prepare_multipart(source_path)
+            sld_path, sld_error = self._export_layer_style()
+            log(f"sld_path: {sld_path}")
+            if sld_path is None:
+                log(
+                    f"Could not export the layer's style as SLD "
+                    f"({sld_error}), skipping..."
+                )
+            multipart = self._prepare_multipart(source_path, sld_path=sld_path)
             with network.wait_for_signal(
                 self._all_requests_finished, timeout=self.network_task_timeout
             ) as event_loop_result:
@@ -397,10 +404,16 @@ class LayerUploaderTask(network.NetworkRequestTask):
             shutil.rmtree(self._temporary_directory, ignore_errors=True)
         super().finished(result)
 
-    def _prepare_multipart(self, source_path: Path) -> QtNetwork.QHttpMultiPart:
+    def _prepare_multipart(
+        self, source_path: Path, sld_path: typing.Optional[Path] = None
+    ) -> QtNetwork.QHttpMultiPart:
         main_file = QtCore.QFile(str(source_path))
         main_file.open(QtCore.QIODevice.ReadOnly)
         sidecar_files = []
+        if sld_path is not None:
+            sld_file = QtCore.QFile(str(sld_path))
+            sld_file.open(QtCore.QIODevice.ReadOnly)
+            sidecar_files.append(("sld_file", sld_file))
         if self.layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
             dbf_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.dbf"))
             dbf_file.open(QtCore.QIODevice.ReadOnly)
@@ -453,15 +466,16 @@ class LayerUploaderTask(network.NetworkRequestTask):
     def _export_layer_to_temp_dir(
         self,
     ) -> typing.Tuple[typing.Optional[Path], typing.Optional[str]]:
-        self._temporary_directory = Path(tempfile.mkdtemp(prefix="qgis_geonode_"))
-        error_message = None
+        if self._temporary_directory is None:
+            self._temporary_directory = Path(tempfile.mkdtemp(prefix="qgis_geonode_"))
         if self.layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
             exported_path, error_message = self._export_vector_layer()
         elif self.layer.type() == qgis.core.QgsMapLayerType.RasterLayer:
             exported_path, export_error = self._export_raster_layer()
+            error_message = str(export_error)
         else:
             raise NotImplementedError()
-        return exported_path, error_message or None
+        return exported_path, (error_message or None)
 
     def _export_vector_layer(
         self,
@@ -507,6 +521,18 @@ class LayerUploaderTask(network.NetworkRequestTask):
             result = (target_path, None)
         else:
             result = (None, write_error)
+        return result
+
+    def _export_layer_style(self) -> typing.Tuple[typing.Optional[Path], str]:
+        sanitized_layer_name = network.sanitize_layer_name(self.layer.name())
+        if self._temporary_directory is None:
+            self._temporary_directory = Path(tempfile.mkdtemp(prefix="qgis_geonode_"))
+        target_path = self._temporary_directory / f"{sanitized_layer_name}.sld"
+        saved_sld_details, sld_exported_flag = self.layer.saveSldStyle(str(target_path))
+        if "created default style" in saved_sld_details.lower():
+            result = (target_path, "")
+        else:
+            result = (None, saved_sld_details)
         return result
 
 
