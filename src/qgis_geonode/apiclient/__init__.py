@@ -1,6 +1,7 @@
-import dataclasses
 import importlib
 import typing
+
+from ..vendor.packaging import version as packaging_version
 
 
 def get_geonode_client(
@@ -14,25 +15,13 @@ def get_geonode_client(
     return class_type.from_connection_settings(connection_settings)
 
 
-@dataclasses.dataclass
-class GeonodeVersion:
-    major: int
-    minor: int
-    patch: int
-    pre_release: typing.Optional[str] = None
-    build_metadata: typing.Optional[str] = None
-
-
-def parse_geonode_version(raw_version: str) -> GeonodeVersion:
-    """Parse GeoNode version as if it were using semantic versioning.
-
-    Consult https://semver.org/ for more detail on semantic versioning.
-
-    """
-
-    pre_release_fragment, build_metadata = raw_version.partition("+")[::2]
-    version_fragment, pre_release = pre_release_fragment.partition("-")[::2]
-    major, minor, patch = (int(part) for part in version_fragment.split("."))
-    return GeonodeVersion(
-        major, minor, patch, pre_release or None, build_metadata or None
-    )
+def select_client_class_path(geonode_version: packaging_version.Version) -> str:
+    if geonode_version.is_devrelease or geonode_version.major == 4:
+        result = "qgis_geonode.apiclient.version_postv2.GeonodePostV2ApiClient"
+    elif geonode_version.major == 3 and geonode_version.minor >= 4:
+        result = "qgis_geonode.apiclient.version_postv2.GeonodePostV2ApiClient"
+    elif geonode_version.major == 3 and geonode_version.minor == 3:
+        result = "qgis_geonode.apiclient.version_postv2.GeonodePostV2ApiClient"
+    else:
+        result = "qgis_geonode.apiclient.version_legacy.GeonodeLegacyApiClient"
+    return result
