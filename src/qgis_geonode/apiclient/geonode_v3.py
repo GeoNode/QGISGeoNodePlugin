@@ -1,3 +1,5 @@
+"""API client classes for GeoNode versions 3.3.0 and up"""
+
 import dataclasses
 import datetime as dt
 import json
@@ -24,8 +26,7 @@ from . import models
 from .base import BaseGeonodeClient
 
 
-class GeonodePostV2ApiClient(BaseGeonodeClient):
-    """An API Client for GeoNode versions above v3.2"""
+class GeonodeApiClientVersion_3_4_0(BaseGeonodeClient):
 
     capabilities = [
         models.ApiClientCapability.FILTER_BY_TITLE,
@@ -138,9 +139,6 @@ class GeonodePostV2ApiClient(BaseGeonodeClient):
 
     def get_dataset_detail_url(self, dataset_id: int) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.dataset_list_url}{dataset_id}/")
-
-    def get_layer_style_list_url(self, layer_id: int):
-        return QtCore.QUrl(f"{self.dataset_list_url}{layer_id}/styles/")
 
     def get_dataset_upload_url(self) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.api_url}/uploads/upload/")
@@ -534,6 +532,122 @@ class LayerUploaderTask(network.NetworkRequestTask):
         else:
             result = (None, saved_sld_details)
         return result
+
+
+class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_4_0):
+    """API client for GeoNode version 3.3.x.
+
+    GeoNode version 3.3.0 still used `layers` instead of `datasets`. It also did not
+    allow the upload of new datasets via API when using OAuth2 auth.
+
+    """
+
+    capabilities = [
+        models.ApiClientCapability.FILTER_BY_TITLE,
+        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
+        models.ApiClientCapability.FILTER_BY_ABSTRACT,
+        models.ApiClientCapability.FILTER_BY_KEYWORD,
+        models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
+        models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
+        models.ApiClientCapability.LOAD_LAYER_METADATA,
+        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE,
+        models.ApiClientCapability.MODIFY_LAYER_METADATA,
+        # NOTE: loading raster layer style is not present here
+        # because QGIS does not currently support loading SLD for raster layers
+        models.ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE,
+        models.ApiClientCapability.MODIFY_RASTER_LAYER_STYLE,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
+        # upload of datasets via API using OAuth2 auth does not work, so the relevant
+        # capabilities are not included
+    ]
+
+    @property
+    def dataset_list_url(self):
+        return f"{self.api_url}/layers/"
+
+    def build_search_query(
+        self, search_filters: models.GeonodeApiSearchFilters
+    ) -> QtCore.QUrlQuery:
+        # GeoNode v3.3.0 layers did not have the `subtype` property,
+        # but rather a `dataStore` property
+        query = super().build_search_query(search_filters)
+        subtype_key = "filter{subtype.in}"
+        datastore_key = "filter{storeType.in}"
+        while query.hasQueryItem(subtype_key):
+            old_value = query.queryItemValue(subtype_key)
+            value = {
+                "vector": "dataStore",
+                "raster": "coverageStore",
+            }[old_value]
+            query.addQueryItem(datastore_key, value)
+            query.removeQueryItem(subtype_key)
+        return query
+
+    def handle_dataset_list(self, task_result: bool) -> None:
+        deserialized_content = self._retrieve_response(
+            task_result, 0, self.search_error_received
+        )
+        if deserialized_content is not None:
+            brief_datasets = []
+            for raw_brief_dataset in deserialized_content.get("layers", []):
+                try:
+                    parsed_properties = _get_common_model_properties_v_3_3_x(
+                        raw_brief_dataset
+                    )
+                    brief_dataset = models.BriefDataset(**parsed_properties)
+                except ValueError:
+                    log(
+                        f"Could not parse {raw_brief_dataset!r} into a valid item",
+                        debug=False,
+                    )
+                else:
+                    brief_datasets.append(brief_dataset)
+            pagination_info = models.GeonodePaginationInfo(
+                total_records=deserialized_content.get("total") or 0,
+                current_page=deserialized_content.get("page") or 1,
+                page_size=deserialized_content.get("page_size") or 0,
+            )
+            self.dataset_list_received.emit(brief_datasets, pagination_info)
+
+
+def _get_common_model_properties_v_3_3_x(raw_dataset: typing.Dict) -> typing.Dict:
+    type_ = {
+        "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
+        "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
+    }.get(raw_dataset.get("storeType"))
+    service_urls = {
+        models.GeonodeService.OGC_WMS: raw_dataset["ows_url"],
+    }
+    if type_ == models.GeonodeResourceType.VECTOR_LAYER:
+        service_urls[models.GeonodeService.OGC_WFS] = raw_dataset["ows_url"]
+    elif type_ == models.GeonodeResourceType.RASTER_LAYER:
+        service_urls[models.GeonodeService.OGC_WCS] = raw_dataset["ows_url"]
+    raw_style = raw_dataset.get("default_style") or {}
+    return {
+        "pk": int(raw_dataset["pk"]),
+        "uuid": uuid.UUID(raw_dataset["uuid"]),
+        "name": raw_dataset.get("alternate", raw_dataset.get("name", "")),
+        "title": raw_dataset.get("title", ""),
+        "abstract": raw_dataset.get("raw_abstract", ""),
+        "thumbnail_url": raw_dataset["thumbnail_url"],
+        "link": raw_dataset["link"],
+        "detail_url": raw_dataset["detail_url"],
+        "dataset_sub_type": type_,
+        "service_urls": service_urls,
+        "spatial_extent": _get_spatial_extent(raw_dataset["bbox_polygon"]),
+        "srid": qgis.core.QgsCoordinateReferenceSystem(raw_dataset["srid"]),
+        "published_date": _get_published_date(raw_dataset),
+        "temporal_extent": _get_temporal_extent(raw_dataset),
+        "keywords": [k["name"] for k in raw_dataset.get("keywords", [])],
+        "category": (raw_dataset.get("category") or {}).get("identifier"),
+        "default_style": models.BriefGeonodeStyle(
+            name=raw_style.get("name", ""), sld_url=raw_style.get("sld_url")
+        ),
+    }
 
 
 def build_multipart(

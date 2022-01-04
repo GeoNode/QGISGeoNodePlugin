@@ -37,10 +37,15 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     buttonBox: QtWidgets.QDialogButtonBox
     options_gb: QtWidgets.QGroupBox
     bar: qgis.gui.QgsMessageBar
+    detected_version_gb: qgis.gui.QgsCollapsibleGroupBox
+    detected_version_le: QtWidgets.QLineEdit
+    detected_capabilities_lw: QtWidgets.QListWidget
+    api_client_class_le: QtWidgets.QLineEdit
 
     connection_id: uuid.UUID
-    api_client_class_path: typing.Optional[str]
-    remote_geonode_version: typing.Optional[packaging_version.Version]
+    remote_geonode_version: typing.Optional[
+        typing.Union[packaging_version.Version, str]
+    ]
     discovery_task: typing.Optional[network.NetworkRequestTask]
     geonode_client: BaseGeonodeClient = None
 
@@ -53,6 +58,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.authcfg_acs,
             self.options_gb,
             self.connection_details,
+            self.detected_version_gb,
         ]
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(
@@ -63,21 +69,20 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
         if connection_settings is not None:
             self.connection_id = connection_settings.id
-            self.api_client_class_path = connection_settings.api_client_class_path
             self.remote_geonode_version = connection_settings.geonode_version
             self.name_le.setText(connection_settings.name)
             self.url_le.setText(connection_settings.base_url)
             self.authcfg_acs.setConfigId(connection_settings.auth_config)
             self.page_size_sb.setValue(connection_settings.page_size)
-            if self.api_client_class_path == network.UNSUPPORTED_REMOTE:
+            if self.remote_geonode_version == network.UNSUPPORTED_REMOTE:
                 self.show_progress(
                     tr("Invalid configuration. Correct GeoNode URL and/or test again."),
                     message_level=qgis.core.Qgis.Critical,
                 )
         else:
             self.connection_id = uuid.uuid4()
-            self.api_client_class_path = None
             self.remote_geonode_version = None
+        self.update_connection_details()
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
         ok_signals = [
             self.name_le.textChanged,
@@ -100,7 +105,6 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             base_url=self.url_le.text().strip().rstrip("/"),
             auth_config=self.authcfg_acs.configId(),
             page_size=self.page_size_sb.value(),
-            api_client_class_path=self.api_client_class_path,
             geonode_version=self.remote_geonode_version,
         )
 
@@ -129,16 +133,34 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         )
         if geonode_version is not None:
             self.remote_geonode_version = geonode_version
-            self.api_client_class_path = apiclient.select_client_class_path(
-                geonode_version
-            )
             message = "Connection is valid"
             level = qgis.core.Qgis.Info
         else:
             message = "Connection is not valid"
             level = qgis.core.Qgis.Critical
-            self.api_client_class_path = network.UNSUPPORTED_REMOTE
+            self.remote_geonode_version = network.UNSUPPORTED_REMOTE
         utils.show_message(self.bar, message, level)
+        self.update_connection_details()
+
+    def update_connection_details(self):
+        invalid_version = (
+            self.remote_geonode_version is None
+            or self.remote_geonode_version == network.UNSUPPORTED_REMOTE
+        )
+        self.detected_capabilities_lw.clear()
+        self.api_client_class_le.clear()
+        self.detected_version_le.clear()
+        if not invalid_version:
+            self.detected_version_gb.setEnabled(True)
+            current_settings = self.get_connection_settings()
+            client: BaseGeonodeClient = apiclient.get_geonode_client(current_settings)
+            self.detected_version_le.setText(str(current_settings.geonode_version))
+            self.api_client_class_le.setText(client.__class__.__name__)
+            self.detected_capabilities_lw.insertItems(
+                0, [cap.name for cap in client.capabilities]
+            )
+        else:
+            self.detected_version_gb.setEnabled(False)
 
     def enable_post_test_connection_buttons(self):
         for widget in self._widgets_to_toggle_during_connection_test:

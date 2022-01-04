@@ -60,9 +60,6 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_ordering_fields(self) -> typing.List[typing.Tuple[str, str]]:
         raise NotImplementedError
 
-    def get_layer_styles_url_endpoint(self, layer_id: int):
-        raise NotImplementedError
-
     def get_dataset_list_url(
         self, search_filters: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrl:

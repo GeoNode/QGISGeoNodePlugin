@@ -44,7 +44,6 @@ class ConnectionSettings:
     network_requests_timeout: int = dataclasses.field(
         default_factory=_get_network_requests_timeout, init=False
     )
-    api_client_class_path: typing.Optional[str] = None
     geonode_version: typing.Optional[packaging_version.Version] = None
     auth_config: typing.Optional[str] = None
 
@@ -65,7 +64,6 @@ class ConnectionSettings:
             base_url=settings.value("base_url"),
             page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg,
-            api_client_class_path=settings.value("api_client_class_path") or None,
             geonode_version=geonode_version,
         )
 
@@ -77,7 +75,6 @@ class ConnectionSettings:
                 "base_url": self.base_url,
                 "page_size": self.page_size,
                 "auth_config": self.auth_config,
-                "api_client_class_path": self.api_client_class_path,
                 "geonode_version": str(self.geonode_version)
                 if self.geonode_version is not None
                 else None,
@@ -155,9 +152,6 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("base_url", connection_settings.base_url)
             settings.setValue("page_size", connection_settings.page_size)
             settings.setValue("auth_config", connection_settings.auth_config)
-            settings.setValue(
-                "api_client_class_path", connection_settings.api_client_class_path or ""
-            )
             settings.setValue(
                 "geonode_version",
                 (
