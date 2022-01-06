@@ -1,12 +1,9 @@
 import dataclasses
 import enum
 import json
-import tempfile
-import shutil
 import typing
 from contextlib import contextmanager
 from functools import partial
-from pathlib import Path
 
 import qgis.core
 from PyQt5 import QtNetwork
@@ -351,7 +348,6 @@ def handle_discovery_test(
     if finished_task_result:
         response_contents = finished_task.response_contents[0]
         if response_contents is not None and response_contents.qt_error is None:
-            raw_version = response_contents.response_body.data().decode()
             geonode_version = packaging_version.parse(
                 response_contents.response_body.data().decode()
             )

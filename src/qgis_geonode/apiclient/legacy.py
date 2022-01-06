@@ -52,6 +52,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
         models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
     ]
 
     @property
@@ -77,6 +78,19 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
             query.addQueryItem("title__icontains", search_filters.title)
         if search_filters.abstract is not None:
             query.addQueryItem("abstract__icontains", search_filters.abstract)
+        if search_filters.layer_types is None:
+            types = [
+                models.GeonodeResourceType.VECTOR_LAYER,
+                models.GeonodeResourceType.RASTER_LAYER,
+            ]
+        else:
+            types = search_filters.layer_types
+        is_vector = models.GeonodeResourceType.VECTOR_LAYER in types
+        is_raster = models.GeonodeResourceType.RASTER_LAYER in types
+        if is_vector:
+            query.addQueryItem("type__in", "vector")
+        if is_raster:
+            query.addQueryItem("type__in", "raster")
         if search_filters.ordering_field is not None:
             query.addQueryItem(
                 "order_by",
@@ -205,7 +219,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
             "title": raw_dataset.get("title", ""),
             "abstract": raw_dataset.get("raw_abstract", ""),
             "thumbnail_url": raw_dataset["thumbnail_url"],
-            "link": f"{self.api_url}{raw_dataset['resource_uri']}",
+            "link": f"{self.base_url}{raw_dataset['resource_uri']}",
             "detail_url": f"{self.base_url}{raw_dataset['detail_url']}",
             "dataset_sub_type": type_,
             "service_urls": self._get_service_urls(type_),
@@ -239,10 +253,11 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
 def _get_resource_type(
     raw_dataset: typing.Dict,
 ) -> typing.Optional[models.GeonodeResourceType]:
-    return {
+    type_ = {
         "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
         "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
     }.get(raw_dataset.get("storeType", raw_dataset.get("store_type")))
+    return type_
 
 
 def _parse_datetime(raw_value: str) -> dt.datetime:

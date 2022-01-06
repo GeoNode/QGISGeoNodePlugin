@@ -316,7 +316,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         )
         self._toggle_metadata_controls(enabled=False)
         self._show_message("Retrieving metadata...", add_loading_widget=True)
-        api_client.get_dataset_detail(dataset)
+        api_client.get_dataset_detail(dataset, get_style_too=False)
 
     def handle_metadata_download_error(self) -> None:
         log("inside handle_metadata_download_error")
@@ -425,13 +425,16 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def _get_suitable_upload_connections(self) -> typing.List[conf.ConnectionSettings]:
         result = []
         for connection_settings in conf.settings_manager.list_connections():
-            client: base.BaseGeonodeClient = get_geonode_client(connection_settings)
-            target_capability = {
-                qgis.core.QgsMapLayerType.VectorLayer: models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
-                qgis.core.QgsMapLayerType.RasterLayer: models.ApiClientCapability.UPLOAD_RASTER_LAYER,
-            }[self.layer.type()]
-            if target_capability in client.capabilities:
-                result.append(connection_settings)
+            client: typing.Optional[base.BaseGeonodeClient] = get_geonode_client(
+                connection_settings
+            )
+            if client is not None:
+                target_capability = {
+                    qgis.core.QgsMapLayerType.VectorLayer: models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
+                    qgis.core.QgsMapLayerType.RasterLayer: models.ApiClientCapability.UPLOAD_RASTER_LAYER,
+                }[self.layer.type()]
+                if target_capability in client.capabilities:
+                    result.append(connection_settings)
         return result
 
     def _populate_geonode_connection_combo_box(
@@ -472,45 +475,48 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self.links_gb.setEnabled(enabled)
 
     def _toggle_style_controls(self, enabled: bool) -> None:
-        widgets = [self.style_gb]
-        if enabled:
-            if self.connection_settings is not None:
-                can_load_style = models.loading_style_supported(
-                    self.layer.type(), self.api_client.capabilities
-                )
-                can_modify_style = models.modifying_style_supported(
-                    self.layer.type(), self.api_client.capabilities
-                )
-                dataset = self.get_dataset()
-                is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
-                has_style_url = dataset.default_style.sld_url is not None
-                if can_load_style and has_style_url and is_service:
-                    widgets.append(self.download_style_pb)
-                if can_modify_style and has_style_url and is_service:
-                    widgets.append(self.upload_style_pb)
+        widgets = []
+        if enabled and self.connection_settings is not None:
+            can_load_style = models.loading_style_supported(
+                self.layer.type(), self.api_client.capabilities
+            )
+            log(f"can_load_style: {can_load_style}")
+            can_modify_style = models.modifying_style_supported(
+                self.layer.type(), self.api_client.capabilities
+            )
+            dataset = self.get_dataset()
+            is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
+            has_style_url = dataset.default_style.sld_url is not None
+            if can_load_style and has_style_url and is_service:
+                widgets.append(self.download_style_pb)
+            if can_modify_style and has_style_url and is_service:
+                widgets.append(self.upload_style_pb)
+            if len(widgets) > 0:
+                widgets.append(self.style_gb)
         else:
-            widgets.extend((self.upload_style_pb, self.download_style_pb))
+            widgets.append(self.style_gb)
         for widget in widgets:
             widget.setEnabled(enabled)
 
     def _toggle_metadata_controls(self, enabled: bool) -> None:
-        widgets = [self.metadata_gb]
-        if enabled:
-            if self.connection_settings is not None:
-                can_load_metadata = (
-                    models.ApiClientCapability.LOAD_LAYER_METADATA
-                    in self.api_client.capabilities
-                )
-                if can_load_metadata:
-                    widgets.append(self.download_metadata_pb)
-                can_modify_metadata = (
-                    models.ApiClientCapability.MODIFY_LAYER_METADATA
-                    in self.api_client.capabilities
-                )
-                if can_modify_metadata:
-                    widgets.append(self.upload_metadata_pb)
+        widgets = []
+        if enabled and self.connection_settings is not None:
+            can_load_metadata = (
+                models.ApiClientCapability.LOAD_LAYER_METADATA
+                in self.api_client.capabilities
+            )
+            if can_load_metadata:
+                widgets.append(self.download_metadata_pb)
+            can_modify_metadata = (
+                models.ApiClientCapability.MODIFY_LAYER_METADATA
+                in self.api_client.capabilities
+            )
+            if can_modify_metadata:
+                widgets.append(self.upload_metadata_pb)
+            if len(widgets) > 0:
+                widgets.append(self.metadata_gb)
         else:
-            widgets.extend((self.upload_metadata_pb, self.download_metadata_pb))
+            widgets.append(self.metadata_gb)
         for widget in widgets:
             widget.setEnabled(enabled)
 

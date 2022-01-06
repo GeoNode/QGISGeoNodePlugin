@@ -15,7 +15,6 @@ from ..apiclient import (
     base,
     get_geonode_client,
     models,
-    select_client_class_path,
 )
 from .. import (
     conf,
@@ -291,12 +290,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.toggle_search_buttons(enable=False)
         else:
             conf.settings_manager.set_current_connection(current_connection.id)
-            if current_connection.api_client_class_path == network.UNSUPPORTED_REMOTE:
+            if current_connection.geonode_version == network.UNSUPPORTED_REMOTE:
                 self.show_message(
                     tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
                 )
             else:
-                if current_connection.api_client_class_path:
+                if current_connection.geonode_version:
                     self.api_client = get_geonode_client(current_connection)
                     self._load_sorting_fields()
                     self.api_client.dataset_list_received.connect(
@@ -440,13 +439,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         geonode_version = network.handle_discovery_test(
             task_result, self.discovery_task
         )
-        if geonode_version is not None:
-            api_class_path = select_client_class_path(geonode_version)
-        else:
-            api_class_path = network.UNSUPPORTED_REMOTE
         current_connection = conf.settings_manager.get_current_connection_settings()
-        current_connection.api_client_class_path = api_class_path
-        current_connection.geonode_version = geonode_version
+        current_connection.geonode_version = (
+            geonode_version
+            if geonode_version is not None
+            else network.UNSUPPORTED_REMOTE
+        )
         conf.settings_manager.save_connection_settings(current_connection)
         self.update_connections_combobox()
         next_(*next_args, **next_kwargs)
@@ -459,7 +457,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                 self.current_page = 1
                 self.total_pages = 1
             current_connection = conf.settings_manager.get_current_connection_settings()
-            if not current_connection.api_client_class_path:
+            if not current_connection.geonode_version:
                 self.discover_api_client(
                     next_=self.search_geonode, reset_pagination=reset_pagination
                 )
