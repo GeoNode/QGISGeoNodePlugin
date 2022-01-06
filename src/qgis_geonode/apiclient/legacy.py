@@ -162,9 +162,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
                 "Could not complete request for dataset list"
             )
 
-    def handle_dataset_detail(
-        self, brief_dataset: models.BriefDataset, result: bool
-    ) -> None:
+    def handle_dataset_detail(self, result: bool) -> None:
         if result:
             detail_response_content: network.ParsedNetworkReply = (
                 self.network_fetcher_task.response_contents[0]

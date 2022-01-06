@@ -167,9 +167,7 @@ class GeonodeApiClientVersion_3_4_0(BaseGeonodeClient):
             )
             self.dataset_list_received.emit(brief_datasets, pagination_info)
 
-    def handle_dataset_detail(
-        self, brief_dataset: models.BriefDataset, task_result: bool
-    ) -> None:
+    def handle_dataset_detail(self, task_result: bool) -> None:
         deserialized_resource = self._retrieve_response(
             task_result, 0, self.dataset_detail_error_received
         )
@@ -182,14 +180,17 @@ class GeonodeApiClientVersion_3_4_0(BaseGeonodeClient):
                     debug=False,
                 )
             else:
-                is_vector = (
-                    brief_dataset.dataset_sub_type
-                    == models.GeonodeResourceType.VECTOR_LAYER
-                )
-                if is_vector:
-                    (sld_named_layer, error_message,) = geonode_styles.get_usable_sld(
+                try:
+                    style_response_contents = (
                         self.network_fetcher_task.response_contents[1]
                     )
+                except IndexError:
+                    pass
+                else:
+                    (
+                        sld_named_layer,
+                        error_message,
+                    ) = geonode_styles.get_usable_sld(style_response_contents)
                     if sld_named_layer is None:
                         raise RuntimeError(error_message)
                     dataset.default_style.sld = sld_named_layer

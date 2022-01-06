@@ -138,12 +138,10 @@ class BaseGeonodeClient(QtCore.QObject):
             self.auth_config,
             description="Get dataset detail",
         )
-        self.network_fetcher_task.task_done.connect(
-            partial(self.handle_dataset_detail, brief_dataset)
-        )
+        self.network_fetcher_task.task_done.connect(self.handle_dataset_detail)
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def handle_dataset_detail(self, brief_dataset: models.BriefDataset, result: bool):
+    def handle_dataset_detail(self, result: bool):
         """Handle dataset detail retrieval outcome.
 
         This method should emit either `dataset_detail_received` or
