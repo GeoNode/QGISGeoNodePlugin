@@ -316,7 +316,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         )
         self._toggle_metadata_controls(enabled=False)
         self._show_message("Retrieving metadata...", add_loading_widget=True)
-        api_client.get_dataset_detail(dataset)
+        api_client.get_dataset_detail(dataset, get_style_too=False)
 
     def handle_metadata_download_error(self) -> None:
         log("inside handle_metadata_download_error")

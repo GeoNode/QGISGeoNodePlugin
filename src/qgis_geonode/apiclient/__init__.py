@@ -21,7 +21,9 @@ def get_geonode_client(
 
 
 def select_client_class_path(geonode_version: packaging_version.Version) -> str:
-    if geonode_version.major == 3 and geonode_version.minor >= 4:
+    if geonode_version.major == 4:
+        result = "qgis_geonode.apiclient.geonode_v3.GeonodeApiClientVersion_3_4_0"
+    elif geonode_version.major == 3 and geonode_version.minor >= 4:
         result = "qgis_geonode.apiclient.geonode_v3.GeonodeApiClientVersion_3_4_0"
     elif geonode_version.major == 3 and geonode_version.minor == 3:
         result = "qgis_geonode.apiclient.geonode_v3.GeonodeApiClientVersion_3_3_0"
