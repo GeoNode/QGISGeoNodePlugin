@@ -1,67 +1,132 @@
 # User guide
 
-This guide is going to show you how to use the QGIS GeoNode plugin to access GeoNode instances resources inside QGIS.
+The QGIS GeoNode plugin adds a new _Geonode Plugin_ section to the QGIS Data 
+Source Manager dialogue. This section contains a familiar set of interface controls
+that allow users to:
 
-## Add a GeoNode instance
-To add a GeoNode instance follow the below steps.
+- [Manage GeoNode connections](#manage-geonode-connections)
+- [Search for existing datasets]()
+- [Load GeoNode datasets as QGIS layers]()
 
-1. Open the QGIS _Data Source Manager_ (Ctrl+L), go to _GeoNode Plugin Provider_ section
-   
-     ![GeoNode Plugin Provider](images/user_guide/data_source_manager.png)
+
+The plugin also adds a new _Geonode_ section to a QGIS layer's 
+_Layer Properties_ dialogue. This section allows users to:
+
+- [Upload QGIS layers to GeoNode]()
+- [Reload/upload the style of a layer that came from GeoNode]()
+- [Reload/upload some metadata attributes of a layer that came from GeoNode]()
+
+
+## Manage GeoNode connections
+
+
+### Add a new GeoNode connection
+
+![Add GeoNode connection](images/user_guide/manage_geonode_connection.png)
+
+In order to add a new GeoNode connection:
+
+1.  Open the QGIS _Data Source Manager (Ctrl+L)_ and go to the _GeoNode Plugin_ 
+    section
   
-2. Add a new GeoNode instance connection, click a button with a label "New" which is inside the "Connections" group box,
-   a dialog for filling in connection details will be shown.
-3. Enter the GeoNode instance details "Name" and "URL", the "URL" is for the GeoNode URL, if the instance supports 
-   authentication, you can add the authentication configurations for the instance using the QGIS authentication 
-   configuration selector widget available on the connection dialog.
-     
-     To add new authentication configuration, click a button with ![add symbol](images/user_guide/add_symbol.svg) symbol
-     which is beside the authentication configurations list combo box, the following dialog will be shown.
-     ![Adding authentication configuration](images/user_guide/add_authentication.png)
-   `Basic authentication` will be selected by default the first time the dialog is opened.
-   
-    For API V2 we recommend to use `OAuth2 authentication` with the `Authorization code` grant type, for the CSW API, 
-   OAuth2 with authorization code flow is recommend to be used with additional username and password provided on the 
-   connection configuration dialog UI.
-   
-    The below image shows usage of a OAuth2 configuration with a `Authorization code` grant type and 
-    sample `Token URL`, `Client ID`, `Client Secret`, all these details
-     are supplied  by OAuth2 server credentials(for this case GeoNode).
-    ![GeoNode demo OAuth2 configuration](images/user_guide/geonode_oauth2_auth.png)
-   
-    ### GeoNode API V2
-    GeoNode API V2 is the latest API added in GeoNode, available from GeoNode version 3.2 and later versions, the API 
-    conforms to the [OpenAPI](https://swagger.io/specification/) specification which is a descriptive format for REST APIs.
-    
-    When creating connections that are using this API, select V2 from the API version list. 
-    The API V2 support authentication via OAuth2 with no additional configurations, to add or use OAuth2 authentication, 
-    follow instructions described on the previous section.
-    
-    ### GeoNode API CSW
-    The CSW API exposes GeoNode resources via a CSW( Catalogue Service-Web) which is a web specification
-    for accessing geo-spatial data using [XML](https://en.wikipedia.org/wiki/XML). All GeoNode instances support this API.
-    
-    This API doesn't fully support OAuth2 authentication,
-    when connecting to GeoNode instance that uses CSW API, OAuth2 configuration and additional username and password are 
-   required in order to configure authentication for the corresponding GeoNode instance.
+2.  Add a new GeoNode instance connection, by clicking the _New_ button
 
-   
-4. Through the "API version" list choose the API that the connection should be connected to with. They
-are two options at the moment, CSW API and the API version 2 the latter is available from GeoNode instances that use the
-   master version. Click the "auto detect" button, to automatically detect and select the API version for the GeoNode instance.
-   
-5. Search results page size can be set inside the `Page size` field. By default, the `Page size` is set to 10.
-   
-6. Click the "Test Connection" button to verify if the connection works.
-   
-7. Click "Ok" button after finishing adding all the details, to add the connection.
-   
-   The picture below shows how you can configure anonymous access to the main GeoNode demo server
-   
-   ![GeoNode demo connection](images/user_guide/add_connection_configuration.png)
+3.  A new dialogue is shown. This dialogue requests the following details of 
+    the GeoNode connection being created:
+
+    1. _Name_ - The name used by QGIS to refer to this connection
+
+    2. _GeoNode URL_ - The base URL of the GeoNode being connected to (_e.g._ 
+       https://stable.demo.geonde.org)
+
+    3. _Authentication_ - Whether to use authentication to connect to GeoNode 
+       or not. See the [Configuring authentication](#configuring-authentication) 
+       section below for more details on how to configure authenticated access
+       to GeoNode
+
+    4. _Page size_ - How many search results per page shall be shown by QGIS
+
+4.  Optionally you may now click the _Test Connection_ button. QGIS will then
+    try to connect to GeoNode in order to discover what version of GeoNode is
+    being used by the remote server.
+
+    Upon a successful connection, the detected GeoNode version will be shown
+    below. Depending on the detected GeoNode version, the plugin may not be
+    able to offer all of its functionalities. The supported capabilities are
+    listed in the _API client capabilities_ section.
+
+5.  Finally, accept the new connection dialogue by clicking the _Ok_ button. 
+    Your new connection is now ready to be used.
+
+
+### Edit an existing connection
+
+In order to edit the details of an existing connection, just re-open the 
+_QGIS Data Source Manager (Ctrl + l)_, go to the _GeoNode plugin_ section, 
+select the relevant connection from the _Connections_ dropdown and click the
+_Edit_ button. A dialogue similar to the one discussed above in the 
+[Add a new GeoNode connection](#add-a-new-geonode-connection) section shall be
+shown with the connection details ready for editing
+
+
+### Removing a GeoNode connection
+
+In order to remove an existing connection, re-open the
+_QGIS Data Source Manager (Ctrl + l)_, go to the _GeoNode plugin_ section,
+select the relevant connection from the _Connections_ combo box and click the
+_Remove_ button. A confirmation dialogue will ask whether to really remove the
+connection. Upon acceptance of this dialogue, the connection will be removed.
+
+
+### Configuring authentication
+
+!!! note
+    In order to be able to gain authenticated access to a GeoNode connection 
+    you will need to request that one of the GeoNode administrators create an 
+    **OAuth2** application and provide you with the following relevant details:
+
+    - _Client ID_
+    - _Client Secret_
+
+![Authentication example](images/user_guide/authentication_example.png)
+
+The plugin is able to authenticate to remote GeoNode instances by using
+OAuth2 authentication. Most OAuth2 grant types implemented in QGIS are 
+supported. We recommend using the _Authorization Code_ grant type. In order 
+to configure such an authentication:
+
+1. Open the main QGIS authentication settings dialogue by going to 
+    _Settings -> Options..._ in the main QGIS menu bar and then access the 
+    _Authentication_ section
+
+2. Press the _Add new authentication configuration button_. A new dialogue is
+    shown. In this dialogue, fill in the following details:
+
+    1. _Name_ - The name used by QGIS to refer to the authentication 
+       configuration
+    
+    2. _Authentication type_ - Select the `OAuth2 authentication` option from 
+       the dropdown 
+    
+    3. _Request URL_ - This is derived from the GeoNode base URL and takes the 
+       form `<geonode-base-url>/o/authorize/`, _e.g._ <https://stable.demo.geonode.org/o/authorize/>
+    
+    4. _Token URL_ - This is derived from the GeoNode base URL and takes the 
+       form `<geonode-base-url>/o/token/`, _e.g._ <https://stable.demo.geonode.org/o/token/>
+    
+    5. _Client ID_ - The client ID you got from your GeoNode administrator
+    
+    6. _Client Secret_ - The client secret you got from your GeoNode administrator
+    
+    The remaining fields can be left at their default values
+
+3. Now when 
+   [configuring a new GeoNode connection](#add-a-new-geonode-connection), 
+   select this newly created authentication configuration in order to have the
+   GeoNode connection use it
    
 
-## Search and load GeoNode layer into QGIS
+## Search and load GeoNode datasets into QGIS
 
 ### Searching layers
 Select the intended connection from the connections list, then click the "Search Geonode" button, 
