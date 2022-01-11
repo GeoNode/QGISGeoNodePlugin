@@ -746,7 +746,7 @@ def _get_common_model_properties(raw_dataset: typing.Dict) -> typing.Dict:
         "uuid": uuid.UUID(raw_dataset["uuid"]),
         "name": raw_dataset.get("alternate", raw_dataset.get("name", "")),
         "title": raw_dataset.get("title", ""),
-        "abstract": raw_dataset.get("raw_abstract", ""),
+        "abstract": raw_dataset.get("raw_abstract", raw_dataset.get("abstract", "")),
         "thumbnail_url": raw_dataset["thumbnail_url"],
         "link": raw_dataset["link"],
         "detail_url": raw_dataset["detail_url"],
