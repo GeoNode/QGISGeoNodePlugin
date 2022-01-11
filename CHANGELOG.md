@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fix dataset abstract not being shown on the UI anymore
+- Updated user guide
 - Layer uploads also send SLD style
 - Connection test uses auth credentials, if available
 

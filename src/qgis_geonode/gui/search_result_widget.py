@@ -124,6 +124,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def _initialize_ui(self):
         self.title_la.setText(f"<h3>{self.brief_dataset.title}</h3>")
         self.resource_type_la.setText(self.brief_dataset.dataset_sub_type.value)
+        self.description_la.setText(self.brief_dataset.abstract)
         if self.brief_dataset.detail_url:
             self.browser_btn.setIcon(
                 QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
