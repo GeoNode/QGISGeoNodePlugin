@@ -1,14 +1,6 @@
 # User guide
 
 
-The plugin also adds a new _Geonode_ section to a QGIS layer's 
-_Layer Properties_ dialogue. This section allows users to:
-
-- [Upload QGIS layers to GeoNode]()
-- [Reload/upload the style of a layer that came from GeoNode]()
-- [Reload/upload some metadata attributes of a layer that came from GeoNode]()
-
-
 ## Managing GeoNode connections
 
 The QGIS GeoNode plugin adds a new _Geonode Plugin_ section to the QGIS Data
@@ -66,7 +58,7 @@ shown with the connection details ready for editing
 
 In order to remove an existing connection, re-open the
 `QGIS Data Source Manager (Ctrl + L)`, go to the `GeoNode plugin` section,
-select the relevant connection from the `Connections` combo box and click the
+select the relevant connection from the `Connections` drop down and click the
 `Remove` button. A confirmation dialogue will ask whether to really remove the
 connection. Upon acceptance of this dialogue, the connection will be removed.
 
@@ -114,7 +106,7 @@ to configure such an authentication:
 
 ## Searching GeoNode datasets
 
-![search results](images/user_guide/search_results.png)
+![searching](images/user_guide/searching.png)
 
 After having configured a GeoNode connection, you may now use the plugin 
 to search and load GeoNode datasets onto QGIS
@@ -147,10 +139,13 @@ to search and load GeoNode datasets onto QGIS
 
 After searching is complete a list of search results is shown below the 
 search buttons. If a large number of results has been found you may use the 
-`previous` and `next` buttons to eventually inspect all of them.
+`previous` and `next` buttons to paginate through the whole result set and 
+eventually inspect all of them.
 
 
 ### Search results
+
+![search result](images/user_guide/search_item.png)
 
 Each dataset shown on the search results list features the following elements:
 
@@ -164,72 +159,144 @@ Each dataset shown on the search results list features the following elements:
 | **Load via WFS/WCS** | Depending on the type of dataset, a button to load the dataset onto QGIS either as a WFS (for vectors) or WCS (for raster) layer |
 | Open dataset in web browser | Button to open your web browser and visit the original dataset URL on the remote GeoNode instance |
 
-  
-### Inspecting layer metadata
-  
-When loading the layer inside QGIS, the layer metadata from GeoNode are added into the loaded layer as
-QGIS layer metadata.
 
-To view the added metadata, right-click on the added layer and click _Properties..._  then from the 
-Properties dialog select the _Metadata_ page.
+## Working with GeoNode layers
 
-Image showing metadata page that contains metadata for layer with title 'ARANDANO BRIGITTA 2030' 
-from the GeoNode demo server
+![working with geonode layers](images/user_guide/working_with_layers.png)
+
+After having discovered some interesting datasets, press one of their 
+respective `load` buttons to load them as QGIS layers.
+
+
+### Layer metadata
+
+For layers that came from GeoNode, their metadata is also populated from 
+GeoNode. Metadata can be inspected by opening the layer properties 
+dialogue (double-click the layer name on the QGIS `layers` list) and 
+navigating to the `Metadata` section.
+
 ![GeoNode demo OAuth2 configuration](images/user_guide/layer_metadata.png)
 
+If the relevant [plugin capabilities](#plugin-capabilities) are available 
+for the detected GeoNode version, it may also be possible to modify some 
+metadata fields and save them back to GeoNode. This can be achieved by:
 
-## Supported capabilities
+1. Modifying the relevant metadata property by using the QGIS layer metadata
+   section of the layer properties dialogue
 
-Depending on the version of GeoNode detected, the plugin may allow performing
+    !!! note
+        The current version of the QGIS GeoNode plugin is only able to 
+        upload the following metadata fields back to GeoNode:
+        
+        - Title
+        - Abstract
+
+2. Navigating to the `GeoNode` section of the layer properties dialogue and 
+   locating the `Metadata` group
+
+3. Pressing the `Save current metadata to GeoNode` button. The plugin then 
+   proceeds to upload the metadata back to GeoNode.
+
+    !!! note
+        Uploading metadata back to GeoNode is likely an operation that 
+        requires your GeoNode connection to use 
+        [authentication](#configure-authentication).
+
+
+
+### Layer symbology
+
+Depending on the layer type and on the 
+[capabilities supported by the plugin](#plugin-capabilities) for the detected 
+GeoNode version, the plugin may be able to load a layer's symbology
+from the remote GeoNode.
+
+!!! note
+    GeoNode datasets export their symbology using the OGC Styled Layer 
+    Descriptor (.sld) format. 
+
+    QGIS is not currently able to load SLD for raster layers. Therefore, 
+    the QGIS GeoNode plugin is only able to style datasets which are 
+    loaded using the WFS vector provider
+
+The plugin may also be able to modify the layer symbology and upload it back
+to the remote GeoNode. This can be achieved by:
+
+1. Modifying the layer symbology using QGIS symbology tools
+
+2. Navigating to the `GeoNode` section of the layer properties dialogue and 
+   locating the `Layer style` group
+
+3. Pressing the `Save current style to GeoNode` button. The plugin then 
+   proceeds to upload the symbology back to GeoNode.
+
+    !!! warning
+        Uploading symbology back to GeoNode requires an intermediary step 
+        whereby the QGIS native symbology is converted to OGC SLD, which 
+        is the format GeoNode understands. 
+
+        Unfortunately it is currently not possible to perfectly match all 
+        QGIS native symbology features to SLD. Therefore, the resulting 
+        exported symbology may differ from the original
+
+    !!! note
+        Uploading symbology back to GeoNode is likely an operation that 
+        requires your GeoNode connection to use 
+        [authentication](#configure-authentication).
+
+
+## Uploading existing QGIS layers to GeoNode
+
+The plugin allows uploading existing QGIS layers to GeoNode. This can be achieved by:
+
+1. Load some layer onto QGIS. Any vector or raster layer should work
+
+2. Access the layer properties dialog and navigate to the `GeoNode` section. 
+   Then locate the `Upload layer to GeoNode` group
+
+3. Select an appropriate connection from the `GeoNode connection` drop down.
+
+4. Choose the default visibility to be applied to the uploaded layer by toggling
+   the `Make layer publicly available` checkbox as appropriate
+
+5. Press the `Upload layer to GeoNode` button. The plugin then proceeds to 
+   upload the layer to GeoNode.
+
+    !!! note
+        Uploading a QGIS layer to GeoNode is likely an operation that 
+        requires your GeoNode connection to use 
+        [authentication](#configure-authentication).
+
+    !!! note
+        The current version of this plugin uses a timeout of ten minutes for 
+        the layer upload operation, which may be a limitation for large files.
+        A future version of the plugin may allow the user to modify this value.
+
+
+## Plugin capabilities
+
+Depending on the detected version of GeoNode, the plugin may allow performing
 different actions. These are classified as a set of capabilities.
 
-| Capability | Available on GeoNode version | Description                                                                     |
-| ---------- | ---------------------------- |---------------------------------------------------------------------------------|
-| FILTER_BY_TITLE | All | Allows searching for GeoNode datasets by a sub-string present on their title    |
-| FILTER_BY_ABSTRACT | All | Allows searching for GeoNode datasets by a sub-string present on their abstract | 
-| FILTER_BY_RESOURCE_TYPES | All | Allows filtering GeoNode datasets by their layer type (`vector` or `raster`)    |
-| FILTER_BY_KEYWORD | >= 3.3.0 | Allows filtering GeoNode datasets by a keyword                                  |
-| FILTER_BY_TOPIC_CATEGORY | >= 3.3.0 | Allows filtering GeoNode datasets by their ISO topic category                   |
-| FILTER_BY_TEMPORAL_EXTENT |
-| FILTER_BY_PUBLICATION_DATE |
-| FILTER_BY_SPATIAL_EXTENT |
-| LOAD_LAYER_METADATA |
-| MODIFY_LAYER_METADATA |
-| LOAD_VECTOR_LAYER_STYLE |
-| LOAD_RASTER_LAYER_STYLE |
-| MODIFY_VECTOR_LAYER_STYLE |
-| MODIFY_RASTER_LAYER_STYLE |
-| LOAD_VECTOR_DATASET_VIA_WMS |
-| LOAD_VECTOR_DATASET_VIA_WFS |
-| LOAD_RASTER_DATASET_VIA_WMS |
-| LOAD_RASTER_DATASET_VIA_WCS |
-| UPLOAD_VECTOR_LAYER |
-| UPLOAD_RASTER_LAYER |
-
-
-## Synchronize a loaded layer with GeoNode
-Not implemented yet
-
-
-### Modify layer data
-Not implemented yet
-
-
-### Modify layer symbology
-Not implemented yet
-
-
-### Modify layer metadata
-Not implemented yet
-
-
-## Modify layer access permissions
-Not implemented yet
-
-
-## Upload new layer to GeoNode
-Not implemented yet
-
-
-## Delete layer from GeoNode
-Not implemented yet
+| Capability | Available for GeoNode version | Description |
+| ---------- | ----------------------------- | ----------- |
+| FILTER_BY_TITLE | All | Filter datasets by their `title` property according to the presence of a user-provided sub-string |
+| FILTER_BY_ABSTRACT | All | Filter datasets by `abstract` property according to the presence of a user-provided sub-string |
+| FILTER_BY_RESOURCE_TYPES | All | Filter datasets by their type (`vector` or `raster`) |
+| FILTER_BY_KEYWORD | >= 3.3.0 | Filter datasets by an arbitrary keyword |
+| FILTER_BY_TOPIC_CATEGORY | >= 3.3.0 | Filter datasets by their ISO topic category |
+| FILTER_BY_TEMPORAL_EXTENT | >= 3.3.0 | Filter datasets by their temporal extent |
+| FILTER_BY_PUBLICATION_DATE | >= 3.3.0 | Filter datasets by their publication date |
+| FILTER_BY_SPATIAL_EXTENT | - | Filter datasets by a spatial bounding box |
+| LOAD_LAYER_METADATA | >= 3.3.0 | Load dataset metadata onto QGIS when loading as a layer |
+| MODIFY_LAYER_METADATA | >= 3.3.0 | Upload metadata fields of a loaded QGIS layer back to GeoNode |
+| LOAD_VECTOR_LAYER_STYLE | >= 3.3.0 | Load SLD style onto QGIS when loading GeoNode dataset as a QGIS vector layer |
+| LOAD_RASTER_LAYER_STYLE | - | Load SLD style onto QGIS when loading GeoNode dataset as QGIS raster layer |
+| MODIFY_VECTOR_LAYER_STYLE | >= 3.3.0 | Upload vector layer symbology back to GeoNode |
+| MODIFY_RASTER_LAYER_STYLE | >= 3.3.0 | Upload raster layer symbology back to GeoNode |
+| LOAD_VECTOR_DATASET_VIA_WMS | All | Load GeoNode vector dataset as a QGIS layer via OGC WMS |
+| LOAD_VECTOR_DATASET_VIA_WFS | All | Load GeoNode vector dataset as a QGIS layer using via OGC WFS |
+| LOAD_RASTER_DATASET_VIA_WMS | All | Load GeoNode raster dataset as a QGIS layer via OGC WMS |
+| LOAD_RASTER_DATASET_VIA_WCS | All | Load GeoNode raster dataset as a QGIS layer via OGC WCS |
+| UPLOAD_VECTOR_LAYER | >= 3.4.0 | Upload QGIS vector layer to GeoNode |
+| UPLOAD_RASTER_LAYER | >= 3.4.0 | upload QGIS raster layer to GeoNode |
