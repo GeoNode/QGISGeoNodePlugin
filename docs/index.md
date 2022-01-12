@@ -1,6 +1,6 @@
 # QGIS GeoNode QGIS plugin
 
-![Inspirational screenshot](images/qgis-geonode-inspirational1.png)
+![Inspirational screenshot](images/qgis-geonode-inspirational2.png)
 
 A [QGIS] plugin for working with [GeoNode] resources
 
