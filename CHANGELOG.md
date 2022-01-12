@@ -6,10 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Fix dataset abstract not being shown on the UI anymore
-- Updated user guide
+
+
+## [0.9.0] - 2022-01-12
+
+### Added
+- Add connection capabilities and detected version details
+- Connection test now uses auth credentials, if available
+
+### Changed
 - Layer uploads also send SLD style
-- Connection test uses auth credentials, if available
+- Update user guide
+
+### Fixed
+- Fix re-download of metadata for loaded layers
+- Fix dataset abstract not being shown on the UI anymore
 
 
 ## [0.5.0] - 2021-12-29
@@ -151,7 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.5.0...main
+[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.9.0...main
+[0.9.0]: https://github.com/kartoza/qgis_geonode/compare/v0.9.0...main
 [0.5.0]: https://github.com/kartoza/qgis_geonode/compare/v0.5.0...main
 [0.4.0]: https://github.com/kartoza/qgis_geonode/compare/v0.4.0...main
 [0.3.4]: https://github.com/kartoza/qgis_geonode/compare/v0.3.4...main
