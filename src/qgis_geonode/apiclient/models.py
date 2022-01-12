@@ -249,7 +249,7 @@ class GeonodeApiSearchFilters:
     page: typing.Optional[int] = 1
     title: typing.Optional[str] = None
     abstract: typing.Optional[str] = None
-    keyword: typing.Optional[typing.List[str]] = None
+    keyword: typing.Optional[str] = None
     topic_category: typing.Optional[IsoTopicCategory] = None
     layer_types: typing.Optional[typing.List[GeonodeResourceType]] = dataclasses.field(
         default_factory=list
