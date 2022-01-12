@@ -6,7 +6,7 @@ jobs:
   rebuild-docs:
     runs-on: ubuntu-20.04
     container:
-      image: qgis/qgis:release-3_16
+      image: qgis/qgis:release-3_18
     steps:
       - name: Checkout code
         uses: actions/checkout@v2

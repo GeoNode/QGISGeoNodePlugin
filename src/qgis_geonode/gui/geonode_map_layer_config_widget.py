@@ -1,7 +1,6 @@
 import json
 import typing
 import xml.etree.ElementTree as ET
-from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -56,6 +55,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     _apply_geonode_style: bool
     _apply_geonode_metadata: bool
     _layer_upload_api_client: typing.Optional[base.BaseGeonodeClient]
+    _api_client: typing.Optional[base.BaseGeonodeClient]
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
@@ -66,15 +66,6 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             result = conf.settings_manager.get_connection_settings(
                 UUID(connection_settings_id)
             )
-        else:
-            result = None
-        return result
-
-    @property
-    def api_client(self) -> typing.Optional[base.BaseGeonodeClient]:
-        connection_settings = self.connection_settings
-        if connection_settings is not None:
-            result = get_geonode_client(connection_settings)
         else:
             result = None
         return result
@@ -100,8 +91,9 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self.network_task = None
         self._apply_geonode_style = False
         self._apply_geonode_metadata = False
-        self._layer_upload_api_client = None
         self.layer = layer
+        self._layer_upload_api_client = None
+        self._api_client = get_geonode_client(self.connection_settings)
         self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
         suitable_connections = self._get_suitable_upload_connections()
         if len(suitable_connections) > 0:
@@ -140,9 +132,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             models.DATASET_CUSTOM_PROPERTY_KEY
         )
         if serialized_dataset is not None:
-            result = models.Dataset.from_json(
-                self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY)
-            )
+            result = models.Dataset.from_json(serialized_dataset)
         else:
             result = None
         return result
@@ -155,7 +145,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         dataset = self.get_dataset()
         self.network_task = network.NetworkRequestTask(
             [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
-            self.api_client.network_requests_timeout,
+            self._api_client.network_requests_timeout,
             self.connection_settings.auth_config,
             description="Get dataset style",
         )
@@ -204,7 +194,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                         content_type=content_type,
                     )
                 ],
-                self.api_client.network_requests_timeout,
+                self._api_client.network_requests_timeout,
                 self.connection_settings.auth_config,
                 description="Upload dataset style to GeoNode",
             )
@@ -295,28 +285,18 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             )
 
     def download_metadata(self) -> None:
-        """Initiate download of metadata from the remote GeoNode.
+        """Initiate download of metadata from the remote GeoNode"""
 
-        The process of updating a QGIS layer's metadata from the corresponding GeoNode
-        dataset involves the following steps:
-
-        1. Perform a network request in order to retrieve the updated metadata.
-        2. Update our internal representation of the remote dataset with the retrieved
-           metadata.
-        3. When the QGIS layer properties dialogue has its apply button clicked, update
-           the QGIS layer metadata with the relevant information.
-
-        """
-
-        dataset = self.get_dataset()
-        api_client = self.api_client
-        api_client.dataset_detail_received.connect(self.handle_metadata_downloaded)
-        api_client.dataset_detail_error_received.connect(
+        self._api_client.dataset_detail_received.connect(
+            self.handle_metadata_downloaded
+        )
+        self._api_client.dataset_detail_error_received.connect(
             self.handle_metadata_downloaded
         )
         self._toggle_metadata_controls(enabled=False)
         self._show_message("Retrieving metadata...", add_loading_widget=True)
-        api_client.get_dataset_detail(dataset, get_style_too=False)
+        dataset = self.get_dataset()
+        self._api_client.get_dataset_detail(dataset, get_style_too=False)
 
     def handle_metadata_download_error(self) -> None:
         log("inside handle_metadata_download_error")
@@ -352,8 +332,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                     content_type="application/json",
                 )
             ],
-            self.api_client.network_requests_timeout,
-            self.api_client.auth_config,
+            self._api_client.network_requests_timeout,
+            self._api_client.auth_config,
             description="Upload metadata",
         )
         self.network_task.task_done.connect(self.handle_metadata_uploaded)
@@ -478,11 +458,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         widgets = []
         if enabled and self.connection_settings is not None:
             can_load_style = models.loading_style_supported(
-                self.layer.type(), self.api_client.capabilities
+                self.layer.type(), self._api_client.capabilities
             )
             log(f"can_load_style: {can_load_style}")
             can_modify_style = models.modifying_style_supported(
-                self.layer.type(), self.api_client.capabilities
+                self.layer.type(), self._api_client.capabilities
             )
             dataset = self.get_dataset()
             is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
@@ -503,13 +483,13 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         if enabled and self.connection_settings is not None:
             can_load_metadata = (
                 models.ApiClientCapability.LOAD_LAYER_METADATA
-                in self.api_client.capabilities
+                in self._api_client.capabilities
             )
             if can_load_metadata:
                 widgets.append(self.download_metadata_pb)
             can_modify_metadata = (
                 models.ApiClientCapability.MODIFY_LAYER_METADATA
-                in self.api_client.capabilities
+                in self._api_client.capabilities
             )
             if can_modify_metadata:
                 widgets.append(self.upload_metadata_pb)

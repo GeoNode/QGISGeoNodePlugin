@@ -115,21 +115,22 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_dataset_detail(
-        self, brief_dataset: models.BriefDataset, get_style_too: bool = False
+        self,
+        dataset: typing.Union[models.BriefDataset, models.Dataset],
+        get_style_too: bool = False,
     ) -> None:
         requests_to_perform = [
-            network.RequestToPerform(url=self.get_dataset_detail_url(brief_dataset.pk))
+            network.RequestToPerform(url=self.get_dataset_detail_url(dataset.pk))
         ]
         if get_style_too:
             is_vector = (
-                brief_dataset.dataset_sub_type
-                == models.GeonodeResourceType.VECTOR_LAYER
+                dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER
             )
             should_load_vector_style = (
                 models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE in self.capabilities
             )
             if is_vector and should_load_vector_style:
-                sld_url = QtCore.QUrl(brief_dataset.default_style.sld_url)
+                sld_url = QtCore.QUrl(dataset.default_style.sld_url)
                 requests_to_perform.append(network.RequestToPerform(url=sld_url))
 
         self.network_fetcher_task = network.NetworkRequestTask(
