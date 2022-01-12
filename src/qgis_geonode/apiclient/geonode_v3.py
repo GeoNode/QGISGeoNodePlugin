@@ -614,6 +614,35 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_4_0):
             )
             self.dataset_list_received.emit(brief_datasets, pagination_info)
 
+    def handle_dataset_detail(self, task_result: bool) -> None:
+        deserialized_resource = self._retrieve_response(
+            task_result, 0, self.dataset_detail_error_received
+        )
+        if deserialized_resource is not None:
+            try:
+                dataset = parse_dataset_detail_v_3_3_x(deserialized_resource["layer"])
+            except KeyError as exc:
+                log(
+                    f"Could not parse server response into a dataset: {str(exc)}",
+                    debug=False,
+                )
+            else:
+                try:
+                    style_response_contents = (
+                        self.network_fetcher_task.response_contents[1]
+                    )
+                except IndexError:
+                    pass
+                else:
+                    (
+                        sld_named_layer,
+                        error_message,
+                    ) = geonode_styles.get_usable_sld(style_response_contents)
+                    if sld_named_layer is None:
+                        raise RuntimeError(error_message)
+                    dataset.default_style.sld = sld_named_layer
+                self.dataset_detail_received.emit(dataset)
+
 
 def _get_common_model_properties_v_3_3_x(raw_dataset: typing.Dict) -> typing.Dict:
     type_ = {
@@ -649,6 +678,18 @@ def _get_common_model_properties_v_3_3_x(raw_dataset: typing.Dict) -> typing.Dic
             name=raw_style.get("name", ""), sld_url=raw_style.get("sld_url")
         ),
     }
+
+
+def parse_dataset_detail_v_3_3_x(raw_dataset: typing.Dict) -> models.Dataset:
+    properties = _get_common_model_properties_v_3_3_x(raw_dataset)
+    properties.update(
+        language=raw_dataset.get("language"),
+        license=(raw_dataset.get("license") or {}).get("identifier", ""),
+        constraints=raw_dataset.get("raw_constraints_other", ""),
+        owner=raw_dataset.get("owner", {}).get("username", ""),
+        metadata_author=raw_dataset.get("metadata_author", {}).get("username", ""),
+    )
+    return models.Dataset(**properties)
 
 
 def build_multipart(
