@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.9.1] - 2022-01-14
+
+### Fixed
+- Fix layer properties dialogue not opening correctly for non-GeoNode layers
+- Improve plugin metadata fields when displayed in QGIS plugin repo list
+- Do not use typing.Final in order to support PYthon 3.7
 
 ## [0.9.0] - 2022-01-12
 
@@ -162,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.9.0...main
+[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.9.1...main
+[0.9.1]: https://github.com/kartoza/qgis_geonode/compare/v0.9.1...main
 [0.9.0]: https://github.com/kartoza/qgis_geonode/compare/v0.9.0...main
 [0.5.0]: https://github.com/kartoza/qgis_geonode/compare/v0.5.0...main
 [0.4.0]: https://github.com/kartoza/qgis_geonode/compare/v0.4.0...main
