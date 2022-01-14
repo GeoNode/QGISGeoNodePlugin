@@ -93,7 +93,10 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._apply_geonode_metadata = False
         self.layer = layer
         self._layer_upload_api_client = None
-        self._api_client = get_geonode_client(self.connection_settings)
+        if self.connection_settings is not None:
+            self._api_client = get_geonode_client(self.connection_settings)
+        else:
+            self._api_client = None
         self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
         suitable_connections = self._get_suitable_upload_connections()
         if len(suitable_connections) > 0:
