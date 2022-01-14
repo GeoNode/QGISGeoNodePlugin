@@ -469,10 +469,8 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
 
 
 class LayerUploaderTask(network.NetworkRequestTask):
-    VECTOR_UPLOAD_FORMAT: typing.Final[ExportFormat] = ExportFormat(
-        "ESRI Shapefile", "shp"
-    )
-    RASTER_UPLOAD_FORMAT: typing.Final[ExportFormat] = ExportFormat("GTiff", "tif")
+    VECTOR_UPLOAD_FORMAT = ExportFormat("ESRI Shapefile", "shp")
+    RASTER_UPLOAD_FORMAT = ExportFormat("GTiff", "tif")
 
     layer: qgis.core.QgsMapLayer
     allow_public_access: bool
