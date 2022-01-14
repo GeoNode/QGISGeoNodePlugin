@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "qgis_geonode"
 version = "1.0.0-dev"
-description = "A QGIS plugin for integrating with GeoNode"
+description = "A QGIS plugin for integrating with modern GeoNode"
 authors = ["Kartoza <info@kartoza.com>"]
 license = "GPL-3.0-or-later"
 
@@ -37,7 +37,7 @@ exclude = """\
 [tool.qgis-plugin.metadata]
 name = "QGIS GeoNode"
 qgisMinimumVersion = "3.18"
-icon = "mIconGeonode.svg"
+icon = "plugin-logo.png"
 experimental = "True"
 deprecated = "False"
 homepage = "https://kartoza.github.io/qgis_geonode"
@@ -52,7 +52,10 @@ tags = [
 category = "plugins"
 hasProcessingProvider = "no"
 about = """\
-This plugin adds GeoNode client functionality to QGIS - Search, load and manage GeoNode resources from inside QGIS\
+This plugin adds GeoNode client functionality to QGIS - Search, load and manage GeoNode resources from inside QGIS.\
+
+It is actively maintained and aims to keep up to date with changes in the GeoNode API. Check the plugin website for \
+more detail.\
 """
 # changelog: dynamically pulled from the README.md file
 # description: dynamically pulled from the tool.poetry.description section

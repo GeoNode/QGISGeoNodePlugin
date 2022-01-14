@@ -11,5 +11,8 @@
     <qresource prefix="/plugins/qgis_geonode" >
         <file>icon_wms.svg</file>
     </qresource>
+    <qresource prefix="/plugins/qgis_geonode" >
+        <file>plugin-logo.png</file>
+    </qresource>
 
 </RCC>
