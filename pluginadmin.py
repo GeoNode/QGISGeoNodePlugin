@@ -304,9 +304,7 @@ def _get_metadata() -> typing.Dict:
             "description": poetry_conf["description"],
             "version": poetry_conf["version"],
             "tags": ", ".join(metadata.get("tags", [])),
-            "changelog": _parse_changelog(
-                _read_file("CHANGELOG.md"), poetry_conf["version"]
-            ),
+            "changelog": _parse_changelog(),
         }
     )
     return metadata
@@ -318,16 +316,29 @@ def _parse_pyproject():
         return toml.load(fh)
 
 
-def _parse_changelog(changelog: str, version: str) -> str:
-    usable_fragment = changelog.partition(f"[{version}]")[-1].partition("[unreleased]")[
-        0
-    ]
-    if usable_fragment != "":
-        no_square_brackets = re.sub(r"(\[(\d+.\d+.\d+)\])", "\g<2>", usable_fragment)
-        result = f"{version} {no_square_brackets}".replace("# ", "").replace("#", "")
-    else:
-        result = ""
-    return result
+def _parse_changelog() -> str:
+    contents = _read_file("CHANGELOG.md")
+    usable_fragment = contents.rpartition(f"## [Unreleased]")[-1].partition(
+        "[unreleased]"
+    )[0]
+    release_parts = usable_fragment.split("\n## ")
+    result = []
+    current_change_type = "unreleased"
+    for release_fragment in release_parts:
+        lines: typing.List[str] = [li for li in release_fragment.splitlines()]
+        for line in lines:
+            if line.startswith("["):
+                release, release_date = line.partition(" - ")[::2]
+                release = release.strip("[]")
+                result.append(f"\n{release} ({release_date})")
+            elif line.startswith("### "):
+                current_change_type = line.strip("### ").strip().lower()
+            elif line.startswith("-"):
+                message = line.strip("- ")
+                result.append(f"- ({current_change_type}) {message}")
+            else:
+                pass
+    return "\n".join(result)
 
 
 def _read_file(relative_path: str):
