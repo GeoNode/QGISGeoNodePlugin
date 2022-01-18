@@ -129,9 +129,6 @@ class NetworkRequestTask(qgis.core.QgsTask):
             self._handle_request_timed_out
         )
         self.network_access_manager.finished.connect(self._handle_request_finished)
-        self.network_access_manager.authBrowserAborted.connect(
-            self._handle_auth_browser_aborted
-        )
 
     def run(self) -> bool:
         """Run the QGIS task
@@ -262,9 +259,6 @@ class NetworkRequestTask(qgis.core.QgsTask):
             self._num_finished += 1
             if self._num_finished >= len(self.requests_to_perform):
                 self._all_requests_finished.emit()
-
-    def _handle_auth_browser_aborted(self):
-        log("inside _handle_auth_browser_aborted")
 
 
 def deserialize_json_response(
