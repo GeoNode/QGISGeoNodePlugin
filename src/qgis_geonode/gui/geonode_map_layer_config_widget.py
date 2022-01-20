@@ -261,7 +261,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         name_el = ET.SubElement(named_layer_el, f"{{{nsmap['sld']}}}Name")
         name_el.text = old_name_el.text
         named_layer_el.append(old_user_style_el)
-        new_serialized = ET.tostring(new_root, encoding="unicode", xml_declaration=True)
+        new_serialized = ET.tostring(new_root, encoding="unicode")
         content_type = "application/vnd.ogc.sld+xml"
         return new_serialized, content_type
 
