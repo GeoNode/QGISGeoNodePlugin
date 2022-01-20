@@ -125,6 +125,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
         self._num_finished = 0
         self._pending_replies = {}
         self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
+        self.network_access_manager.setTimeout(self.network_task_timeout)
         self.network_access_manager.requestTimedOut.connect(
             self._handle_request_timed_out
         )

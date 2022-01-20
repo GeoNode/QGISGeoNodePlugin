@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Improve compatibility with Python 3.7 when exporting SLD for raster layers
+
 
 ## [0.9.2] - 2022-01-18
 
