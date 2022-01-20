@@ -29,6 +29,7 @@ markdown_extensions:
       permalink: true
   - pymdownx.snippets:
       base_path: .
+  - pymdownx.details
   - admonition
 
 plugins:
