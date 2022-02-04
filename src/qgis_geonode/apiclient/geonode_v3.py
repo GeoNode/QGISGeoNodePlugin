@@ -333,6 +333,10 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
         else:
             service_urls = {}
         raw_style = raw_dataset.get("default_style") or {}
+        try:
+            sld_url = raw_style.get("sld_url").replace("geoserver", "gs")
+        except AttributeError:
+            sld_url = None
         return {
             "pk": int(raw_dataset["pk"]),
             "uuid": uuid.UUID(raw_dataset["uuid"]),
@@ -353,7 +357,7 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
             "keywords": [k["name"] for k in raw_dataset.get("keywords", [])],
             "category": (raw_dataset.get("category") or {}).get("identifier"),
             "default_style": models.BriefGeonodeStyle(
-                name=raw_style.get("name", ""), sld_url=raw_style.get("sld_url")
+                name=raw_style.get("name", ""), sld_url=sld_url
             ),
         }
 
@@ -798,18 +802,34 @@ def _get_resource_type(
 def _get_vector_service_urls(
     raw_links: typing.Dict,
 ) -> typing.Dict[models.GeonodeService, str]:
+    try:
+        wms_link = _get_link(raw_links, "OGC:WMS").replace("geoserver", "gs")
+    except AttributeError:
+        wms_link = None
+    try:
+        wfs_link = _get_link(raw_links, "OGC:WFS").replace("geoserver", "gs")
+    except AttributeError:
+        wfs_link = None
     return {
-        models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS"),
-        models.GeonodeService.OGC_WFS: _get_link(raw_links, "OGC:WFS"),
+        models.GeonodeService.OGC_WMS: wms_link,
+        models.GeonodeService.OGC_WFS: wfs_link,
     }
 
 
 def _get_raster_service_urls(
     raw_links: typing.Dict,
 ) -> typing.Dict[models.GeonodeService, str]:
+    try:
+        wms_link = _get_link(raw_links, "OGC:WMS").replace("geoserver", "gs")
+    except AttributeError:
+        wms_link = None
+    try:
+        wcs_link = _get_link(raw_links, "OGC:WCS").replace("geoserver", "gs")
+    except AttributeError:
+        wcs_link = None
     return {
-        models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS"),
-        models.GeonodeService.OGC_WCS: _get_link(raw_links, "OGC:WCS"),
+        models.GeonodeService.OGC_WMS: wms_link,
+        models.GeonodeService.OGC_WCS: wcs_link,
     }
 
 
