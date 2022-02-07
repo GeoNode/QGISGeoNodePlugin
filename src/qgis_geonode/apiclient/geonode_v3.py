@@ -323,15 +323,44 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
                 "Could not upload layer to GeoNode"
             )
 
+    def _get_sld_url(self, raw_style: typing.Dict) -> typing.Optional[str]:
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        sld_url = raw_style.get("sld_url")
+        if auth_provider_name == "basic":
+            try:
+                sld_url = sld_url.replace("geoserver", "gs")
+            except AttributeError:
+                pass
+        return sld_url
+
+    def _get_service_urls(
+        self,
+        raw_links: typing.Dict,
+        dataset_type: models.GeonodeResourceType,
+    ) -> typing.Dict[models.GeonodeService, str]:
+        result = {models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS")}
+        if dataset_type == models.GeonodeResourceType.VECTOR_LAYER:
+            result[models.GeonodeService.OGC_WFS] = _get_link(raw_links, "OGC:WFS")
+        elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
+            result[models.GeonodeService.OGC_WCS] = _get_link(raw_links, "OGC:WCS")
+        else:
+            log(f"Invalid dataset type: {dataset_type=}")
+            result = {}
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        if auth_provider_name == "basic":
+            for service_type, retrieved_url in result.items():
+                try:
+                    result[service_type] = retrieved_url.replace("geoserver", "gs")
+                except AttributeError:
+                    pass
+        return result
+
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = _get_resource_type(raw_dataset)
         raw_links = raw_dataset.get("links", [])
-        if type_ == models.GeonodeResourceType.VECTOR_LAYER:
-            service_urls = _get_vector_service_urls(raw_links)
-        elif type_ == models.GeonodeResourceType.RASTER_LAYER:
-            service_urls = _get_raster_service_urls(raw_links)
-        else:
-            service_urls = {}
+        service_urls = self._get_service_urls(raw_links, type_)
         raw_style = raw_dataset.get("default_style") or {}
         return {
             "pk": int(raw_dataset["pk"]),
@@ -353,7 +382,7 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
             "keywords": [k["name"] for k in raw_dataset.get("keywords", [])],
             "category": (raw_dataset.get("category") or {}).get("identifier"),
             "default_style": models.BriefGeonodeStyle(
-                name=raw_style.get("name", ""), sld_url=raw_style.get("sld_url")
+                name=raw_style.get("name", ""), sld_url=self._get_sld_url(raw_style)
             ),
         }
 
@@ -421,18 +450,48 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
             query.removeQueryItem(subtype_key)
         return query
 
+    def _get_sld_url(self, raw_style: typing.Dict) -> typing.Optional[str]:
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        sld_url = raw_style.get("sld_url")
+        if auth_provider_name == "basic":
+            try:
+                sld_url = sld_url.replace("geoserver", "gs")
+            except AttributeError:
+                pass
+        return sld_url
+
+    def _get_service_urls(
+        self,
+        raw_dataset: typing.Dict,
+        dataset_type: models.GeonodeResourceType,
+    ) -> typing.Dict[models.GeonodeService, str]:
+        result = {
+            models.GeonodeService.OGC_WMS: raw_dataset["ows_url"],
+        }
+        if dataset_type == models.GeonodeResourceType.VECTOR_LAYER:
+            result[models.GeonodeService.OGC_WFS] = raw_dataset["ows_url"]
+        elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
+            result[models.GeonodeService.OGC_WCS] = raw_dataset["ows_url"]
+        else:
+            log(f"Invalid dataset type: {dataset_type=}")
+            result = {}
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        if auth_provider_name == "basic":
+            for service_type, retrieved_url in result.items():
+                try:
+                    result[service_type] = retrieved_url.replace("geoserver", "gs")
+                except AttributeError:
+                    pass
+        return result
+
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = {
             "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
             "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
         }.get(raw_dataset.get("storeType"))
-        service_urls = {
-            models.GeonodeService.OGC_WMS: raw_dataset["ows_url"],
-        }
-        if type_ == models.GeonodeResourceType.VECTOR_LAYER:
-            service_urls[models.GeonodeService.OGC_WFS] = raw_dataset["ows_url"]
-        elif type_ == models.GeonodeResourceType.RASTER_LAYER:
-            service_urls[models.GeonodeService.OGC_WCS] = raw_dataset["ows_url"]
+        service_urls = self._get_service_urls(raw_dataset, type_)
         raw_style = raw_dataset.get("default_style") or {}
         return {
             "pk": int(raw_dataset["pk"]),
@@ -452,7 +511,7 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
             "keywords": [k["name"] for k in raw_dataset.get("keywords", [])],
             "category": (raw_dataset.get("category") or {}).get("identifier"),
             "default_style": models.BriefGeonodeStyle(
-                name=raw_style.get("name", ""), sld_url=raw_style.get("sld_url")
+                name=raw_style.get("name", ""), sld_url=self._get_sld_url(raw_style)
             ),
         }
 
@@ -793,24 +852,6 @@ def _get_resource_type(
         "vector": models.GeonodeResourceType.VECTOR_LAYER,
     }.get(raw_dataset.get("subtype"))
     return result
-
-
-def _get_vector_service_urls(
-    raw_links: typing.Dict,
-) -> typing.Dict[models.GeonodeService, str]:
-    return {
-        models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS"),
-        models.GeonodeService.OGC_WFS: _get_link(raw_links, "OGC:WFS"),
-    }
-
-
-def _get_raster_service_urls(
-    raw_links: typing.Dict,
-) -> typing.Dict[models.GeonodeService, str]:
-    return {
-        models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS"),
-        models.GeonodeService.OGC_WCS: _get_link(raw_links, "OGC:WCS"),
-    }
 
 
 def _get_spatial_extent(

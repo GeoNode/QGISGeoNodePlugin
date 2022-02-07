@@ -23,10 +23,10 @@ In order to add a new GeoNode connection:
    the GeoNode connection being created:
 
     | Parameter | Description |
-    | --------- | ----------- |
+    |---------- | ----------- |
     | Name | The name used by QGIS to refer to this connection |
     | GeoNode URL | The base URL of the GeoNode being connected to (_e.g._ <https://stable.demo.geonde.org>) |
-    | Authentication | Whether to use authentication to connect to GeoNode or not. See the [Configuring authentication](#configuring-authentication) section below for more details on how to configure authenticated access to GeoNode |
+    | Authentication | Whether to use authentication to connect to GeoNode or not. See the [Configure authentication](#configure-authentication) section below for more details on how to configure authenticated access to GeoNode |
     | Page size | How many search results per page shall be shown by QGIS. This defaults to `10` |
 
 5. Optionally you may now click the `Test Connection` button. QGIS will then
@@ -65,20 +65,59 @@ connection. Upon acceptance of this dialogue, the connection will be removed.
 
 ### Configure authentication
 
+The plugin is able to authenticate to remote GeoNode instances by using either HTTP Basic Auth (recommended) or OAuth2
+
+#### Authentication with Basic Auth
+
+![Basic Authentication example](images/user_guide/basic_auth_authentication_example.png)
+
+Using HTTP Basic Auth is the recommended authentication method, as it is easier to set up. In order to 
+configure Basic Auth:
+
+1. Open the main QGIS authentication settings dialogue by going to
+   `Settings -> Options...` in the main QGIS menu bar and then access the
+   `Authentication` section
+
+2. Press the `Add new authentication configuration button`. A new dialogue is
+   shown. In this dialogue, fill in the following details:
+
+     | Parameter | Description |
+     |-----------|-------------|
+     | Name | The name used by QGIS to refer to the authentication configuration |
+     | Authentication type | Select the `Basic authentication` option from the dropdown |
+     | Username | Your GeoNode username |
+     | Password | Your GeoNode user password |
+
+     The remaining fields can be left at their default values
+
+3. Now when [configuring a new GeoNode connection](#add-a-new-geonode-connection), select this newly created 
+   authentication configuration in order to have the GeoNode connection use it
+
+
+#### Authentication with OAuth2
+
+This option is not recommended in most cases, since it involves a more advanced set up and also 
+requires requesting additional information from the remote GeoNode administrators.
+
+!!! Note
+    Just in case you missed it, we recommend connecting to GeoNode using
+    [HTTP Basic Auth](#authentication-with-basic-auth) instead
+
+This option may be viable when connecting to GeoNode using shared computing
+resources, where you do not want to store your GeoNode user credentials locally. 
+
 !!! note
-    In order to be able to gain authenticated access to a GeoNode connection 
-    you will need to request that one of the GeoNode administrators create an 
-    **OAuth2** application and provide you with the following relevant details:
+    In order to be able to gain authenticated access to a GeoNode connection
+    via OAuth2 you will need to request that one of the GeoNode administrators 
+    create an **OAuth2** application and provide you with the following relevant details:
 
     - _Client ID_
     - _Client Secret_
 
 ![Authentication example](images/user_guide/authentication_example.png)
 
-The plugin is able to authenticate to remote GeoNode instances by using
-OAuth2 authentication. Most OAuth2 grant types implemented in QGIS are 
-supported. We recommend using the `Authorization Code` grant type. In order 
-to configure such an authentication:
+Most OAuth2 grant types implemented in QGIS are supported. We recommend using 
+the `Authorization Code` grant type. In order to configure such an authentication:
 
 1. Open the main QGIS authentication settings dialogue by going to 
     `Settings -> Options...` in the main QGIS menu bar and then access the 
@@ -98,7 +137,7 @@ to configure such an authentication:
     
     The remaining fields can be left at their default values
 
-4. Now when 
+3Now when 
    [configuring a new GeoNode connection](#add-a-new-geonode-connection), 
    select this newly created authentication configuration in order to have the
    GeoNode connection use it
@@ -292,8 +331,8 @@ different actions. These are classified as a set of capabilities.
 | MODIFY_LAYER_METADATA | >= 3.3.0 | Upload metadata fields of a loaded QGIS layer back to GeoNode |
 | LOAD_VECTOR_LAYER_STYLE | >= 3.3.0 | Load SLD style onto QGIS when loading GeoNode dataset as a QGIS vector layer |
 | LOAD_RASTER_LAYER_STYLE | - | Load SLD style onto QGIS when loading GeoNode dataset as QGIS raster layer |
-| MODIFY_VECTOR_LAYER_STYLE | >= 3.3.0 | Upload vector layer symbology back to GeoNode |
-| MODIFY_RASTER_LAYER_STYLE | >= 3.3.0 | Upload raster layer symbology back to GeoNode |
+| MODIFY_VECTOR_LAYER_STYLE | >= 3.3.0 | Upload vector layer symbology back to GeoNode<br /><br />**NOTE**: This functionality is currently not supported when using HTTP Basic Authentication. Check <https://github.com/kartoza/qgis_geonode/issues/222> for more information |
+| MODIFY_RASTER_LAYER_STYLE | >= 3.3.0 | Upload raster layer symbology back to GeoNode<br /><br />**NOTE**: This functionality is currently not supported when using HTTP Basic Authentication. Check <https://github.com/kartoza/qgis_geonode/issues/222> for more information |
 | LOAD_VECTOR_DATASET_VIA_WMS | All | Load GeoNode vector dataset as a QGIS layer via OGC WMS |
 | LOAD_VECTOR_DATASET_VIA_WFS | All | Load GeoNode vector dataset as a QGIS layer using via OGC WFS |
 | LOAD_RASTER_DATASET_VIA_WMS | All | Load GeoNode raster dataset as a QGIS layer via OGC WMS |

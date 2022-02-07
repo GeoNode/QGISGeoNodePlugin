@@ -6,8 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Improve compatibility with Python 3.7 when exporting SLD for raster layers
-- Fix network access manager not using correct timeout for layer uploads
+- Add support for HTTP Basic Auth when connecting to GeoNode deployments featuring version 3.3.0 or later
 
 
 ## [0.9.3] - 2022-01-20
