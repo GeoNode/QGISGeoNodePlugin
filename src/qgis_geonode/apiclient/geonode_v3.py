@@ -323,20 +323,45 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
                 "Could not upload layer to GeoNode"
             )
 
+    def _get_sld_url(self, raw_style: typing.Dict) -> typing.Optional[str]:
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        sld_url = raw_style.get("sld_url")
+        if auth_provider_name == "basic":
+            try:
+                sld_url = sld_url.replace("geoserver", "gs")
+            except AttributeError:
+                pass
+        return sld_url
+
+    def _get_service_urls(
+        self,
+        raw_links: typing.Dict,
+        dataset_type: models.GeonodeResourceType,
+    ) -> typing.Dict[models.GeonodeService, str]:
+        result = {models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS")}
+        if dataset_type == models.GeonodeResourceType.VECTOR_LAYER:
+            result[models.GeonodeService.OGC_WFS] = _get_link(raw_links, "OGC:WFS")
+        elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
+            result[models.GeonodeService.OGC_WCS] = _get_link(raw_links, "OGC:WCS")
+        else:
+            log(f"Invalid dataset type: {dataset_type=}")
+            result = {}
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        if auth_provider_name == "basic":
+            for service_type, retrieved_url in result.items():
+                try:
+                    result[service_type] = retrieved_url.replace("geoserver", "gs")
+                except AttributeError:
+                    pass
+        return result
+
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = _get_resource_type(raw_dataset)
         raw_links = raw_dataset.get("links", [])
-        if type_ == models.GeonodeResourceType.VECTOR_LAYER:
-            service_urls = _get_vector_service_urls(raw_links)
-        elif type_ == models.GeonodeResourceType.RASTER_LAYER:
-            service_urls = _get_raster_service_urls(raw_links)
-        else:
-            service_urls = {}
+        service_urls = self._get_service_urls(raw_links, type_)
         raw_style = raw_dataset.get("default_style") or {}
-        try:
-            sld_url = raw_style.get("sld_url").replace("geoserver", "gs")
-        except AttributeError:
-            sld_url = None
         return {
             "pk": int(raw_dataset["pk"]),
             "uuid": uuid.UUID(raw_dataset["uuid"]),
@@ -357,7 +382,7 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
             "keywords": [k["name"] for k in raw_dataset.get("keywords", [])],
             "category": (raw_dataset.get("category") or {}).get("identifier"),
             "default_style": models.BriefGeonodeStyle(
-                name=raw_style.get("name", ""), sld_url=sld_url
+                name=raw_style.get("name", ""), sld_url=self._get_sld_url(raw_style)
             ),
         }
 
@@ -797,40 +822,6 @@ def _get_resource_type(
         "vector": models.GeonodeResourceType.VECTOR_LAYER,
     }.get(raw_dataset.get("subtype"))
     return result
-
-
-def _get_vector_service_urls(
-    raw_links: typing.Dict,
-) -> typing.Dict[models.GeonodeService, str]:
-    try:
-        wms_link = _get_link(raw_links, "OGC:WMS").replace("geoserver", "gs")
-    except AttributeError:
-        wms_link = None
-    try:
-        wfs_link = _get_link(raw_links, "OGC:WFS").replace("geoserver", "gs")
-    except AttributeError:
-        wfs_link = None
-    return {
-        models.GeonodeService.OGC_WMS: wms_link,
-        models.GeonodeService.OGC_WFS: wfs_link,
-    }
-
-
-def _get_raster_service_urls(
-    raw_links: typing.Dict,
-) -> typing.Dict[models.GeonodeService, str]:
-    try:
-        wms_link = _get_link(raw_links, "OGC:WMS").replace("geoserver", "gs")
-    except AttributeError:
-        wms_link = None
-    try:
-        wcs_link = _get_link(raw_links, "OGC:WCS").replace("geoserver", "gs")
-    except AttributeError:
-        wcs_link = None
-    return {
-        models.GeonodeService.OGC_WMS: wms_link,
-        models.GeonodeService.OGC_WCS: wcs_link,
-    }
 
 
 def _get_spatial_extent(
