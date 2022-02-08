@@ -254,7 +254,10 @@ def _get_resource_type(
     type_ = {
         "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
         "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
-    }.get(raw_dataset.get("storeType", raw_dataset.get("store_type")))
+    }.get(
+        raw_dataset.get("storeType", raw_dataset.get("store_type")),
+        models.GeonodeResourceType.UNKNOWN,
+    )
     return type_
 
 
