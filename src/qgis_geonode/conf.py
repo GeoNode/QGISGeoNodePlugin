@@ -1,5 +1,6 @@
 import contextlib
 import dataclasses
+import enum
 import json
 import typing
 import uuid
@@ -33,6 +34,13 @@ def _get_network_requests_timeout():
     )
 
 
+class WfsVersion(enum.Enum):
+    V_1_0_0 = "1.0.0"
+    V_1_1_0 = "1.1.0"
+    V_2_0_0 = "2.0.0"
+    AUTO = "auto"
+
+
 @dataclasses.dataclass
 class ConnectionSettings:
     """Helper class to manage settings for a Connection"""
@@ -45,6 +53,7 @@ class ConnectionSettings:
         default_factory=_get_network_requests_timeout, init=False
     )
     geonode_version: typing.Optional[packaging_version.Version] = None
+    wfs_version: typing.Optional[WfsVersion] = WfsVersion.AUTO
     auth_config: typing.Optional[str] = None
 
     @classmethod
@@ -65,6 +74,7 @@ class ConnectionSettings:
             page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg,
             geonode_version=geonode_version,
+            wfs_version=WfsVersion(settings.value("wfs_version", "1.1.0")),
         )
 
     def to_json(self):
@@ -78,6 +88,7 @@ class ConnectionSettings:
                 "geonode_version": str(self.geonode_version)
                 if self.geonode_version is not None
                 else None,
+                "wfs_version": self.wfs_version.value,
             }
         )
 
@@ -151,6 +162,7 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("name", connection_settings.name)
             settings.setValue("base_url", connection_settings.base_url)
             settings.setValue("page_size", connection_settings.page_size)
+            settings.setValue("wfs_version", connection_settings.wfs_version.value)
             settings.setValue("auth_config", connection_settings.auth_config)
             settings.setValue(
                 "geonode_version",

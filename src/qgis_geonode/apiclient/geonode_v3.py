@@ -303,9 +303,13 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
         )
 
     def handle_layer_upload(self, result: bool):
+        success_statuses = (
+            200,
+            201,
+        )
         if result:
             response_contents = self.network_fetcher_task.response_contents[0]
-            if response_contents.http_status_code == 201:
+            if response_contents.http_status_code in success_statuses:
                 deserialized = network.deserialize_json_response(
                     response_contents.response_body
                 )

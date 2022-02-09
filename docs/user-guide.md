@@ -28,6 +28,15 @@ In order to add a new GeoNode connection:
     | GeoNode URL | The base URL of the GeoNode being connected to (_e.g._ <https://stable.demo.geonde.org>) |
     | Authentication | Whether to use authentication to connect to GeoNode or not. See the [Configure authentication](#configure-authentication) section below for more details on how to configure authenticated access to GeoNode |
     | Page size | How many search results per page shall be shown by QGIS. This defaults to `10` |
+    | WFS version | Which version of the Web Feature Service (WFS) to use for requesting vector layers from the remote GeoNode. Defaults to `v1.1.0`. |
+
+    !!! Note
+        There is currently a bug in QGIS which prevents using WFS version 2.0.0 for editing a vector layer's geometry,
+
+        <https://github.com/qgis/QGIS/issues/47254>
+
+        Therefore, for the time being, we reccomend using WFS version 1.1.0, which works OK.
+
 
 5. Optionally you may now click the `Test Connection` button. QGIS will then
     try to connect to GeoNode in order to discover what version of GeoNode is

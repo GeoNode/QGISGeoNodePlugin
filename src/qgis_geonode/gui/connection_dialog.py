@@ -10,6 +10,7 @@ from qgis.PyQt import (
     QtWidgets,
     QtCore,
     QtGui,
+    QtXml,
 )
 from qgis.PyQt.uic import loadUiType
 
@@ -17,6 +18,7 @@ from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
 from ..conf import (
     ConnectionSettings,
+    WfsVersion,
     settings_manager,
 )
 from ..utils import tr
@@ -32,6 +34,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     url_le: QtWidgets.QLineEdit
     authcfg_acs: qgis.gui.QgsAuthConfigSelect
     page_size_sb: QtWidgets.QSpinBox
+    wfs_version_cb: QtWidgets.QComboBox
+    detect_wfs_version_pb: QtWidgets.QPushButton
     network_timeout_sb: QtWidgets.QSpinBox
     test_connection_pb: QtWidgets.QPushButton
     buttonBox: QtWidgets.QDialogButtonBox
@@ -66,7 +70,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         )
         self.layout().insertWidget(0, self.bar, alignment=QtCore.Qt.AlignTop)
         self.discovery_task = None
-
+        self._populate_wfs_version_combobox()
         if connection_settings is not None:
             self.connection_id = connection_settings.id
             self.remote_geonode_version = connection_settings.geonode_version
@@ -74,10 +78,15 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.url_le.setText(connection_settings.base_url)
             self.authcfg_acs.setConfigId(connection_settings.auth_config)
             self.page_size_sb.setValue(connection_settings.page_size)
+            wfs_version_index = self.wfs_version_cb.findData(
+                connection_settings.wfs_version
+            )
+            self.wfs_version_cb.setCurrentIndex(wfs_version_index)
             if self.remote_geonode_version == network.UNSUPPORTED_REMOTE:
-                self.show_progress(
+                utils.show_message(
+                    self.bar,
                     tr("Invalid configuration. Correct GeoNode URL and/or test again."),
-                    message_level=qgis.core.Qgis.Critical,
+                    level=qgis.core.Qgis.Critical,
                 )
         else:
             self.connection_id = uuid.uuid4()
@@ -90,6 +99,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         ]
         for signal in ok_signals:
             signal.connect(self.update_ok_buttons)
+        self.detect_wfs_version_pb.clicked.connect(self.detect_wfs_version)
         self.test_connection_pb.clicked.connect(self.test_connection)
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
@@ -97,6 +107,32 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le)
         )
         self.update_ok_buttons()
+
+    def _populate_wfs_version_combobox(self):
+        self.wfs_version_cb.clear()
+        for name, member in WfsVersion.__members__.items():
+            self.wfs_version_cb.addItem(member.value, member)
+
+    def detect_wfs_version(self):
+        for widget in self._widgets_to_toggle_during_connection_test:
+            widget.setEnabled(False)
+        current_settings = self.get_connection_settings()
+        query = QtCore.QUrlQuery()
+        query.addQueryItem("service", "WFS")
+        query.addQueryItem("request", "GetCapabilities")
+        url = QtCore.QUrl(f"{current_settings.base_url}/gs/ows")
+        url.setQuery(query)
+        self.discovery_task = network.NetworkRequestTask(
+            [network.RequestToPerform(url)],
+            network_task_timeout=current_settings.network_requests_timeout,
+            authcfg=current_settings.auth_config,
+            description="Detect WFS version",
+        )
+        self.discovery_task.task_done.connect(self.handle_wfs_version_detection_test)
+        utils.show_message(
+            self.bar, tr("Detecting WFS version..."), add_loading_widget=True
+        )
+        qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
     def get_connection_settings(self) -> ConnectionSettings:
         return ConnectionSettings(
@@ -106,6 +142,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             auth_config=self.authcfg_acs.configId(),
             page_size=self.page_size_sb.value(),
             geonode_version=self.remote_geonode_version,
+            wfs_version=self.wfs_version_cb.currentData(),
         )
 
     def test_connection(self):
@@ -123,7 +160,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             description="Test GeoNode connection",
         )
         self.discovery_task.task_done.connect(self.handle_discovery_test)
-        self.show_progress(tr("Testing connection..."), include_progress_bar=True)
+        utils.show_message(
+            self.bar, tr("Testing connection..."), add_loading_widget=True
+        )
         qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
     def handle_discovery_test(self, task_result: bool):
@@ -141,6 +180,40 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.remote_geonode_version = network.UNSUPPORTED_REMOTE
         utils.show_message(self.bar, message, level)
         self.update_connection_details()
+
+    def handle_wfs_version_detection_test(self, task_result: bool):
+        self.enable_post_test_connection_buttons()
+        # TODO: set the default to WfsVersion.AUTO when this QGIS issue has been resolved:
+        #
+        # https://github.com/qgis/QGIS/issues/47254
+        #
+        default_version = WfsVersion.V_1_1_0
+        version = default_version
+        if task_result:
+            response_contents = self.discovery_task.response_contents[0]
+            if response_contents is not None and response_contents.qt_error is None:
+                raw_response = response_contents.response_body
+                detected_versions = _get_wfs_declared_versions(raw_response)
+                preference_order = [
+                    "1.1.0",
+                    "2.0.0",
+                    "1.0.0",
+                ]
+                for preference in preference_order:
+                    if preference in detected_versions:
+                        version = WfsVersion(preference)
+                        break
+                else:
+                    version = default_version
+            self.bar.clearWidgets()
+        else:
+            utils.show_message(
+                self.bar,
+                tr("Unable to detect WFS version"),
+                level=qgis.core.Qgis.Warning,
+            )
+        index = self.wfs_version_cb.findData(version)
+        self.wfs_version_cb.setCurrentIndex(index)
 
     def update_connection_details(self):
         invalid_version = (
@@ -194,12 +267,31 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(enabled_state)
         self.test_connection_pb.setEnabled(enabled_state)
 
-    def show_progress(
-        self,
-        message: str,
-        message_level: typing.Optional[qgis.core.Qgis] = qgis.core.Qgis.Info,
-        include_progress_bar: typing.Optional[bool] = False,
-    ):
-        return utils.show_message(
-            self.bar, message, message_level, add_loading_widget=include_progress_bar
-        )
+
+def _get_wfs_declared_versions(raw_response: QtCore.QByteArray) -> typing.List[str]:
+    """
+    Parse capabilities response and retrieve WFS versions supported by the WFS server.
+    """
+
+    capabilities_doc = QtXml.QDomDocument()
+    loaded = capabilities_doc.setContent(raw_response, True)
+    result = []
+    if loaded:
+        root = capabilities_doc.documentElement()
+        if not root.isNull():
+            operations_meta_elements = root.elementsByTagName("ows:OperationsMetadata")
+            operations_meta_element = operations_meta_elements.at(0)
+            if not operations_meta_element.isNull():
+                for operation_node in operations_meta_element.childNodes():
+                    op_name = operation_node.attributes().namedItem("name").nodeValue()
+                    if op_name == "GetCapabilities":
+                        operation_el = operation_node.toElement()
+                        for par_node in operation_el.elementsByTagName("ows:Parameter"):
+                            param_name = (
+                                par_node.attributes().namedItem("name").nodeValue()
+                            )
+                            if param_name == "AcceptVersions":
+                                param_el = par_node.toElement()
+                                for val_node in param_el.elementsByTagName("ows:Value"):
+                                    result.append(val_node.firstChild().nodeValue())
+    return result
