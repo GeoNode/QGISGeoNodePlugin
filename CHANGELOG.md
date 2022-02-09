@@ -6,10 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Remove unsupported f-string formatting on Python3.7
-- Assign `UNKNOWN` as dataset type when the remote does not report it
+
+
+## [0.9.5] - 2022-02-09
+
+### Added
 - Add new WFS version config option and default to WFS v1.1.0
 
+### Fixed
+- Remove unsupported f-string formatting on Python3.7
+- Assign `UNKNOWN` as dataset type when the remote does not report it
 
 
 ## [0.9.4] - 2022-02-07
@@ -193,7 +199,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.9.4...main
+[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.9.5...main
+[0.9.5]: https://github.com/kartoza/qgis_geonode/compare/v0.9.5...main
 [0.9.4]: https://github.com/kartoza/qgis_geonode/compare/v0.9.4...main
 [0.9.3]: https://github.com/kartoza/qgis_geonode/compare/v0.9.3...main
 [0.9.2]: https://github.com/kartoza/qgis_geonode/compare/v0.9.2...main
