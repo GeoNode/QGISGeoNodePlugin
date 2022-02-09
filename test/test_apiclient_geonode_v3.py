@@ -69,7 +69,7 @@ def test_get_temporal_extent(payload, expected):
     [
         pytest.param({"subtype": "raster"}, models.GeonodeResourceType.RASTER_LAYER),
         pytest.param({"subtype": "vector"}, models.GeonodeResourceType.VECTOR_LAYER),
-        pytest.param({}, None),
+        pytest.param({}, models.GeonodeResourceType.UNKNOWN),
     ],
 )
 def test_get_resource_type(raw_dataset, expected):

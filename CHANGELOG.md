@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Remove unsupported f-string formatting on Python3.7
+- Assign `UNKNOWN` as dataset type when the remote does not report it
 
 
 ## [0.9.4] - 2022-02-07

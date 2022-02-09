@@ -345,7 +345,7 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
         elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
             result[models.GeonodeService.OGC_WCS] = _get_link(raw_links, "OGC:WCS")
         else:
-            log(f"Invalid dataset type: {dataset_type=}")
+            log(f"Invalid dataset type: {dataset_type}")
             result = {}
         auth_manager = qgis.core.QgsApplication.authManager()
         auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
@@ -474,7 +474,7 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
         elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
             result[models.GeonodeService.OGC_WCS] = raw_dataset["ows_url"]
         else:
-            log(f"Invalid dataset type: {dataset_type=}")
+            log(f"Invalid dataset type: {dataset_type}")
             result = {}
         auth_manager = qgis.core.QgsApplication.authManager()
         auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
@@ -490,7 +490,7 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
         type_ = {
             "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
             "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
-        }.get(raw_dataset.get("storeType"))
+        }.get(raw_dataset.get("storeType"), models.GeonodeResourceType.UNKNOWN)
         service_urls = self._get_service_urls(raw_dataset, type_)
         raw_style = raw_dataset.get("default_style") or {}
         return {
@@ -850,7 +850,7 @@ def _get_resource_type(
     result = {
         "raster": models.GeonodeResourceType.RASTER_LAYER,
         "vector": models.GeonodeResourceType.VECTOR_LAYER,
-    }.get(raw_dataset.get("subtype"))
+    }.get(raw_dataset.get("subtype"), models.GeonodeResourceType.UNKNOWN)
     return result
 
 

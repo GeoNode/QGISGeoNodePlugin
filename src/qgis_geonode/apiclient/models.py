@@ -84,6 +84,7 @@ class GeonodeService(enum.Enum):
 class GeonodeResourceType(enum.Enum):
     VECTOR_LAYER = "vector"
     RASTER_LAYER = "raster"
+    UNKNOWN = "unknown"
 
 
 @dataclasses.dataclass
