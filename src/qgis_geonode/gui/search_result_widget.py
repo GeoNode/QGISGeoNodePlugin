@@ -394,7 +394,7 @@ class LayerLoaderTask(qgis.core.QgsTask):
             "srsname": f"EPSG:{self.brief_dataset.srid.postgisSrid()}",
             "typename": self.brief_dataset.name,
             "url": self.brief_dataset.service_urls[self.service_type].rstrip("/"),
-            "version": "auto",
+            "version": self.api_client.wfs_version.value,
         }
         if self.api_client.auth_config:
             params["authcfg"] = self.api_client.auth_config

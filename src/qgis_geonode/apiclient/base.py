@@ -22,6 +22,7 @@ class BaseGeonodeClient(QtCore.QObject):
     network_fetcher_task: typing.Optional[network.NetworkRequestTask]
     capabilities: typing.List[models.ApiClientCapability]
     page_size: int
+    wfs_version: conf.WfsVersion
     network_requests_timeout: int
 
     dataset_list_received = QtCore.pyqtSignal(list, models.GeonodePaginationInfo)
@@ -38,6 +39,7 @@ class BaseGeonodeClient(QtCore.QObject):
         self,
         base_url: str,
         page_size: int,
+        wfs_version: conf.WfsVersion,
         network_requests_timeout: int,
         auth_config: typing.Optional[str] = None,
     ):
@@ -45,6 +47,7 @@ class BaseGeonodeClient(QtCore.QObject):
         self.auth_config = auth_config or ""
         self.base_url = base_url.rstrip("/")
         self.page_size = page_size
+        self.wfs_version = wfs_version
         self.network_requests_timeout = network_requests_timeout
         self.network_fetcher_task = None
 
@@ -53,6 +56,7 @@ class BaseGeonodeClient(QtCore.QObject):
         return cls(
             base_url=connection_settings.base_url,
             page_size=connection_settings.page_size,
+            wfs_version=connection_settings.wfs_version,
             auth_config=connection_settings.auth_config,
             network_requests_timeout=connection_settings.network_requests_timeout,
         )

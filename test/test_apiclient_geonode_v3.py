@@ -7,6 +7,7 @@ import pytest
 import qgis.core
 from qgis.PyQt import QtCore
 
+from qgis_geonode.conf import WfsVersion
 from qgis_geonode.apiclient import (
     geonode_v3,
     models,
@@ -110,7 +111,7 @@ def test_parse_datetime(raw_value, expected):
 )
 def test_apiclient_v_3_3_0_dataset_list_url(base_url, expected):
     client = geonode_v3.GeonodeApiClientVersion_3_3_0(
-        base_url, 10, network_requests_timeout=0
+        base_url, 10, wfs_version=WfsVersion.V_1_1_0, network_requests_timeout=0
     )
     assert client.dataset_list_url == expected
 
@@ -131,7 +132,9 @@ def test_apiclient_v_3_3_0_dataset_list_url(base_url, expected):
     ],
 )
 def test_apiclient_dataset_list_url(client_class: typing.Type, base_url, expected):
-    client = client_class(base_url, 10, network_requests_timeout=0)
+    client = client_class(
+        base_url, 10, wfs_version=WfsVersion.V_1_1_0, network_requests_timeout=0
+    )
     assert client.dataset_list_url == expected
 
 
@@ -155,7 +158,9 @@ def test_apiclient_dataset_list_url(client_class: typing.Type, base_url, expecte
 def test_apiclient_get_dataset_detail_url(
     client_class: typing.Type, base_url, dataset_id, expected
 ):
-    client = client_class(base_url, 10, network_requests_timeout=0)
+    client = client_class(
+        base_url, 10, wfs_version=WfsVersion.V_1_1_0, network_requests_timeout=0
+    )
     result = client.get_dataset_detail_url(dataset_id)
     assert result.toString() == expected
 
@@ -350,7 +355,9 @@ def test_apiclient_get_dataset_detail_url(
 def test_apiclient_build_search_filters(
     client_class: typing.Type, search_filters, expected
 ):
-    client = client_class("phony-base-url", 10, network_requests_timeout=0)
+    client = client_class(
+        "phony-base-url", 10, wfs_version=WfsVersion.V_1_1_0, network_requests_timeout=0
+    )
     result = client.build_search_query(search_filters)
     assert result.toString() == expected
 
@@ -419,7 +426,9 @@ def test_get_common_model_properties_client_v_3_4_0():
             name="fake-style-name", sld_url="fake-sld-url"
         ),
     }
-    client = geonode_v3.GeonodeApiClientVersion_3_4_0("fake-base-url", 10, 0)
+    client = geonode_v3.GeonodeApiClientVersion_3_4_0(
+        "fake-base-url", 10, WfsVersion.V_1_1_0, 0
+    )
     result = client._get_common_model_properties(raw_dataset)
     for k, v in expected.items():
         assert result[k] == v
