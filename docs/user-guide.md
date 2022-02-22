@@ -74,14 +74,12 @@ connection. Upon acceptance of this dialogue, the connection will be removed.
 
 ### Configure authentication
 
-The plugin is able to authenticate to remote GeoNode instances by using either HTTP Basic Auth (recommended) or OAuth2
-
-#### Authentication with Basic Auth
+The plugin is able to authenticate to remote GeoNode instances by using HTTP Basic Auth (OAuth2 is also an option, if 
+you really want it).
 
 ![Basic Authentication example](images/user_guide/basic_auth_authentication_example.png)
 
-Using HTTP Basic Auth is the recommended authentication method, as it is easier to set up. In order to 
-configure Basic Auth:
+In order to configure Basic Auth:
 
 1. Open the main QGIS authentication settings dialogue by going to
    `Settings -> Options...` in the main QGIS menu bar and then access the
@@ -102,20 +100,13 @@ configure Basic Auth:
 3. Now when [configuring a new GeoNode connection](#add-a-new-geonode-connection), select this newly created 
    authentication configuration in order to have the GeoNode connection use it
 
+??? info "Extra - Using OAuth2 for authorization"
 
-#### Authentication with OAuth2
+    This option is not recommended in most cases, since it involves a more advanced set up and also 
+    requires requesting additional information from the remote GeoNode administrators. It may be viable when 
+    connecting to GeoNode using shared computing resources, where you do not want to store your GeoNode user 
+    credentials locally. 
 
-This option is not recommended in most cases, since it involves a more advanced set up and also 
-requires requesting additional information from the remote GeoNode administrators.
-
-!!! Note
-    Just in case you missed it, we recommend connecting to GeoNode using
-    [HTTP Basic Auth](#authentication-with-basic-auth) instead
-
-This option may be viable when connecting to GeoNode using shared computing
-resources, where you do not want to store your GeoNode user credentials locally. 
-
-!!! note
     In order to be able to gain authenticated access to a GeoNode connection
     via OAuth2 you will need to request that one of the GeoNode administrators 
     create an **OAuth2** application and provide you with the following relevant details:
@@ -123,33 +114,32 @@ resources, where you do not want to store your GeoNode user credentials locally.
     - _Client ID_
     - _Client Secret_
 
-![Authentication example](images/user_guide/authentication_example.png)
+    ![Authentication example](images/user_guide/authentication_example.png)
 
-Most OAuth2 grant types implemented in QGIS are supported. We recommend using 
-the `Authorization Code` grant type. In order to configure such an authentication:
-
-1. Open the main QGIS authentication settings dialogue by going to 
-    `Settings -> Options...` in the main QGIS menu bar and then access the 
-    `Authentication` section
-
-2. Press the `Add new authentication configuration button`. A new dialogue is
-    shown. In this dialogue, fill in the following details:
-
-    | Parameter | Description |
-    | --------- | ----------- |
-    | Name | The name used by QGIS to refer to the authentication configuration |
-    | Authentication type | Select the `OAuth2 authentication` option from the dropdown |
-    | Request URL | This is derived from the GeoNode base URL and takes the form `<geonode-base-url>/o/authorize/`, _e.g._ <https://stable.demo.geonode.org/o/authorize/> |
-    | Token URL | This is derived from the GeoNode base URL and takes the form `<geonode-base-url>/o/token/`, _e.g._ <https://stable.demo.geonode.org/o/token/> |
-    | Client ID | The client ID you got from your GeoNode administrator |
-    | Client Secret | The client secret you got from your GeoNode administrator |
+    Most OAuth2 grant types implemented in QGIS are supported. We recommend using 
+    the `Authorization Code` grant type. In order to configure such an authentication:
     
-    The remaining fields can be left at their default values
-
-3Now when 
-   [configuring a new GeoNode connection](#add-a-new-geonode-connection), 
-   select this newly created authentication configuration in order to have the
-   GeoNode connection use it
+    1. Open the main QGIS authentication settings dialogue by going to 
+        `Settings -> Options...` in the main QGIS menu bar and then access the 
+        `Authentication` section
+    
+    2. Press the `Add new authentication configuration button`. A new dialogue is
+        shown. In this dialogue, fill in the following details:
+    
+        | Parameter | Description |
+        | --------- | ----------- |
+        | Name | The name used by QGIS to refer to the authentication configuration |
+        | Authentication type | Select the `OAuth2 authentication` option from the dropdown |
+        | Request URL | This is derived from the GeoNode base URL and takes the form `<geonode-base-url>/o/authorize/`, _e.g._ <https://stable.demo.geonode.org/o/authorize/> |
+        | Token URL | This is derived from the GeoNode base URL and takes the form `<geonode-base-url>/o/token/`, _e.g._ <https://stable.demo.geonode.org/o/token/> |
+        | Client ID | The client ID you got from your GeoNode administrator |
+        | Client Secret | The client secret you got from your GeoNode administrator |
+        
+        The remaining fields can be left at their default values
+    
+    3. Now when [configuring a new GeoNode connection](#add-a-new-geonode-connection), 
+       select this newly created authentication configuration in order to have the
+       GeoNode connection use it
    
 
 ## Searching GeoNode datasets
