@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve plugin description when viewed through QGIS plugin manager
 - Improve focus behavior for searching datasets in QGIS data source dialog
+- Improve handling of invalid connections
 
 
 ## [0.9.5] - 2022-02-09
