@@ -195,6 +195,26 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         # self.activate_connection_configuration to run
         self.update_connections_combobox()
         self.title_le.returnPressed.connect(self.search_geonode)
+        log(f"the current parent is {self.parent().objectName()}")
+        provider_list_widget = self.parent().findChild(
+            QtWidgets.QListWidget, "mOptionsListWidget"
+        )
+        log(f"the list widget: {provider_list_widget.objectName()}")
+        log(f"the list widget has {provider_list_widget.count()} items")
+        found_items = provider_list_widget.findItems(
+            "GeoNode",
+            QtCore.Qt.MatchFixedString
+            | QtCore.Qt.MatchCaseSensitive
+            | QtCore.Qt.MatchWrap,
+        )
+        log(f"found {len(found_items)}")
+        for row in range(provider_list_widget.count()):
+            item = provider_list_widget.item(row)
+            if item.text() == "GeoNode":
+                row_to_take = row
+                break
+        else:
+            row_to_take = None
 
     def _initialize_spatial_extent_box(self):
         # ATTENTION: the order of initialization of the self.spatial_extent_box widget
