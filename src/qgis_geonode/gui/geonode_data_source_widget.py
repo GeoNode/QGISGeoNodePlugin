@@ -184,12 +184,17 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.spatial_extent_box.extentChanged.connect(self.store_search_filters)
         self.sort_field_cmb.currentIndexChanged.connect(self.store_search_filters)
         self.reverse_order_chb.toggled.connect(self.store_search_filters)
+        for button in self.findChildren(QtWidgets.QPushButton):
+            button.setAutoDefault(False)
+            button.setDefault(False)
+        self.search_btn.setDefault(True)
         self.restore_search_filters()
 
         # this method calls connections_cmb.setCurrentIndex(), which in turn emits
         # connections_cmb.currentIndexChanged, which causes
         # self.activate_connection_configuration to run
         self.update_connections_combobox()
+        self.title_le.returnPressed.connect(self.search_geonode)
 
     def _initialize_spatial_extent_box(self):
         # ATTENTION: the order of initialization of the self.spatial_extent_box widget
@@ -483,6 +488,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self.show_message(message, level=qgis.core.Qgis.Critical)
         self.toggle_search_controls(True)
         self.toggle_search_buttons()
+        self.title_le.setFocus()
 
     def handle_search_error(
         self,
