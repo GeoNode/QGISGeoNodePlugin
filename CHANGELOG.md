@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Improve plugin description when viewed through QGIS plugin manager
 
 
 ## [0.9.5] - 2022-02-09
