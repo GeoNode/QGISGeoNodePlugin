@@ -313,14 +313,17 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                     # don't know if current config is valid or not yet, need to detect it
                     pass
             self.update_gui(current_connection)
-        self.toggle_search_buttons()
+            self.toggle_search_buttons()
 
     def toggle_search_buttons(self, enable: typing.Optional[bool] = None):
         enable_search = False
         enable_previous = False
         enable_next = False
         if enable is None or enable:
-            if self.connections_cmb.currentText() != "":
+            current_connection = conf.settings_manager.get_current_connection_settings()
+            if current_connection.geonode_version == network.UNSUPPORTED_REMOTE:
+                enable_search = False
+            else:
                 for check_box in self.resource_types_btngrp.buttons():
                     if check_box.isChecked():
                         enable_search = True

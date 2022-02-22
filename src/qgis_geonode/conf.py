@@ -12,6 +12,7 @@ from qgis.core import QgsRectangle, QgsSettings
 
 from .apiclient import models
 from .apiclient.models import GeonodeResourceType, IsoTopicCategory
+from .network import UNSUPPORTED_REMOTE
 from .utils import log
 from .vendor.packaging import version as packaging_version
 
@@ -62,11 +63,11 @@ class ConnectionSettings:
             reported_auth_cfg = settings.value("auth_config").strip()
         except AttributeError:
             reported_auth_cfg = None
-        raw_geonode_version = settings.value("geonode_version") or None
-        if raw_geonode_version is not None:
+        raw_geonode_version = settings.value("geonode_version") or UNSUPPORTED_REMOTE
+        if raw_geonode_version != UNSUPPORTED_REMOTE:
             geonode_version = packaging_version.parse(raw_geonode_version)
         else:
-            geonode_version = None
+            geonode_version = UNSUPPORTED_REMOTE
         return cls(
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
