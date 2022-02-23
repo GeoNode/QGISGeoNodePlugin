@@ -55,6 +55,11 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
         models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
     ]
 
+    _DEFAULT_PERMISSIONS = [
+        models.GeonodePermission.VIEW_RESOURCEBASE,
+        models.GeonodePermission.DOWNLOAD_RESOURCEBASE,
+    ]
+
     @property
     def api_url(self):
         return f"{self.base_url}/api"
@@ -234,6 +239,7 @@ class GeonodeLegacyApiClient(BaseGeonodeClient):
             "default_style": models.BriefGeonodeStyle(
                 name="", sld_url=f"{self.base_url}/{raw_dataset.get('default_style')}"
             ),
+            "permissions": self._DEFAULT_PERMISSIONS,
         }
 
     def _get_service_urls(

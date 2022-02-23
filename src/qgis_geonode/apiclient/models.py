@@ -24,6 +24,20 @@ DATASET_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset"
 DATASET_CONNECTION_CUSTOM_PROPERTY_KEY = "plugins/qgis_geonode/dataset_connection"
 
 
+class GeonodePermission(enum.Enum):
+    VIEW_RESOURCEBASE = "view_resourcebase"
+    DOWNLOAD_RESOURCEBASE = "download_resourcebase"
+    CHANGE_RESOURCEBASE = "change_resourcebase"
+
+    CHANGE_RESOURCEBASE_METADATA = "change_resourcebase_metadata"
+    DELETE_RESOURCEBASE = "delete_resourcebase"
+    CHANGE_RESOURCEBASE_PERMISSIONS = "change_resourcebase_permissions"
+    PUBLISH_RESOURCEBASE = "publish_resourcebase"
+
+    CHANGE_DATASET_DATA = "change_dataset_data"
+    CHANGE_DATASET_STYLE = "change_dataset_style"
+
+
 class ApiClientCapability(enum.Enum):
     # NOTE - Some capabilities are not made explicit here because their support
     # is mandatory far all API clients. For example, all clients must support
@@ -128,6 +142,7 @@ class BriefDataset:
     category: typing.Optional[str]
     service_urls: typing.Dict[GeonodeService, str]
     default_style: BriefGeonodeStyle
+    permissions: typing.List[GeonodePermission]
 
 
 @dataclasses.dataclass()
@@ -184,6 +199,7 @@ class Dataset(BriefDataset):
                     "sld_url": self.default_style.sld_url,
                     "sld": serialized_sld,
                 },
+                "permissions": [perm.value for perm in self.permissions],
             }
         )
 
@@ -242,6 +258,9 @@ class Dataset(BriefDataset):
                 sld_url=parsed.get("default_style", {}).get("sld_url"),
                 sld=sld,
             ),
+            permissions=[
+                GeonodePermission(perm) for perm in parsed.get("permissions", [])
+            ],
         )
 
 

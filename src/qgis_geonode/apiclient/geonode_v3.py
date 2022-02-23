@@ -392,6 +392,7 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
             "default_style": models.BriefGeonodeStyle(
                 name=raw_style.get("name", ""), sld_url=self._get_sld_url(raw_style)
             ),
+            "permissions": self.parse_permissions(raw_dataset.get("perms", [])),
         }
 
     def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
@@ -512,6 +513,7 @@ class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
             "default_style": models.BriefGeonodeStyle(
                 name=raw_style.get("name", ""), sld_url=self._get_sld_url(raw_style)
             ),
+            "permissions": self.parse_permissions(raw_dataset.get("perms", [])),
         }
 
     def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
