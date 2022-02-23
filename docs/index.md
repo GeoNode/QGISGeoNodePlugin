@@ -28,12 +28,16 @@ This is a QGIS plugin to allow working with and managing GeoNode resources in QG
 This plugin is available for installation via the main QGIS plugin repository. Inside QGIS, 
 navigate to _Plugins -> Manage and Install Plugins..._, then search for `QGIS GeoNode` and install it
 
+!!! Warning
+    It may be necessary to **restart QGIS** after installing the plugin, since QGIS does not currently allow Python
+    plugins to reload data providers dynamically
+
+    Additionally, when activated, **this plugin replaces the core GeoNode provider** that comes preinstaled in QGIS.
+    If you want to get the core provider back you will need to disable this plugin and restart QGIS.
+
+
 !!! note
     Be sure to have the _Show also experimental plugins_ checkbox checked, the QGIS Plugin Manager _Settings_ section.
-
-!!! warning
-    It may be necessary to **restart QGIS** after installing the plugin, since QGIS does not currently allow Python 
-    plugins to reload data providers dynamically
 
 ??? info "Extra - Installing from our custom plugin repo"
     In addition to installing from the official QGIS plugin repository.
