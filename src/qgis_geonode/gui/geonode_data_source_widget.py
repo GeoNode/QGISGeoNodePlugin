@@ -195,26 +195,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         # self.activate_connection_configuration to run
         self.update_connections_combobox()
         self.title_le.returnPressed.connect(self.search_geonode)
-        log(f"the current parent is {self.parent().objectName()}")
-        provider_list_widget = self.parent().findChild(
-            QtWidgets.QListWidget, "mOptionsListWidget"
-        )
-        log(f"the list widget: {provider_list_widget.objectName()}")
-        log(f"the list widget has {provider_list_widget.count()} items")
-        found_items = provider_list_widget.findItems(
-            "GeoNode",
-            QtCore.Qt.MatchFixedString
-            | QtCore.Qt.MatchCaseSensitive
-            | QtCore.Qt.MatchWrap,
-        )
-        log(f"found {len(found_items)}")
-        for row in range(provider_list_widget.count()):
-            item = provider_list_widget.item(row)
-            if item.text() == "GeoNode":
-                row_to_take = row
-                break
-        else:
-            row_to_take = None
+        self._hide_core_geonode_provider()
 
     def _initialize_spatial_extent_box(self):
         # ATTENTION: the order of initialization of the self.spatial_extent_box widget
@@ -684,3 +665,47 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             spatial_extent=self.spatial_extent_box.outputExtent(),
         )
         return result
+
+    def _hide_core_geonode_provider(self):
+        self._hide_core_geonode_provider_from_data_source_dialog()
+        self._hide_core_geonode_provider_from_browser()
+
+    def _hide_core_geonode_provider_from_data_source_dialog(self):
+        """Hides the core GeoNode provider from the QGIS data source manager dialog
+
+        This method uses a hacky way to get to the core provider widgets. This is due
+        to there being no official support for getting them via the QGIS API.
+
+        """
+
+        provider_list_widget: QtWidgets.QListWidget = self.parent().findChild(
+            QtWidgets.QListWidget, "mOptionsListWidget"
+        )
+        provider_stack_widget: QtWidgets.QStackedWidget = self.parent().findChild(
+            QtWidgets.QStackedWidget, "mOptionsStackedWidget"
+        )
+        found_items = provider_list_widget.findItems(
+            "GeoNode",
+            QtCore.Qt.MatchFixedString
+            | QtCore.Qt.MatchCaseSensitive
+            | QtCore.Qt.MatchWrap,
+        )
+        for row in range(provider_list_widget.count()):
+            item = provider_list_widget.item(row)
+            if item.text() == "GeoNode":
+                row_to_take = row
+                break
+        else:
+            row_to_take = None
+        if row_to_take is not None:
+            provider_list_widget.takeItem(row_to_take)
+            page_widget = provider_stack_widget.widget(row_to_take)
+            provider_stack_widget.removeWidget(page_widget)
+
+    def _hide_core_geonode_provider_from_browser(self):
+        browser_registry = (
+            qgis.core.QgsApplication.instance().dataItemProviderRegistry()
+        )
+        geonode_browser_provider = browser_registry.provider("GeoNode")
+        if geonode_browser_provider is not None:
+            browser_registry.removeProvider(geonode_browser_provider)
