@@ -14,6 +14,7 @@ from .. import (
 
 from . import models
 from .models import GeonodeApiSearchFilters
+from ..utils import log
 
 
 class BaseGeonodeClient(QtCore.QObject):
@@ -192,3 +193,14 @@ class BaseGeonodeClient(QtCore.QObject):
         """
 
         raise NotImplementedError
+
+    def parse_permissions(
+        self, raw_permissions: typing.List[str]
+    ) -> typing.List[models.GeonodePermission]:
+        permissions = []
+        for raw_perm in raw_permissions:
+            try:
+                permissions.append(models.GeonodePermission(raw_perm.lower()))
+            except ValueError:
+                log(f"Unknown permission: {raw_perm!r}, skipping...")
+        return permissions

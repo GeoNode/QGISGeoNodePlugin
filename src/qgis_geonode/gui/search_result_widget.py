@@ -95,13 +95,20 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS
             in self.api_client.capabilities
         )
-        if able_to_load_wms:
+        allowed_to_load_wms = (
+            models.GeonodePermission.VIEW_RESOURCEBASE in self.brief_dataset.permissions
+        )
+        if able_to_load_wms and allowed_to_load_wms:
             self._add_loadable_button(models.GeonodeService.OGC_WMS)
         able_to_load_wfs = (
             ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS
             in self.api_client.capabilities
         )
-        if able_to_load_wfs:
+        allowed_to_load_wfs = (
+            models.GeonodePermission.DOWNLOAD_RESOURCEBASE
+            in self.brief_dataset.permissions
+        )
+        if able_to_load_wfs and allowed_to_load_wfs:
             self._add_loadable_button(models.GeonodeService.OGC_WFS)
 
     def _initialize_ui_for_raster_dataset(self):
@@ -112,13 +119,20 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS
             in self.api_client.capabilities
         )
-        if able_to_load_wms:
+        allowed_to_load_wms = (
+            models.GeonodePermission.VIEW_RESOURCEBASE in self.brief_dataset.permissions
+        )
+        if able_to_load_wms and allowed_to_load_wms:
             self._add_loadable_button(models.GeonodeService.OGC_WMS)
         able_to_load_wcs = (
             ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS
             in self.api_client.capabilities
         )
-        if able_to_load_wcs:
+        allowed_to_load_wcs = (
+            models.GeonodePermission.DOWNLOAD_RESOURCEBASE
+            in self.brief_dataset.permissions
+        )
+        if able_to_load_wcs and allowed_to_load_wcs:
             self._add_loadable_button(models.GeonodeService.OGC_WCS)
 
     def _initialize_ui(self):

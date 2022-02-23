@@ -468,12 +468,19 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 self.layer.type(), self._api_client.capabilities
             )
             dataset = self.get_dataset()
+            allowed_to_modify = (
+                models.GeonodePermission.CHANGE_DATASET_STYLE in dataset.permissions
+            )
             is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
             has_style_url = dataset.default_style.sld_url is not None
             if can_load_style and has_style_url and is_service:
                 widgets.append(self.download_style_pb)
-            if can_modify_style and has_style_url and is_service:
+            else:
+                self.download_style_pb.setEnabled(False)
+            if allowed_to_modify and can_modify_style and has_style_url and is_service:
                 widgets.append(self.upload_style_pb)
+            else:
+                self.upload_style_pb.setEnabled(False)
             if len(widgets) > 0:
                 widgets.append(self.style_gb)
         else:
@@ -490,16 +497,27 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             )
             if can_load_metadata:
                 widgets.append(self.download_metadata_pb)
+            else:
+                self.download_metadata_pb.setEnabled(False)
             can_modify_metadata = (
                 models.ApiClientCapability.MODIFY_LAYER_METADATA
                 in self._api_client.capabilities
             )
-            if can_modify_metadata:
+            dataset = self.get_dataset()
+            allowed_to_modify = (
+                models.GeonodePermission.CHANGE_RESOURCEBASE_METADATA
+                in dataset.permissions
+            )
+            log(f"allowed_to_modify metadata: {allowed_to_modify}")
+            if can_modify_metadata and allowed_to_modify:
                 widgets.append(self.upload_metadata_pb)
+            else:
+                self.upload_metadata_pb.setEnabled(False)
             if len(widgets) > 0:
                 widgets.append(self.metadata_gb)
         else:
             widgets.append(self.metadata_gb)
+        log(f"widgets:{[w.__class__.__name__ for w in widgets]}")
         for widget in widgets:
             widget.setEnabled(enabled)
 
