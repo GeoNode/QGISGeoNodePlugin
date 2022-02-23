@@ -6,11 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Improve plugin description when viewed through QGIS plugin manager
-- Improve focus behavior for searching datasets in QGIS data source dialog
-- Improve handling of invalid connections
+
+
+## [1.0.0-rc1] - 2022-02-23
+
+### Changed
 - Replace core QGIS GeoNode provider when activated
 - Hide select UI controls when remote reports insufficient permissions
+- Improve plugin description when viewed through QGIS plugin manager
+
+### Fixed
+- Improve focus behavior for searching datasets in QGIS data source dialog
+- Improve handling of invalid connections
 
 
 ## [0.9.5] - 2022-02-09
