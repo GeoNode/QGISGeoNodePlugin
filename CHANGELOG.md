@@ -6,9 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Fixed first usage crash due to there not being a current connection
-- Changed default WFS version for new connections is now 1.1.0, which is known to work OK when editing vector 
+
+
+## [1.0.0] - 2022-02-25
+
+### Changed
+- Default WFS version for new connections is now 1.1.0, which is known to work OK when editing vector
   layers via WFS
+
+### Fixed
+- First usage crash due to there not being a current connection
 
 
 ## [1.0.0-rc1] - 2022-02-23
@@ -214,7 +221,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -  Add geonode API client
 
 
-[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v0.9.5...main
+[unreleased]: https://github.com/kartoza/qgis_geonode/compare/v1.0.0...main
+[1.0.0]: https://github.com/kartoza/qgis_geonode/compare/v1.0.0...main
+[1.0.0-rc1]: https://github.com/kartoza/qgis_geonode/compare/v1.0.0-rc1...main
 [0.9.5]: https://github.com/kartoza/qgis_geonode/compare/v0.9.5...main
 [0.9.4]: https://github.com/kartoza/qgis_geonode/compare/v0.9.4...main
 [0.9.3]: https://github.com/kartoza/qgis_geonode/compare/v0.9.3...main
