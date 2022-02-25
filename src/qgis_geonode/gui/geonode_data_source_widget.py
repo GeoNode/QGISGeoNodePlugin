@@ -37,6 +37,7 @@ _INVALID_CONNECTION_MESSAGE = (
 
 
 class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
+    advanced_search_gb: qgis.gui.QgsCollapsibleGroupBox
     api_client: typing.Optional[base.BaseGeonodeClient] = None
     discovery_task: typing.Optional[network.NetworkRequestTask]
     abstract_la: QtWidgets.QLabel
@@ -87,6 +88,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     def __init__(self, parent, fl, widgetMode):
         super().__init__(parent, fl, widgetMode)
         self.setupUi(self)
+        self.advanced_search_gb.setCollapsed(True)
         self.search_btn.setIcon(QtGui.QIcon(":/images/themes/default/search.svg"))
         self.next_btn.setIcon(
             QtGui.QIcon(":/images/themes/default/mActionAtlasNext.svg")
@@ -322,15 +324,14 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         enable_next = False
         if enable is None or enable:
             current_connection = conf.settings_manager.get_current_connection_settings()
-            if current_connection.geonode_version == network.UNSUPPORTED_REMOTE:
-                enable_search = False
-            else:
-                for check_box in self.resource_types_btngrp.buttons():
-                    if check_box.isChecked():
-                        enable_search = True
-                        enable_previous = self.current_page > 1
-                        enable_next = self.current_page < self.total_pages
-                        break
+            if current_connection is not None:
+                if current_connection.geonode_version != network.UNSUPPORTED_REMOTE:
+                    for check_box in self.resource_types_btngrp.buttons():
+                        if check_box.isChecked():
+                            enable_search = True
+                            enable_previous = self.current_page > 1
+                            enable_next = self.current_page < self.total_pages
+                            break
         self.search_btn.setEnabled(enable_search)
         self.previous_btn.setEnabled(enable_previous)
         self.next_btn.setEnabled(enable_next)
