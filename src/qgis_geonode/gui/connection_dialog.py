@@ -112,6 +112,8 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.wfs_version_cb.clear()
         for name, member in WfsVersion.__members__.items():
             self.wfs_version_cb.addItem(member.value, member)
+        v_1_1_0_index = self.wfs_version_cb.findData(WfsVersion.V_1_1_0)
+        self.wfs_version_cb.setCurrentIndex(v_1_1_0_index)
 
     def detect_wfs_version(self):
         for widget in self._widgets_to_toggle_during_connection_test:

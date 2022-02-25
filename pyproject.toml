@@ -54,8 +54,9 @@ hasProcessingProvider = "no"
 about = """\
 This plugin adds GeoNode client functionality to QGIS - search, load and manage GeoNode resources from inside QGIS.
 
-Initial development has been funded by the Pacific Community (SPC) and implemented by the Kartoza and GeoSolutions \
-teams. The plugin is actively maintained and aims to keep up to date with changes in the GeoNode API.
+Initial development has been commissioned by the by the Pacific Community (SPC), with funcding from the World Bank, \
+and implemented by the Kartoza and GeoSolutions teams. The plugin is actively maintained and aims to keep up to \
+date with changes in the GeoNode API.
 
 Check the website for a user guide and more detail.\
 """

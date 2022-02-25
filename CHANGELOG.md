@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Fixed first usage crash due to there not being a current connection
+- Changed default WFS version for new connections is now 1.1.0, which is known to work OK when editing vector 
+  layers via WFS
 
 
 ## [1.0.0-rc1] - 2022-02-23
