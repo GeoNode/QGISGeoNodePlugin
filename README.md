@@ -1,4 +1,7 @@
-# qgis_geonode
+# The QGIS GeoNode Plugin
+
+![image](https://user-images.githubusercontent.com/178003/181386133-d972507b-06c3-4781-a19f-e0c00045d25c.png)
+
 
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/kartoza/qgis_geonode/Continuous%20Integration)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/kartoza/qgis_geonode?include_prereleases)
