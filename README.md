@@ -11,7 +11,7 @@ A QGIS plugin that provides integration with GeoNode.
 
 Main documentation for this plugin, including development docs, available at:
 
-<https://kartoza.github.io/qgis_geonode/>
+<https://geonode.org/QGISGeoNodePlugin/>
 
 
 This plugin was developed by [Kartoza](https://kartoza.com) under contract to [GeoSolutions](https://www.geosolutionsgroup.com/). 
