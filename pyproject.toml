@@ -2,7 +2,7 @@
 name = "qgis_geonode"
 version = "1.0.1-dev"
 description = "A QGIS plugin for integrating with modern GeoNode"
-authors = ["Kartoza <info@kartoza.com>"]
+authors = ["Kartoza <info@kartoza.com>", "GeoSolutions <info@geosolutionsgroup.com>"]
 license = "GPL-3.0-or-later"
 
 [tool.poetry.dependencies]
@@ -40,9 +40,9 @@ qgisMinimumVersion = "3.18"
 icon = "plugin-logo.png"
 experimental = "False"
 deprecated = "False"
-homepage = "https://kartoza.github.io/qgis_geonode"
-tracker = "https://github.com/kartoza/qgis_geonode/issues"
-repository = "https://github.com/kartoza/qgis_geonode"
+homepage = "https://geonode.org/QGISGeoNodePlugin"
+tracker = "https://github.com/GeoNode/QGISGeoNodePlugin/issues"
+repository = "https://github.com/GeoNode/QGISGeoNodePlugin"
 tags = [
     "geonode",
     "wms",
