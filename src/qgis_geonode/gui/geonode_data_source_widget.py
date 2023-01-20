@@ -678,30 +678,16 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         to there being no official support for getting them via the QGIS API.
 
         """
-
-        provider_list_widget: QtWidgets.QListWidget = self.parent().findChild(
-            QtWidgets.QListWidget, "mOptionsListWidget"
-        )
         provider_stack_widget: QtWidgets.QStackedWidget = self.parent().findChild(
             QtWidgets.QStackedWidget, "mOptionsStackedWidget"
         )
-        found_items = provider_list_widget.findItems(
-            "GeoNode",
-            QtCore.Qt.MatchFixedString
-            | QtCore.Qt.MatchCaseSensitive
-            | QtCore.Qt.MatchWrap,
-        )
-        for row in range(provider_list_widget.count()):
-            item = provider_list_widget.item(row)
-            if item.text() == "GeoNode":
-                row_to_take = row
+        
+        for row in range(provider_stack_widget.count()):
+            dialog = provider_stack_widget.widget(row)
+            if dialog.windowTitle().lower().find("geonode") > -1:
+                page_widget = provider_stack_widget.widget(row)
+                provider_stack_widget.removeWidget(page_widget)
                 break
-        else:
-            row_to_take = None
-        if row_to_take is not None:
-            provider_list_widget.takeItem(row_to_take)
-            page_widget = provider_stack_widget.widget(row_to_take)
-            provider_stack_widget.removeWidget(page_widget)
 
     def _hide_core_geonode_provider_from_browser(self):
         browser_registry = (
