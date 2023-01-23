@@ -14,6 +14,7 @@ nav:
   - About: 'about.md'
   - Changelog: 'changelog-base.md'
   - QGIS Repo: 'repo/plugins.xml'
+  - QEP - Remove QGIS core GeoNode support: 'qep-remove-core-geonode-support.md'
 
 theme:
   name: material
