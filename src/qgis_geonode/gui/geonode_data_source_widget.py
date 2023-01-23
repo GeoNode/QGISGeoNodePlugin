@@ -681,7 +681,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         provider_stack_widget: QtWidgets.QStackedWidget = self.parent().findChild(
             QtWidgets.QStackedWidget, "mOptionsStackedWidget"
         )
-        
+
         for row in range(provider_stack_widget.count()):
             dialog = provider_stack_widget.widget(row)
             if dialog.windowTitle().lower().find("geonode") > -1:
