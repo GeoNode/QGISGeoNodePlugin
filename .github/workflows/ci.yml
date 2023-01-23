@@ -21,7 +21,7 @@ jobs:
         run: apt-get install python-is-python3
 
       - name: Install poetry
-        uses: Gr1N/setup-poetry@v4
+        uses: Gr1N/setup-poetry@v8
 
       - name: Install pluginadmin dependencies
         run: poetry install
@@ -55,7 +55,7 @@ jobs:
         run: apt-get install python-is-python3
 
       - name: Install poetry
-        uses: Gr1N/setup-poetry@v4
+        uses: Gr1N/setup-poetry@v8
 
       - name: Install pluginadmin dependencies
         run: poetry install
