@@ -360,7 +360,7 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
                 try:
                     prefix, suffix = retrieved_url.partition("/geoserver/")[::2]
                     result[service_type] = f"{self.base_url}/gs/{suffix}"
-                    log(f"result[service_type]: ABC {self.base_url}/gs/{suffix}")
+                    log(f"result[service_type]: {self.base_url}/gs/{suffix}")
                 except AttributeError:
                     pass
         return result
