@@ -407,6 +407,25 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
         return models.Dataset(**properties)
 
 
+class GeonodeApiClientVersion_4_2_0(GeonodeApiClientVersion_3_4_0):
+
+    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
+        properties = self._get_common_model_properties(raw_dataset)
+        properties.update(
+            language=raw_dataset.get("language"),
+            license=(raw_dataset.get("license") or {}).get("identifier", ""),
+            constraints=raw_dataset.get("raw_constraints_other", ""),
+            owner=raw_dataset.get("owner", {}).get("username", ""),
+            metadata_author=[
+                author.get("username", "")
+                for author in raw_dataset.get("metadata_author", [])
+            ]
+            .join(" ")
+            .strip(),
+        )
+        return models.Dataset(**properties)
+
+
 class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
     """API client for GeoNode version 3.3.x.
 
