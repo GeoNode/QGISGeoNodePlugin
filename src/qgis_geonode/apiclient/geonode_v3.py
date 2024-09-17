@@ -413,6 +413,7 @@ class GeonodeApiClientVersion_4_2_0(GeonodeApiClientVersion_3_4_0):
     GeoNode from version 4.2 uses list of contacts instead of a single contact,
     which neccassitates to parse contacts from a list.
     """
+
     @staticmethod
     def _parse_metadata_authors(
         metadata_author: typing.Union[typing.Dict, typing.List]
