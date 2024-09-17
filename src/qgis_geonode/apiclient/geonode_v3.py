@@ -409,7 +409,9 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
 
 class GeonodeApiClientVersion_4_2_0(GeonodeApiClientVersion_3_4_0):
     @staticmethod
-    def _parse_metadata_authors(metadata_author) -> str:
+    def _parse_metadata_authors(
+        metadata_author: typing.Union[typing.Dict, typing.List]
+    ) -> str:
         if isinstance(metadata_author, dict):
             return metadata_author.get("username", "")
         elif isinstance(metadata_author, list):
