@@ -46,7 +46,7 @@ class BaseGeonodeClient(QtCore.QObject):
     ):
         super().__init__()
         self.auth_config = auth_config or ""
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip("#/")
         self.page_size = page_size
         self.wfs_version = wfs_version
         self.network_requests_timeout = network_requests_timeout
