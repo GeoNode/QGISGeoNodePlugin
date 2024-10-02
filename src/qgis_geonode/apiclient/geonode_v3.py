@@ -407,6 +407,40 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
         return models.Dataset(**properties)
 
 
+class GeonodeApiClientVersion_4_2_0(GeonodeApiClientVersion_3_4_0):
+    """API client for GeoNode version >= 4.2.x.
+
+    GeoNode from version 4.2 uses list of contacts instead of a single contact,
+    which neccassitates to parse contacts from a list.
+    """
+
+    @staticmethod
+    def _parse_metadata_authors(
+        metadata_author: typing.Union[typing.Dict, typing.List]
+    ) -> str:
+        if isinstance(metadata_author, dict):
+            return metadata_author.get("username", "")
+        elif isinstance(metadata_author, list):
+            return ", ".join(
+                [author.get("username", "") for author in metadata_author]
+            ).strip()
+        else:
+            return None
+
+    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
+        properties = self._get_common_model_properties(raw_dataset)
+        properties.update(
+            language=raw_dataset.get("language"),
+            license=(raw_dataset.get("license") or {}).get("identifier", ""),
+            constraints=raw_dataset.get("raw_constraints_other", ""),
+            owner=raw_dataset.get("owner", {}).get("username", ""),
+            metadata_author=self._parse_metadata_authors(
+                raw_dataset.get("metadata_author", [])
+            ),
+        )
+        return models.Dataset(**properties)
+
+
 class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
     """API client for GeoNode version 3.3.x.
 
