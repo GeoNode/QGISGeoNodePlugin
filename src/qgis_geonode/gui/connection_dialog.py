@@ -140,7 +140,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         return ConnectionSettings(
             id=self.connection_id,
             name=self.name_le.text().strip(),
-            base_url=self.url_le.text().strip().rstrip("/"),
+            base_url=self.url_le.text().strip().rstrip("#/"),
             auth_config=self.authcfg_acs.configId(),
             page_size=self.page_size_sb.value(),
             geonode_version=self.remote_geonode_version,
