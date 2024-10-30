@@ -68,9 +68,9 @@ def _get_qt_network_reply_error_mapping() -> typing.Dict:
     return result
 
 
-_Q_NETWORK_REPLY_ERROR_MAP: typing.Dict[QtNetwork.QNetworkReply.NetworkError, str] = (
-    _get_qt_network_reply_error_mapping()
-)
+_Q_NETWORK_REPLY_ERROR_MAP: typing.Dict[
+    QtNetwork.QNetworkReply.NetworkError, str
+] = _get_qt_network_reply_error_mapping()
 
 
 @contextmanager
