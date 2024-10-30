@@ -26,6 +26,13 @@ class HttpMethod(enum.Enum):
 
 
 @dataclasses.dataclass()
+class PendingReply:
+    index: int
+    reply: qgis.core.QgsNetworkReplyContent
+    fullfilled: bool = False
+
+
+@dataclasses.dataclass()
 class ParsedNetworkReply:
     http_status_code: int
     http_status_reason: str
@@ -168,7 +175,10 @@ class NetworkRequestTask(qgis.core.QgsTask):
                         # its network access manager - this can be used to keep track of
                         # replies
                         request_id = qt_reply.property("requestId")
-                        self._pending_replies[request_id] = (index, qt_reply)
+                        # self._pending_replies[request_id] = [index, qt_reply, False]
+                        self._pending_replies[request_id] = PendingReply(
+                            index, qt_reply, False
+                        )
                     else:
                         self._all_requests_finished.emit()
             loop_forcibly_ended = not bool(event_loop_result.result)
@@ -235,14 +245,21 @@ class NetworkRequestTask(qgis.core.QgsTask):
         then uses that to gain access to the response body.
 
         """
-
+        qt_reply = None
         try:
-            index, qt_reply = self._pending_replies[qgis_reply.requestId()]
+            pending_reply = self._pending_replies[qgis_reply.requestId()]
+            # See https://github.com/GeoNode/QGISGeoNodePlugin/issues/275
+            if not pending_reply.fullfilled:
+                index = pending_reply.index
+                qt_reply = pending_reply.reply
+                pending_reply.fullfilled = True
+
         except KeyError:
             pass  # we are not managing this request, ignore
         else:
-            parsed = parse_qt_network_reply(qt_reply)
-            self.response_contents[index] = parsed
+            if qt_reply:
+                parsed = parse_qt_network_reply(qt_reply)
+                self.response_contents[index] = parsed
             self._num_finished += 1
             if self._num_finished >= len(self.requests_to_perform):
                 self._all_requests_finished.emit()
