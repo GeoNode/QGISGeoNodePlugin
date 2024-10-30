@@ -245,7 +245,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
         qt_reply = None
         try:
             pending_reply = self._pending_replies[qgis_reply.requestId()]
-			# See https://github.com/GeoNode/QGISGeoNodePlugin/issues/275
+            # See https://github.com/GeoNode/QGISGeoNodePlugin/issues/275
             if not pending_reply.fullfilled:
                 index = pending_reply.index
                 qt_reply = pending_reply.reply
