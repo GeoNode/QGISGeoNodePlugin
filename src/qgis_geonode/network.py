@@ -24,12 +24,13 @@ class HttpMethod(enum.Enum):
     PUT = "PUT"
     PATCH = "PATCH"
 
+
 @dataclasses.dataclass()
 class PendingReply:
     index: int
     reply: qgis.core.QgsNetworkReplyContent
     fullfilled: bool = False
-    
+
 
 @dataclasses.dataclass()
 class ParsedNetworkReply:
@@ -67,9 +68,9 @@ def _get_qt_network_reply_error_mapping() -> typing.Dict:
     return result
 
 
-_Q_NETWORK_REPLY_ERROR_MAP: typing.Dict[
-    QtNetwork.QNetworkReply.NetworkError, str
-] = _get_qt_network_reply_error_mapping()
+_Q_NETWORK_REPLY_ERROR_MAP: typing.Dict[QtNetwork.QNetworkReply.NetworkError, str] = (
+    _get_qt_network_reply_error_mapping()
+)
 
 
 @contextmanager
@@ -174,8 +175,10 @@ class NetworkRequestTask(qgis.core.QgsTask):
                         # its network access manager - this can be used to keep track of
                         # replies
                         request_id = qt_reply.property("requestId")
-                        #self._pending_replies[request_id] = [index, qt_reply, False]
-                        self._pending_replies[request_id] = PendingReply(index, qt_reply, False)
+                        # self._pending_replies[request_id] = [index, qt_reply, False]
+                        self._pending_replies[request_id] = PendingReply(
+                            index, qt_reply, False
+                        )
                     else:
                         self._all_requests_finished.emit()
             loop_forcibly_ended = not bool(event_loop_result.result)
@@ -250,7 +253,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
                 index = pending_reply.index
                 qt_reply = pending_reply.reply
                 pending_reply.fullfilled = True
-            
+
         except KeyError:
             pass  # we are not managing this request, ignore
         else:
