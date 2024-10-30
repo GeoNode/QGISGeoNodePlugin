@@ -40,7 +40,7 @@ class QgisGeoNode:
             QCoreApplication.installTranslator(self.translator)
 
         self.actions = []
-        self.menu = self.tr(u"&QGIS GeoNode Plugin")
+        self.menu = self.tr("&QGIS GeoNode Plugin")
         # TODO: We are going to let the user set this up in a future iteration
         self.layer_properties_config_widget_factory = (
             GeonodeMapLayerConfigWidgetFactory()
@@ -143,7 +143,7 @@ class QgisGeoNode:
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
-            self.iface.removePluginMenu(self.tr(u"&QGIS GeoNode Plugin"), action)
+            self.iface.removePluginMenu(self.tr("&QGIS GeoNode Plugin"), action)
             self.iface.removeToolBarIcon(action)
 
         self.iface.unregisterMapLayerConfigWidgetFactory(

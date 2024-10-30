@@ -4,9 +4,9 @@ on: workflow_dispatch
 jobs:
 
   rebuild-docs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     container:
-      image: qgis/qgis:release-3_18
+      image: qgis/qgis:final-3_34_12
     steps:
       - name: Checkout code
         uses: actions/checkout@v2

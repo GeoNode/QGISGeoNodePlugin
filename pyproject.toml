@@ -6,24 +6,22 @@ authors = ["Kartoza <info@kartoza.com>", "GeoSolutions <info@geosolutionsgroup.c
 license = "GPL-3.0-or-later"
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.7"
 toml = "^0.10.2"
-typer = "^0.3.2"
-pytest = "^6.2.1"
-pytest-qt = "^3.3.0"
-black = {version = "^20.8b1", allow-prereleases = true, python = "^3.8"}
-flask = "^1.1.2"
-importlib-metadata = "^3.3.0"
-mkdocs = "^1.1.2"
-mkdocs-material = "^6.2.3"
-httpx = "^0.16.1"
-pytest-xvfb = "^2.0.0"
-Pygments = "^2.8.0"
-pymdown-extensions = "^8.1.1"
+typer = "^0.12.5"
+pytest = "^7.4.4"
+pytest-qt = "^4.2.0"
+black = "^22.12.0"
+flask = "^2.2.5"
+importlib-metadata = "^6.7.0"
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.2.0"
+httpx = "^0.24.1"
+pytest-xvfb = "^3.0.0"
 pytest-custom-exit-code = "^0.3.0"
-mypy = "^0.930"
-qgis-stubs = "^0.1.0"
-PyQt5-stubs = "^5.15.2"
+mypy = "^1.0.0"
+qgis-stubs = "^0.2.0.post1"
+PyQt5-stubs = "^5.15.6.0"
 
 [tool.poetry.dev-dependencies]
 
@@ -36,7 +34,7 @@ exclude = """\
 
 [tool.qgis-plugin.metadata]
 name = "QGIS GeoNode"
-qgisMinimumVersion = "3.18"
+qgisMinimumVersion = "3.34"
 icon = "plugin-logo.png"
 experimental = "False"
 deprecated = "False"
