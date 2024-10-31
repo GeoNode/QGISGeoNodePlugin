@@ -47,7 +47,12 @@ def serialize_sld_named_layer(sld_named_layer: QtXml.QDomElement) -> str:
     buffer_ = QtCore.QByteArray()
     stream = QtCore.QTextStream(buffer_)
     sld_named_layer.save(stream, 0)
-    return buffer_.data().decode(encoding="utf-8")
+    element_string = ""
+    try:
+        element_string = buffer_.data().decode(encoding="utf-8")
+    except UnicodeDecodeError:
+        element_string = buffer_.data().decode(encoding="latin-1")
+    return element_string
 
 
 def get_usable_sld(
