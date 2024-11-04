@@ -636,7 +636,9 @@ class LayerUploaderTask(network.NetworkRequestTask):
                     )
                     multipart.setParent(qt_reply)
                     request_id = qt_reply.property("requestId")
-                    self._pending_replies[request_id] = (0, qt_reply)
+                    self._pending_replies[request_id] = network.PendingReply(
+                        0, qt_reply, False
+                    )
                 else:
                     self._all_requests_finished.emit()
             loop_forcibly_ended = not bool(event_loop_result.result)
