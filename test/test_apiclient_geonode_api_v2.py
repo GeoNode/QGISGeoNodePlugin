@@ -9,7 +9,7 @@ from qgis.PyQt import QtCore
 
 from qgis_geonode.conf import WfsVersion
 from qgis_geonode.apiclient import (
-    geonode_v3,
+    geonode_api_v2,
     models,
 )
 
@@ -22,7 +22,7 @@ from qgis_geonode.apiclient import (
     ],
 )
 def test_get_link(raw_links, link_type, expected):
-    result = geonode_v3._get_link(raw_links, link_type)
+    result = geonode_api_v2._get_link(raw_links, link_type)
     assert result == expected
 
 
@@ -61,7 +61,7 @@ def test_get_link(raw_links, link_type, expected):
     ],
 )
 def test_get_temporal_extent(payload, expected):
-    result = geonode_v3._get_temporal_extent(payload)
+    result = geonode_api_v2._get_temporal_extent(payload)
     assert result == expected
 
 
@@ -74,7 +74,7 @@ def test_get_temporal_extent(payload, expected):
     ],
 )
 def test_get_resource_type(raw_dataset, expected):
-    result = geonode_v3._get_resource_type(raw_dataset)
+    result = geonode_api_v2._get_resource_type(raw_dataset)
     assert result == expected
 
 
@@ -85,7 +85,7 @@ def test_get_resource_type(raw_dataset, expected):
 #     ),
 # ])
 # def test_get_spatial_extent(geojson_geom, expected):
-#     result = geonode_v3._get_spatial_extent(geojson_geom)
+#     result = geonode_api_v2._get_spatial_extent(geojson_geom)
 #     assert result == expected
 
 
@@ -99,7 +99,7 @@ def test_get_resource_type(raw_dataset, expected):
     ],
 )
 def test_parse_datetime(raw_value, expected):
-    result = geonode_v3._parse_datetime(raw_value)
+    result = geonode_api_v2._parse_datetime(raw_value)
     assert result == expected
 
 
@@ -109,8 +109,8 @@ def test_parse_datetime(raw_value, expected):
         pytest.param("http://fake.com", "http://fake.com/api/v2/layers/"),
     ],
 )
-def test_apiclient_v_3_3_0_dataset_list_url(base_url, expected):
-    client = geonode_v3.GeonodeApiClientVersion_3_3_0(
+def test_apiclient_dataset_list_url(base_url, expected):
+    client = geonode_api_v2.GeoNodeApiClient(
         base_url, 10, wfs_version=WfsVersion.V_1_1_0, network_requests_timeout=0
     )
     assert client.dataset_list_url == expected
@@ -120,14 +120,9 @@ def test_apiclient_v_3_3_0_dataset_list_url(base_url, expected):
     "client_class, base_url, expected",
     [
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
+            geonode_api_v2.GeoNodeApiClient,
             "http://fake.com",
             "http://fake.com/api/v2/layers/",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
-            "http://fake.com",
-            "http://fake.com/api/v2/datasets/",
         ),
     ],
 )
@@ -142,16 +137,10 @@ def test_apiclient_dataset_list_url(client_class: typing.Type, base_url, expecte
     "client_class, base_url, dataset_id, expected",
     [
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
+            geonode_api_v2.GeoNodeApiClient,
             "http://fake.com",
             1,
             "http://fake.com/api/v2/layers/1/",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
-            "http://fake.com",
-            1,
-            "http://fake.com/api/v2/datasets/1/",
         ),
     ],
 )
@@ -169,76 +158,76 @@ def test_apiclient_get_dataset_detail_url(
     "client_class, search_filters, expected",
     [
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(),
             "page=1&page_size=10",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(title="fake-title"),
             "page=1&page_size=10&filter%7Btitle.icontains%7D=fake-title",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(abstract="fake-abstract"),
             "page=1&page_size=10&filter%7Babstract.icontains%7D=fake-abstract",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(keyword="fake-keyword"),
             "page=1&page_size=10&filter%7Bkeywords.name.icontains%7D=fake-keyword",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 topic_category=models.IsoTopicCategory.biota
             ),
             "page=1&page_size=10&filter%7Bcategory.identifier%7D=biota",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 temporal_extent_start=QtCore.QDateTime(2021, 7, 31, 10, 22)
             ),
             "page=1&page_size=10&filter%7Btemporal_extent_start.gte%7D=2021-07-31T10:22:00",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 temporal_extent_end=QtCore.QDateTime(2021, 7, 31, 10, 22)
             ),
             "page=1&page_size=10&filter%7Btemporal_extent_end.lte%7D=2021-07-31T10:22:00",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 publication_date_start=QtCore.QDateTime(2021, 7, 31, 10, 22)
             ),
             "page=1&page_size=10&filter%7Bdate.gte%7D=2021-07-31T10:22:00",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 publication_date_end=QtCore.QDateTime(2021, 7, 31, 10, 22)
             ),
             "page=1&page_size=10&filter%7Bdate.lte%7D=2021-07-31T10:22:00",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 layer_types=[models.GeonodeResourceType.VECTOR_LAYER]
             ),
             "page=1&page_size=10&filter%7Bsubtype.in%7D=vector",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 layer_types=[models.GeonodeResourceType.RASTER_LAYER]
             ),
             "page=1&page_size=10&filter%7Bsubtype.in%7D=raster",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 layer_types=[
                     models.GeonodeResourceType.VECTOR_LAYER,
@@ -248,103 +237,12 @@ def test_apiclient_get_dataset_detail_url(
             "page=1&page_size=10&filter%7Bsubtype.in%7D=vector&filter%7Bsubtype.in%7D=raster",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(ordering_field="name"),
             "page=1&page_size=10&sort[]=name",
         ),
         pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_4_0,
-            models.GeonodeApiSearchFilters(
-                ordering_field="name", reverse_ordering=True
-            ),
-            "page=1&page_size=10&sort[]=-name",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(),
-            "page=1&page_size=10",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(title="fake-title"),
-            "page=1&page_size=10&filter%7Btitle.icontains%7D=fake-title",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(abstract="fake-abstract"),
-            "page=1&page_size=10&filter%7Babstract.icontains%7D=fake-abstract",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(keyword="fake-keyword"),
-            "page=1&page_size=10&filter%7Bkeywords.name.icontains%7D=fake-keyword",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                topic_category=models.IsoTopicCategory.biota
-            ),
-            "page=1&page_size=10&filter%7Bcategory.identifier%7D=biota",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                temporal_extent_start=QtCore.QDateTime(2021, 7, 31, 10, 22)
-            ),
-            "page=1&page_size=10&filter%7Btemporal_extent_start.gte%7D=2021-07-31T10:22:00",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                temporal_extent_end=QtCore.QDateTime(2021, 7, 31, 10, 22)
-            ),
-            "page=1&page_size=10&filter%7Btemporal_extent_end.lte%7D=2021-07-31T10:22:00",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                publication_date_start=QtCore.QDateTime(2021, 7, 31, 10, 22)
-            ),
-            "page=1&page_size=10&filter%7Bdate.gte%7D=2021-07-31T10:22:00",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                publication_date_end=QtCore.QDateTime(2021, 7, 31, 10, 22)
-            ),
-            "page=1&page_size=10&filter%7Bdate.lte%7D=2021-07-31T10:22:00",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                layer_types=[models.GeonodeResourceType.VECTOR_LAYER]
-            ),
-            "page=1&page_size=10&filter%7BstoreType.in%7D=dataStore",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                layer_types=[models.GeonodeResourceType.RASTER_LAYER]
-            ),
-            "page=1&page_size=10&filter%7BstoreType.in%7D=coverageStore",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(
-                layer_types=[
-                    models.GeonodeResourceType.VECTOR_LAYER,
-                    models.GeonodeResourceType.RASTER_LAYER,
-                ]
-            ),
-            "page=1&page_size=10&filter%7BstoreType.in%7D=dataStore&filter%7BstoreType.in%7D=coverageStore",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
-            models.GeonodeApiSearchFilters(ordering_field="name"),
-            "page=1&page_size=10&sort[]=name",
-        ),
-        pytest.param(
-            geonode_v3.GeonodeApiClientVersion_3_3_0,
+            geonode_api_v2.GeoNodeApiClient,
             models.GeonodeApiSearchFilters(
                 ordering_field="name", reverse_ordering=True
             ),
@@ -362,7 +260,7 @@ def test_apiclient_build_search_filters(
     assert result.toString() == expected
 
 
-def test_get_common_model_properties_client_v_3_4_0():
+def test_get_common_model_properties_client():
     dataset_uuid = "c22e838f-9503-484e-8769-b5b09a2b6104"
     raw_dataset = {
         "pk": 1,
@@ -426,7 +324,7 @@ def test_get_common_model_properties_client_v_3_4_0():
             name="fake-style-name", sld_url="fake-sld-url"
         ),
     }
-    client = geonode_v3.GeonodeApiClientVersion_3_4_0(
+    client = geonode_api_v2.GeoNodeApiClient(
         "fake-base-url", 10, WfsVersion.V_1_1_0, 0
     )
     result = client._get_common_model_properties(raw_dataset)
