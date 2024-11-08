@@ -172,9 +172,14 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             task_result, self.discovery_task
         )
         if geonode_version is not None:
-            self.remote_geonode_version = geonode_version
-            message = "Connection is valid"
-            level = qgis.core.Qgis.Info
+            if geonode_version.major < 4 or geonode_version.major >= 5:
+                message = "This GeoNode version is not supported by this version of the plugin"
+                level = qgis.core.Qgis.Critical
+                self.remote_geonode_version = network.UNSUPPORTED_REMOTE
+            else:
+                self.remote_geonode_version = geonode_version
+                message = "Connection is valid"
+                level = qgis.core.Qgis.Info
         else:
             message = "Connection is not valid"
             level = qgis.core.Qgis.Critical
