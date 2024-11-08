@@ -1,9 +1,8 @@
 import importlib
 import typing
 
-from ..network import UNSUPPORTED_REMOTE
+from ..network import UNSUPPORTED_REMOTE, SUPPORTED_CLIENT_VERSIONS
 from ..vendor.packaging import version as packaging_version
-from ..conf import supported_client_versions
 
 
 def get_geonode_client(
@@ -25,7 +24,7 @@ def get_geonode_client(
 def select_supported_client(geonode_version: packaging_version.Version) -> str:
 
     result = None
-    if geonode_version.major in supported_client_versions:
+    if geonode_version.major in SUPPORTED_CLIENT_VERSIONS:
         result = "qgis_geonode.apiclient.geonode_api_v2.GeoNodeApiClient"
 
     return result

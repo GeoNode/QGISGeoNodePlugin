@@ -23,7 +23,7 @@ from ..conf import (
 )
 from ..utils import tr
 from ..vendor.packaging import version as packaging_version
-from ..conf import supported_client_versions
+from ..network import SUPPORTED_CLIENT_VERSIONS
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
@@ -173,7 +173,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             task_result, self.discovery_task
         )
         if geonode_version is not None:
-            if geonode_version.major not in supported_client_versions:
+            if geonode_version.major not in SUPPORTED_CLIENT_VERSIONS:
                 message = "This GeoNode version is not supported..."
                 level = qgis.core.Qgis.Critical
                 self.remote_geonode_version = network.UNSUPPORTED_REMOTE

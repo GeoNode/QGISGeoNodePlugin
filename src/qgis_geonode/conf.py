@@ -16,10 +16,6 @@ from .network import UNSUPPORTED_REMOTE
 from .utils import log
 from .vendor.packaging import version as packaging_version
 
-# Currently the plugin selects API client based on the GeoNode version
-# In the future it will select the API client based on the GeoNode API version
-supported_client_versions = [4]
-
 
 @contextlib.contextmanager
 def qgis_settings(group_root: str):
