@@ -106,7 +106,7 @@ def test_parse_datetime(raw_value, expected):
 @pytest.mark.parametrize(
     "base_url, expected",
     [
-        pytest.param("http://fake.com", "http://fake.com/api/v2/layers/"),
+        pytest.param("http://fake.com", "http://fake.com/api/v2/datasets/"),
     ],
 )
 def test_apiclient_dataset_list_url(base_url, expected):
@@ -122,7 +122,7 @@ def test_apiclient_dataset_list_url(base_url, expected):
         pytest.param(
             geonode_api_v2.GeoNodeApiClient,
             "http://fake.com",
-            "http://fake.com/api/v2/layers/",
+            "http://fake.com/api/v2/datasets/",
         ),
     ],
 )
@@ -140,7 +140,7 @@ def test_apiclient_dataset_list_url(client_class: typing.Type, base_url, expecte
             geonode_api_v2.GeoNodeApiClient,
             "http://fake.com",
             1,
-            "http://fake.com/api/v2/layers/1/",
+            "http://fake.com/api/v2/datasets/1/",
         ),
     ],
 )
