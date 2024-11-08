@@ -72,7 +72,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
         return [
             ("title", "Title"),
         ]
-    
+
     def get_dataset_upload_url(self) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.api_url}/uploads/upload/")
 
@@ -140,7 +140,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
                 "sort[]", f"{'-' if search_filters.reverse_ordering else ''}name"
             )
         return query
-    
+
     def handle_dataset_detail_from_id(self, task_result: bool) -> None:
         deserialized_resource = self._retrieve_response(
             task_result, 0, self.dataset_detail_error_received
@@ -158,7 +158,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
                     self.get_dataset_style(dataset, emit_dataset_detail_received=True)
                 else:
                     self.dataset_detail_received.emit(dataset)
-    
+
     def get_uploader_task(
         self, layer: qgis.core.QgsMapLayer, allow_public_access: bool, timeout: int
     ) -> qgis.core.QgsTask:
@@ -195,7 +195,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
             self.dataset_upload_error_received[str].emit(
                 "Could not upload layer to GeoNode"
             )
-    
+
     def _get_service_urls(
         self,
         raw_links: typing.Dict,
@@ -386,7 +386,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
             ),
             "permissions": self.parse_permissions(raw_dataset.get("perms", [])),
         }
-    
+
     @staticmethod
     def _parse_metadata_authors(
         metadata_author: typing.Union[typing.Dict, typing.List]
@@ -412,6 +412,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
             ),
         )
         return models.Dataset(**properties)
+
 
 class LayerUploaderTask(network.NetworkRequestTask):
     VECTOR_UPLOAD_FORMAT = ExportFormat("ESRI Shapefile", "shp")

@@ -22,7 +22,7 @@ def get_geonode_client(
 
 
 def select_supported_client(geonode_version: packaging_version.Version) -> str:
-    
+
     result = None
     if geonode_version.major >= 4 and geonode_version.major < 5:
         result = "qgis_geonode.apiclient.geonode_api_v2.GeoNodeApiClient"
