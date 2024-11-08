@@ -20,6 +20,7 @@ from .vendor.packaging import version as packaging_version
 # In the future it will select the API client based on the GeoNode API version
 supported_client_versions = [4]
 
+
 @contextlib.contextmanager
 def qgis_settings(group_root: str):
     """A simple context manager to help managing our own settings in QgsSettings"""
