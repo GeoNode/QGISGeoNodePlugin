@@ -16,10 +16,6 @@ from .utils import log
 from .vendor.packaging import version as packaging_version
 
 UNSUPPORTED_REMOTE = "unsupported"
-# Currently the plugin selects API client based on the GeoNode version
-# In the future it will select the API client based on the GeoNode API version
-SUPPORTED_CLIENT_VERSIONS = [4]
-
 
 class HttpMethod(enum.Enum):
     GET = "GET"
