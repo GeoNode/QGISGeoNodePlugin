@@ -1,16 +1,25 @@
 import importlib
 import typing
 
-from ..network import UNSUPPORTED_REMOTE, MIN_SUPPORTED_VERSION, MAX_SUPPORTED_VERSION
+from ..network import UNSUPPORTED_REMOTE
 from ..vendor.packaging import version as packaging_version
+from packaging.specifiers import SpecifierSet
+
+SUPPORTED_VERSIONS = SpecifierSet(">=4.0.0, <5.0.0dev0")
 
 
-def validate_version(version: packaging_version.Version) -> bool:
+def validate_version(
+    version: packaging_version.Version, supported_versions=SUPPORTED_VERSIONS
+) -> bool:
 
-    min = packaging_version.Version(MIN_SUPPORTED_VERSION)
-    max = packaging_version.Version(MAX_SUPPORTED_VERSION)
+    # We need to convert the Version class to string
+    # because the plugin uses a vendorized older packaging.version
+    # which cannot compare Version classes with strings directly.
+    # The new version of packaging can do this.
+    # TODO update the packaging vendorized version
+    version = version.base_version
 
-    if version >= min and version < max:
+    if version in supported_versions:
         return True
     else:
         return False
