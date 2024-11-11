@@ -7,6 +7,7 @@ from qgis.core import (
     QgsMessageLog,
 )
 
+
 def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):
     level = Qgis.Info if debug else Qgis.Warning
     QgsMessageLog.logMessage(str(message), name, level=level)

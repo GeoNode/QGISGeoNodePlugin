@@ -19,6 +19,7 @@ UNSUPPORTED_REMOTE = "unsupported"
 MIN_SUPPORTED_VERSION = "4.0.0"
 MAX_SUPPORTED_VERSION = "5.0.0dev0"
 
+
 class HttpMethod(enum.Enum):
     GET = "GET"
     POST = "POST"
