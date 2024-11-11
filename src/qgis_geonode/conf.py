@@ -14,7 +14,7 @@ from .apiclient import models
 from .apiclient.models import GeonodeResourceType, IsoTopicCategory
 from .network import UNSUPPORTED_REMOTE
 from .utils import log
-from .vendor.packaging import version as packaging_version
+from packaging import version as packaging_version
 
 
 @contextlib.contextmanager

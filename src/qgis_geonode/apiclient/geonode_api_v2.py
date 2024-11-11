@@ -1,4 +1,4 @@
-"""API client classes for GeoNode versions 3.3.0 and up"""
+"""API client class for GeoNode 4"""
 
 import dataclasses
 import datetime as dt
@@ -32,7 +32,31 @@ class ExportFormat:
     file_extension: str
 
 
-class GeonodeApiClientVersion_3_x(BaseGeonodeClient):
+class GeoNodeApiClient(BaseGeonodeClient):
+
+    capabilities = [
+        models.ApiClientCapability.FILTER_BY_TITLE,
+        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
+        models.ApiClientCapability.FILTER_BY_ABSTRACT,
+        models.ApiClientCapability.FILTER_BY_KEYWORD,
+        models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
+        models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
+        models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
+        models.ApiClientCapability.LOAD_LAYER_METADATA,
+        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE,
+        models.ApiClientCapability.MODIFY_LAYER_METADATA,
+        # NOTE: loading raster layer style is not present here
+        # because QGIS does not currently support loading SLD for raster layers
+        models.ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE,
+        models.ApiClientCapability.MODIFY_RASTER_LAYER_STYLE,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
+        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
+        models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
+        models.ApiClientCapability.UPLOAD_RASTER_LAYER,
+    ]
+
     _DATASET_NAME = "dataset"
     _DATASET_NAME_PLURAL = "datasets"
 
@@ -48,6 +72,9 @@ class GeonodeApiClientVersion_3_x(BaseGeonodeClient):
         return [
             ("title", "Title"),
         ]
+
+    def get_dataset_upload_url(self) -> QtCore.QUrl:
+        return QtCore.QUrl(f"{self.api_url}/uploads/upload/")
 
     def build_search_query(
         self, search_filters: models.GeonodeApiSearchFilters
@@ -113,6 +140,86 @@ class GeonodeApiClientVersion_3_x(BaseGeonodeClient):
                 "sort[]", f"{'-' if search_filters.reverse_ordering else ''}name"
             )
         return query
+
+    def handle_dataset_detail_from_id(self, task_result: bool) -> None:
+        deserialized_resource = self._retrieve_response(
+            task_result, 0, self.dataset_detail_error_received
+        )
+        if deserialized_resource is not None:
+            try:
+                dataset = self._parse_dataset_detail(deserialized_resource["dataset"])
+            except KeyError as exc:
+                log(
+                    f"Could not parse server response into a dataset: {str(exc)}",
+                    debug=False,
+                )
+            else:
+                if dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER:
+                    self.get_dataset_style(dataset, emit_dataset_detail_received=True)
+                else:
+                    self.dataset_detail_received.emit(dataset)
+
+    def get_uploader_task(
+        self, layer: qgis.core.QgsMapLayer, allow_public_access: bool, timeout: int
+    ) -> qgis.core.QgsTask:
+        return LayerUploaderTask(
+            layer,
+            self.get_dataset_upload_url(),
+            allow_public_access,
+            self.auth_config,
+            network_task_timeout=timeout,
+            description="Upload layer to GeoNode",
+        )
+
+    def handle_layer_upload(self, result: bool):
+        success_statuses = (
+            200,
+            201,
+        )
+        if result:
+            response_contents = self.network_fetcher_task.response_contents[0]
+            if response_contents.http_status_code in success_statuses:
+                deserialized = network.deserialize_json_response(
+                    response_contents.response_body
+                )
+                catalogue_url = deserialized["url"]
+                dataset_pk = catalogue_url.rsplit("/")[-1]
+                self.dataset_uploaded.emit(int(dataset_pk))
+            else:
+                self.dataset_upload_error_received[str, int, str].emit(
+                    response_contents.qt_error,
+                    response_contents.http_status_code,
+                    response_contents.http_status_reason,
+                )
+        else:
+            self.dataset_upload_error_received[str].emit(
+                "Could not upload layer to GeoNode"
+            )
+
+    def _get_service_urls(
+        self,
+        raw_links: typing.Dict,
+        dataset_type: models.GeonodeResourceType,
+    ) -> typing.Dict[models.GeonodeService, str]:
+        result = {models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS")}
+        if dataset_type == models.GeonodeResourceType.VECTOR_LAYER:
+            result[models.GeonodeService.OGC_WFS] = _get_link(raw_links, "OGC:WFS")
+        elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
+            result[models.GeonodeService.OGC_WCS] = _get_link(raw_links, "OGC:WCS")
+        else:
+            log(f"Invalid dataset type: {dataset_type}")
+            result = {}
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+        if auth_provider_name == "basic":
+            for service_type, retrieved_url in result.items():
+                try:
+                    prefix, suffix = retrieved_url.partition("geoserver")[::2]
+                    result[service_type] = f"{self.base_url}/gs{suffix}"
+                    log(f"result[service_type]: {self.base_url}/gs{suffix}")
+                except AttributeError:
+                    pass
+        return result
 
     def get_dataset_list_url(
         self, search_filters: models.GeonodeApiSearchFilters
@@ -251,121 +358,6 @@ class GeonodeApiClientVersion_3_x(BaseGeonodeClient):
         return sld_url
 
     def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
-        raise NotImplementedError
-
-    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
-        raise NotImplementedError
-
-
-class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
-
-    capabilities = [
-        models.ApiClientCapability.FILTER_BY_TITLE,
-        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
-        models.ApiClientCapability.FILTER_BY_ABSTRACT,
-        models.ApiClientCapability.FILTER_BY_KEYWORD,
-        models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
-        models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
-        models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
-        models.ApiClientCapability.LOAD_LAYER_METADATA,
-        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE,
-        models.ApiClientCapability.MODIFY_LAYER_METADATA,
-        # NOTE: loading raster layer style is not present here
-        # because QGIS does not currently support loading SLD for raster layers
-        models.ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE,
-        models.ApiClientCapability.MODIFY_RASTER_LAYER_STYLE,
-        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
-        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
-        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
-        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
-        models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
-        models.ApiClientCapability.UPLOAD_RASTER_LAYER,
-    ]
-
-    def get_dataset_upload_url(self) -> QtCore.QUrl:
-        return QtCore.QUrl(f"{self.api_url}/uploads/upload/")
-
-    def handle_dataset_detail_from_id(self, task_result: bool) -> None:
-        deserialized_resource = self._retrieve_response(
-            task_result, 0, self.dataset_detail_error_received
-        )
-        if deserialized_resource is not None:
-            try:
-                dataset = self._parse_dataset_detail(deserialized_resource["dataset"])
-            except KeyError as exc:
-                log(
-                    f"Could not parse server response into a dataset: {str(exc)}",
-                    debug=False,
-                )
-            else:
-                if dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER:
-                    self.get_dataset_style(dataset, emit_dataset_detail_received=True)
-                else:
-                    self.dataset_detail_received.emit(dataset)
-
-    def get_uploader_task(
-        self, layer: qgis.core.QgsMapLayer, allow_public_access: bool, timeout: int
-    ) -> qgis.core.QgsTask:
-        return LayerUploaderTask(
-            layer,
-            self.get_dataset_upload_url(),
-            allow_public_access,
-            self.auth_config,
-            network_task_timeout=timeout,
-            description="Upload layer to GeoNode",
-        )
-
-    def handle_layer_upload(self, result: bool):
-        success_statuses = (
-            200,
-            201,
-        )
-        if result:
-            response_contents = self.network_fetcher_task.response_contents[0]
-            if response_contents.http_status_code in success_statuses:
-                deserialized = network.deserialize_json_response(
-                    response_contents.response_body
-                )
-                catalogue_url = deserialized["url"]
-                dataset_pk = catalogue_url.rsplit("/")[-1]
-                self.dataset_uploaded.emit(int(dataset_pk))
-            else:
-                self.dataset_upload_error_received[str, int, str].emit(
-                    response_contents.qt_error,
-                    response_contents.http_status_code,
-                    response_contents.http_status_reason,
-                )
-        else:
-            self.dataset_upload_error_received[str].emit(
-                "Could not upload layer to GeoNode"
-            )
-
-    def _get_service_urls(
-        self,
-        raw_links: typing.Dict,
-        dataset_type: models.GeonodeResourceType,
-    ) -> typing.Dict[models.GeonodeService, str]:
-        result = {models.GeonodeService.OGC_WMS: _get_link(raw_links, "OGC:WMS")}
-        if dataset_type == models.GeonodeResourceType.VECTOR_LAYER:
-            result[models.GeonodeService.OGC_WFS] = _get_link(raw_links, "OGC:WFS")
-        elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
-            result[models.GeonodeService.OGC_WCS] = _get_link(raw_links, "OGC:WCS")
-        else:
-            log(f"Invalid dataset type: {dataset_type}")
-            result = {}
-        auth_manager = qgis.core.QgsApplication.authManager()
-        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
-        if auth_provider_name == "basic":
-            for service_type, retrieved_url in result.items():
-                try:
-                    prefix, suffix = retrieved_url.partition("geoserver")[::2]
-                    result[service_type] = f"{self.base_url}/gs{suffix}"
-                    log(f"result[service_type]: {self.base_url}/gs{suffix}")
-                except AttributeError:
-                    pass
-        return result
-
-    def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
         type_ = _get_resource_type(raw_dataset)
         raw_links = raw_dataset.get("links", [])
         service_urls = self._get_service_urls(raw_links, type_)
@@ -395,25 +387,6 @@ class GeonodeApiClientVersion_3_4_0(GeonodeApiClientVersion_3_x):
             "permissions": self.parse_permissions(raw_dataset.get("perms", [])),
         }
 
-    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
-        properties = self._get_common_model_properties(raw_dataset)
-        properties.update(
-            language=raw_dataset.get("language"),
-            license=(raw_dataset.get("license") or {}).get("identifier", ""),
-            constraints=raw_dataset.get("raw_constraints_other", ""),
-            owner=raw_dataset.get("owner", {}).get("username", ""),
-            metadata_author=raw_dataset.get("metadata_author", {}).get("username", ""),
-        )
-        return models.Dataset(**properties)
-
-
-class GeonodeApiClientVersion_4_2_0(GeonodeApiClientVersion_3_4_0):
-    """API client for GeoNode version >= 4.2.x.
-
-    GeoNode from version 4.2 uses list of contacts instead of a single contact,
-    which neccassitates to parse contacts from a list.
-    """
-
     @staticmethod
     def _parse_metadata_authors(
         metadata_author: typing.Union[typing.Dict, typing.List]
@@ -437,127 +410,6 @@ class GeonodeApiClientVersion_4_2_0(GeonodeApiClientVersion_3_4_0):
             metadata_author=self._parse_metadata_authors(
                 raw_dataset.get("metadata_author", [])
             ),
-        )
-        return models.Dataset(**properties)
-
-
-class GeonodeApiClientVersion_3_3_0(GeonodeApiClientVersion_3_x):
-    """API client for GeoNode version 3.3.x.
-
-    GeoNode version 3.3.0 still used `layers` instead of `datasets`. It also did not
-    allow the upload of new datasets via API when using OAuth2 auth.
-
-    """
-
-    _DATASET_NAME = "layer"
-    _DATASET_NAME_PLURAL = "layers"
-
-    capabilities = [
-        models.ApiClientCapability.FILTER_BY_TITLE,
-        models.ApiClientCapability.FILTER_BY_RESOURCE_TYPES,
-        models.ApiClientCapability.FILTER_BY_ABSTRACT,
-        models.ApiClientCapability.FILTER_BY_KEYWORD,
-        models.ApiClientCapability.FILTER_BY_TOPIC_CATEGORY,
-        models.ApiClientCapability.FILTER_BY_PUBLICATION_DATE,
-        models.ApiClientCapability.FILTER_BY_TEMPORAL_EXTENT,
-        models.ApiClientCapability.LOAD_LAYER_METADATA,
-        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE,
-        models.ApiClientCapability.MODIFY_LAYER_METADATA,
-        # NOTE: loading raster layer style is not present here
-        # because QGIS does not currently support loading SLD for raster layers
-        models.ApiClientCapability.MODIFY_VECTOR_LAYER_STYLE,
-        models.ApiClientCapability.MODIFY_RASTER_LAYER_STYLE,
-        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WMS,
-        models.ApiClientCapability.LOAD_VECTOR_DATASET_VIA_WFS,
-        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WMS,
-        models.ApiClientCapability.LOAD_RASTER_DATASET_VIA_WCS,
-        # upload of datasets via API using OAuth2 auth does not work, so the relevant
-        # capabilities are not included
-    ]
-
-    def build_search_query(
-        self, search_filters: models.GeonodeApiSearchFilters
-    ) -> QtCore.QUrlQuery:
-        # GeoNode v3.3.0 layers did not have the `subtype` property,
-        # but rather a `dataStore` property
-        query = super().build_search_query(search_filters)
-        subtype_key = "filter{subtype.in}"
-        datastore_key = "filter{storeType.in}"
-        while query.hasQueryItem(subtype_key):
-            old_value = query.queryItemValue(subtype_key)
-            value = {
-                "vector": "dataStore",
-                "raster": "coverageStore",
-            }[old_value]
-            query.addQueryItem(datastore_key, value)
-            query.removeQueryItem(subtype_key)
-        return query
-
-    def _get_service_urls(
-        self,
-        raw_dataset: typing.Dict,
-        dataset_type: models.GeonodeResourceType,
-    ) -> typing.Dict[models.GeonodeService, str]:
-        result = {
-            models.GeonodeService.OGC_WMS: raw_dataset["ows_url"],
-        }
-        if dataset_type == models.GeonodeResourceType.VECTOR_LAYER:
-            result[models.GeonodeService.OGC_WFS] = raw_dataset["ows_url"]
-        elif dataset_type == models.GeonodeResourceType.RASTER_LAYER:
-            result[models.GeonodeService.OGC_WCS] = raw_dataset["ows_url"]
-        else:
-            log(f"Invalid dataset type: {dataset_type}")
-            result = {}
-        auth_manager = qgis.core.QgsApplication.authManager()
-        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
-        if auth_provider_name == "basic":
-            for service_type, retrieved_url in result.items():
-                try:
-                    prefix, suffix = retrieved_url.partition("geoserver")[::2]
-                    result[service_type] = f"{self.base_url}/gs{suffix}"
-                    log(f"result[service_type]: {self.base_url}/gs{suffix}")
-                except AttributeError:
-                    pass
-        return result
-
-    def _get_common_model_properties(self, raw_dataset: typing.Dict) -> typing.Dict:
-        type_ = {
-            "coverageStore": models.GeonodeResourceType.RASTER_LAYER,
-            "dataStore": models.GeonodeResourceType.VECTOR_LAYER,
-        }.get(raw_dataset.get("storeType"), models.GeonodeResourceType.UNKNOWN)
-        service_urls = self._get_service_urls(raw_dataset, type_)
-        raw_style = raw_dataset.get("default_style") or {}
-        return {
-            "pk": int(raw_dataset["pk"]),
-            "uuid": uuid.UUID(raw_dataset["uuid"]),
-            "name": raw_dataset.get("alternate", raw_dataset.get("name", "")),
-            "title": raw_dataset.get("title", ""),
-            "abstract": raw_dataset.get("raw_abstract", ""),
-            "thumbnail_url": raw_dataset["thumbnail_url"],
-            "link": raw_dataset["link"],
-            "detail_url": raw_dataset["detail_url"],
-            "dataset_sub_type": type_,
-            "service_urls": service_urls,
-            "spatial_extent": _get_spatial_extent(raw_dataset["bbox_polygon"]),
-            "srid": qgis.core.QgsCoordinateReferenceSystem(raw_dataset["srid"]),
-            "published_date": _get_published_date(raw_dataset),
-            "temporal_extent": _get_temporal_extent(raw_dataset),
-            "keywords": [k["name"] for k in raw_dataset.get("keywords", [])],
-            "category": (raw_dataset.get("category") or {}).get("identifier"),
-            "default_style": models.BriefGeonodeStyle(
-                name=raw_style.get("name", ""), sld_url=self._get_sld_url(raw_style)
-            ),
-            "permissions": self.parse_permissions(raw_dataset.get("perms", [])),
-        }
-
-    def _parse_dataset_detail(self, raw_dataset: typing.Dict) -> models.Dataset:
-        properties = self._get_common_model_properties(raw_dataset)
-        properties.update(
-            language=raw_dataset.get("language"),
-            license=(raw_dataset.get("license") or {}).get("identifier", ""),
-            constraints=raw_dataset.get("raw_constraints_other", ""),
-            owner=raw_dataset.get("owner", {}).get("username", ""),
-            metadata_author=raw_dataset.get("metadata_author", {}).get("username", ""),
         )
         return models.Dataset(**properties)
 

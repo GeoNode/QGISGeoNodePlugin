@@ -22,7 +22,6 @@ A [QGIS] plugin for working with [GeoNode] resources
 
 This is a QGIS plugin to allow working with and managing GeoNode resources in QGIS.
 
-
 ## Installation
 
 This plugin is available for installation via the main QGIS plugin repository. Inside QGIS, 

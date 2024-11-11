@@ -22,7 +22,8 @@ from ..conf import (
     settings_manager,
 )
 from ..utils import tr
-from ..vendor.packaging import version as packaging_version
+from packaging import version as packaging_version
+
 
 DialogUi, _ = loadUiType(
     os.path.join(os.path.dirname(__file__), "../ui/connection_dialog.ui")
@@ -44,7 +45,6 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     detected_version_gb: qgis.gui.QgsCollapsibleGroupBox
     detected_version_le: QtWidgets.QLineEdit
     detected_capabilities_lw: QtWidgets.QListWidget
-    api_client_class_le: QtWidgets.QLineEdit
 
     connection_id: uuid.UUID
     remote_geonode_version: typing.Optional[
@@ -173,9 +173,14 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             task_result, self.discovery_task
         )
         if geonode_version is not None:
-            self.remote_geonode_version = geonode_version
-            message = "Connection is valid"
-            level = qgis.core.Qgis.Info
+            if apiclient.validate_version(geonode_version) == False:
+                message = "This GeoNode version is not supported..."
+                level = qgis.core.Qgis.Critical
+                self.remote_geonode_version = network.UNSUPPORTED_REMOTE
+            else:
+                self.remote_geonode_version = geonode_version
+                message = "Connection is valid"
+                level = qgis.core.Qgis.Info
         else:
             message = "Connection is not valid"
             level = qgis.core.Qgis.Critical
@@ -223,14 +228,12 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             or self.remote_geonode_version == network.UNSUPPORTED_REMOTE
         )
         self.detected_capabilities_lw.clear()
-        self.api_client_class_le.clear()
         self.detected_version_le.clear()
         if not invalid_version:
             self.detected_version_gb.setEnabled(True)
             current_settings = self.get_connection_settings()
             client: BaseGeonodeClient = apiclient.get_geonode_client(current_settings)
             self.detected_version_le.setText(str(current_settings.geonode_version))
-            self.api_client_class_le.setText(client.__class__.__name__)
             self.detected_capabilities_lw.insertItems(
                 0, [cap.name for cap in client.capabilities]
             )
