@@ -22,7 +22,7 @@ from ..conf import (
     settings_manager,
 )
 from ..utils import tr
-from ..vendor.packaging import version as packaging_version
+from packaging import version as packaging_version
 
 
 DialogUi, _ = loadUiType(

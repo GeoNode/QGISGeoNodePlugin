@@ -2,21 +2,15 @@ import importlib
 import typing
 
 from ..network import UNSUPPORTED_REMOTE
-from ..vendor.packaging import version as packaging_version
+from packaging import version as packaging_version
 from packaging.specifiers import SpecifierSet
 
 SUPPORTED_VERSIONS = SpecifierSet(">=4.0.0, <5.0.0dev0")
-
 
 def validate_version(
     version: packaging_version.Version, supported_versions=SUPPORTED_VERSIONS
 ) -> bool:
 
-    # We need to convert the Version class to string
-    # because the plugin uses a vendorized older packaging.version
-    # which cannot compare Version classes with strings directly.
-    # The new version of packaging can do this.
-    # TODO update the packaging vendorized version
     version = version.base_version
 
     if version in supported_versions:
