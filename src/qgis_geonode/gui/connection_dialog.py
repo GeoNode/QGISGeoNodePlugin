@@ -21,7 +21,7 @@ from ..conf import (
     WfsVersion,
     settings_manager,
 )
-from ..utils import tr, validate_version
+from ..utils import tr
 from ..vendor.packaging import version as packaging_version
 
 
@@ -173,7 +173,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             task_result, self.discovery_task
         )
         if geonode_version is not None:
-            if validate_version(geonode_version) == False:
+            if apiclient.validate_version(geonode_version) == False:
                 message = "This GeoNode version is not supported..."
                 level = qgis.core.Qgis.Critical
                 self.remote_geonode_version = network.UNSUPPORTED_REMOTE

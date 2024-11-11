@@ -16,7 +16,6 @@ from .network import UNSUPPORTED_REMOTE
 from .utils import log
 from .vendor.packaging import version as packaging_version
 
-
 @contextlib.contextmanager
 def qgis_settings(group_root: str):
     """A simple context manager to help managing our own settings in QgsSettings"""

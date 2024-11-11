@@ -1,10 +1,18 @@
 import importlib
 import typing
 
-from ..network import UNSUPPORTED_REMOTE
+from ..network import UNSUPPORTED_REMOTE, MIN_SUPPORTED_VERSION,MAX_SUPPORTED_VERSION
 from ..vendor.packaging import version as packaging_version
-from ..utils import validate_version
 
+def validate_version(version: packaging_version.Version) -> bool:
+    
+    min = packaging_version.Version(MIN_SUPPORTED_VERSION)
+    max = packaging_version.Version(MAX_SUPPORTED_VERSION)
+
+    if version >= min and version < max:
+        return True
+    else:
+        return False
 
 def get_geonode_client(
     connection_settings: "ConnectionSettings",

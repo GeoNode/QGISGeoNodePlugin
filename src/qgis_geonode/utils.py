@@ -7,21 +7,6 @@ from qgis.core import (
     QgsMessageLog,
 )
 
-from .vendor.packaging.version import Version
-
-MIN_SUPPORTED_VERSION = "4.0.0"
-MAX_SUPPORTED_VERSION = "5.0.0dev0"
-
-def validate_version(version: Version) -> bool:
-    
-    min = Version(MIN_SUPPORTED_VERSION)
-    max = Version(MAX_SUPPORTED_VERSION)
-
-    if version >= min and version < max:
-        return True
-    else:
-        return False
-
 def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):
     level = Qgis.Info if debug else Qgis.Warning
     QgsMessageLog.logMessage(str(message), name, level=level)
