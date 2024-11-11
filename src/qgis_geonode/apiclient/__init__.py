@@ -7,6 +7,7 @@ from packaging.specifiers import SpecifierSet
 
 SUPPORTED_VERSIONS = SpecifierSet(">=4.0.0, <5.0.0dev0")
 
+
 def validate_version(
     version: packaging_version.Version, supported_versions=SUPPORTED_VERSIONS
 ) -> bool:
