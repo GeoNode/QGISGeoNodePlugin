@@ -394,7 +394,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self.layer, allow_public_access=self.public_access_chb.isChecked()
         )
 
-    def handle_layer_uploaded(self, dataset_pk: int):
+    def handle_layer_uploaded(self):
         self._toggle_upload_controls(enabled=True)
         self._show_message("Layer uploaded successfully!")
 
