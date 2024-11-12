@@ -286,6 +286,8 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def activate_connection_configuration(self, index: int):
         self.toggle_connection_management_buttons()
+        # Clear error messages from other connections
+        self.message_bar.clearWidgets()
         self.clear_search_results()
         self.current_page = 1
         self.total_pages = 1
