@@ -33,7 +33,7 @@ class BaseGeonodeClient(QtCore.QObject):
     style_detail_error_received = QtCore.pyqtSignal([str], [str, int, str])
     keyword_list_received = QtCore.pyqtSignal(list)
     search_error_received = QtCore.pyqtSignal([str], [str, int, str])
-    dataset_uploaded = QtCore.pyqtSignal(int)
+    dataset_uploaded = QtCore.pyqtSignal()
     dataset_upload_error_received = QtCore.pyqtSignal([str], [str, int, str])
 
     def __init__(

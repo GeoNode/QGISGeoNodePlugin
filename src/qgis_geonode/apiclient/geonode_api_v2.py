@@ -179,12 +179,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
         if result:
             response_contents = self.network_fetcher_task.response_contents[0]
             if response_contents.http_status_code in success_statuses:
-                deserialized = network.deserialize_json_response(
-                    response_contents.response_body
-                )
-                catalogue_url = deserialized["url"]
-                dataset_pk = catalogue_url.rsplit("/")[-1]
-                self.dataset_uploaded.emit(int(dataset_pk))
+                self.dataset_uploaded.emit()
             else:
                 self.dataset_upload_error_received[str, int, str].emit(
                     response_contents.qt_error,
