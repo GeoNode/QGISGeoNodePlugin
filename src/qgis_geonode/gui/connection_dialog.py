@@ -180,6 +180,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             utils.show_message(self.bar, tr("Connecting..."), add_loading_widget=True)
             qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
         else:
+            self.enable_post_test_connection_buttons()
             message = "Please insert only the domain part from the GeoNode URL"
             level = qgis.core.Qgis.Critical
             utils.show_message(self.bar, message, level)
@@ -289,8 +290,13 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         super().accept()
 
     def update_ok_buttons(self):
+
+        url_status = self.validate_geonode_url()
+
         enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
         self.connection_pb.setEnabled(enabled_state)
+        if url_status != True:
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
 
 
 def _get_wfs_declared_versions(raw_response: QtCore.QByteArray) -> typing.List[str]:
