@@ -107,6 +107,13 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.name_le.setValidator(
             QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le)
         )
+
+        # Plugin's docs open through the help button
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Help).clicked.connect(
+            lambda: QtGui.QDesktopServices.openUrl(
+                QtCore.QUrl("https://geonode.org/QGISGeoNodePlugin/")
+            )
+        )
         self.update_ok_buttons()
 
     def validate_geonode_url(self):

@@ -199,6 +199,13 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.title_le.returnPressed.connect(self.search_geonode)
         self._hide_core_geonode_provider()
 
+        # Plugin's docs open through the help button
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Help).clicked.connect(
+            lambda: QtGui.QDesktopServices.openUrl(
+                QtCore.QUrl("https://geonode.org/QGISGeoNodePlugin/")
+            )
+        )
+
     def _initialize_spatial_extent_box(self):
         # ATTENTION: the order of initialization of the self.spatial_extent_box widget
         # is crucial here. Only call self.spatial_extent_box.setMapCanvas() after
