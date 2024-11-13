@@ -4,6 +4,8 @@ import enum
 import json
 import typing
 import uuid
+from configparser import ConfigParser
+from pathlib import Path
 
 from qgis.PyQt import (
     QtCore,
@@ -92,6 +94,18 @@ class ConnectionSettings:
                 "wfs_version": self.wfs_version.value,
             }
         )
+
+
+class PluginMetadata:
+    def prepare(self, plugin_dir):
+        self.plugin_dir = plugin_dir
+        _plugin_metadata = ConfigParser()
+        _plugin_metadata.read(Path(self.plugin_dir) / "metadata.txt")
+
+        self.plugin_metadata = _plugin_metadata["general"]
+
+    def get(self, attr):
+        return self.plugin_metadata.get(attr)
 
 
 class SettingsManager(QtCore.QObject):
@@ -303,3 +317,4 @@ class SettingsManager(QtCore.QObject):
 
 
 settings_manager = SettingsManager()
+plugin_metadata = PluginMetadata()

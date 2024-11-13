@@ -3,7 +3,6 @@ import re
 import typing
 import uuid
 
-
 import qgis.core
 from qgis.gui import QgsMessageBar
 from qgis.PyQt import (
@@ -16,11 +15,7 @@ from qgis.PyQt.uic import loadUiType
 
 from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
-from ..conf import (
-    ConnectionSettings,
-    WfsVersion,
-    settings_manager,
-)
+from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
 from ..utils import tr
 from packaging import version as packaging_version
 
@@ -38,7 +33,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     wfs_version_cb: QtWidgets.QComboBox
     detect_wfs_version_pb: QtWidgets.QPushButton
     network_timeout_sb: QtWidgets.QSpinBox
-    test_connection_pb: QtWidgets.QPushButton
+    connection_pb: QtWidgets.QPushButton
     buttonBox: QtWidgets.QDialogButtonBox
     options_gb: QtWidgets.QGroupBox
     bar: qgis.gui.QgsMessageBar
@@ -57,7 +52,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         super().__init__()
         self.setupUi(self)
         self._widgets_to_toggle_during_connection_test = [
-            self.test_connection_pb,
+            self.connection_pb,
             self.buttonBox,
             self.authcfg_acs,
             self.options_gb,
@@ -92,7 +87,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.connection_id = uuid.uuid4()
             self.remote_geonode_version = None
         self.update_connection_details()
-        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
+        # self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
         ok_signals = [
             self.name_le.textChanged,
             self.url_le.textChanged,
@@ -100,13 +95,31 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         for signal in ok_signals:
             signal.connect(self.update_ok_buttons)
         self.detect_wfs_version_pb.clicked.connect(self.detect_wfs_version)
-        self.test_connection_pb.clicked.connect(self.test_connection)
+        self.connection_pb.clicked.connect(self.test_connection)
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
         self.name_le.setValidator(
             QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le)
         )
+
+        # Plugin's docs open through the help button
+        self.buttonBox.button(QtWidgets.QDialogButtonBox.Help).clicked.connect(
+            lambda: QtGui.QDesktopServices.openUrl(
+                QtCore.QUrl(plugin_metadata.get("homepage"))
+            )
+        )
         self.update_ok_buttons()
+
+    def validate_geonode_url(self):
+
+        inserted_url = QtCore.QUrl(self.url_le.text().strip().rstrip("#/"))
+
+        if inserted_url.isValid() == False:
+            return False
+        elif inserted_url.path() != "":
+            return False
+        else:
+            return True
 
     def _populate_wfs_version_combobox(self):
         self.wfs_version_cb.clear()
@@ -150,6 +163,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     def test_connection(self):
         for widget in self._widgets_to_toggle_during_connection_test:
             widget.setEnabled(False)
+
         current_settings = self.get_connection_settings()
         self.discovery_task = network.NetworkRequestTask(
             [
@@ -159,12 +173,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             ],
             network_task_timeout=current_settings.network_requests_timeout,
             authcfg=current_settings.auth_config,
-            description="Test GeoNode connection",
+            description="Connect to a GeoNode client",
         )
         self.discovery_task.task_done.connect(self.handle_discovery_test)
-        utils.show_message(
-            self.bar, tr("Testing connection..."), add_loading_widget=True
-        )
+        utils.show_message(self.bar, tr("Connecting..."), add_loading_widget=True)
         qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
     def handle_discovery_test(self, task_result: bool):
@@ -230,7 +242,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.detected_capabilities_lw.clear()
         self.detected_version_le.clear()
         if not invalid_version:
+            # Enable the detected_version_db and OK button
             self.detected_version_gb.setEnabled(True)
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(True)
+
             current_settings = self.get_connection_settings()
             client: BaseGeonodeClient = apiclient.get_geonode_client(current_settings)
             self.detected_version_le.setText(str(current_settings.geonode_version))
@@ -239,6 +254,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             )
         else:
             self.detected_version_gb.setEnabled(False)
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
 
     def enable_post_test_connection_buttons(self):
         for widget in self._widgets_to_toggle_during_connection_test:
@@ -268,9 +284,17 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         super().accept()
 
     def update_ok_buttons(self):
+
+        url_status = self.validate_geonode_url()
+
         enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
-        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(enabled_state)
-        self.test_connection_pb.setEnabled(enabled_state)
+        self.connection_pb.setEnabled(enabled_state)
+        if url_status != True:
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
+            self.connection_pb.setEnabled(False)
+            message = "Please insert only the domain of a valid GeoNode URL"
+            level = qgis.core.Qgis.Info
+            utils.show_message(self.bar, message, level)
 
 
 def _get_wfs_declared_versions(raw_response: QtCore.QByteArray) -> typing.List[str]:

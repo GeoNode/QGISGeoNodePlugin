@@ -23,12 +23,14 @@ from .gui.geonode_source_select_provider import GeonodeSourceSelectProvider
 from .gui.geonode_maplayer_config_widget_factory import (
     GeonodeMapLayerConfigWidgetFactory,
 )
+from .conf import plugin_metadata
 
 
 class QgisGeoNode:
     def __init__(self, iface):
         self.iface = iface
         self.plugin_dir = os.path.dirname(__file__)
+        plugin_metadata.prepare(self.plugin_dir)
         locale = QSettings().value("locale/userLocale")[0:2]
         locale_path = os.path.join(
             self.plugin_dir, "i18n", "QgisGeoNode_{}.qm".format(locale)
