@@ -28,6 +28,7 @@ from ..utils import (
     log,
     tr,
 )
+from ..conf import plugin_metadata
 
 WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/geonode_datasource_widget.ui")
 
@@ -202,7 +203,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         # Plugin's docs open through the help button
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Help).clicked.connect(
             lambda: QtGui.QDesktopServices.openUrl(
-                QtCore.QUrl("https://geonode.org/QGISGeoNodePlugin/")
+                QtCore.QUrl(plugin_metadata.get("homepage"))
             )
         )
 

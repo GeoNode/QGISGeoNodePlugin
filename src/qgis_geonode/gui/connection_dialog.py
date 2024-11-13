@@ -15,11 +15,7 @@ from qgis.PyQt.uic import loadUiType
 
 from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
-from ..conf import (
-    ConnectionSettings,
-    WfsVersion,
-    settings_manager,
-)
+from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
 from ..utils import tr
 from packaging import version as packaging_version
 
@@ -109,7 +105,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         # Plugin's docs open through the help button
         self.buttonBox.button(QtWidgets.QDialogButtonBox.Help).clicked.connect(
             lambda: QtGui.QDesktopServices.openUrl(
-                QtCore.QUrl("https://geonode.org/QGISGeoNodePlugin/")
+                QtCore.QUrl(plugin_metadata.get("homepage"))
             )
         )
         self.update_ok_buttons()
