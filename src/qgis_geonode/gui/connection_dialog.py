@@ -168,29 +168,20 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         for widget in self._widgets_to_toggle_during_connection_test:
             widget.setEnabled(False)
 
-        url_status = self.validate_geonode_url()
-
-        if url_status != False:
-
-            current_settings = self.get_connection_settings()
-            self.discovery_task = network.NetworkRequestTask(
-                [
-                    network.RequestToPerform(
-                        QtCore.QUrl(f"{current_settings.base_url}/version.txt")
-                    )
-                ],
-                network_task_timeout=current_settings.network_requests_timeout,
-                authcfg=current_settings.auth_config,
-                description="Connect to a GeoNode client",
-            )
-            self.discovery_task.task_done.connect(self.handle_discovery_test)
-            utils.show_message(self.bar, tr("Connecting..."), add_loading_widget=True)
-            qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
-        else:
-            self.enable_post_test_connection_buttons()
-            message = "Please insert only the domain of a valid GeoNode URL"
-            level = qgis.core.Qgis.Critical
-            utils.show_message(self.bar, message, level)
+        current_settings = self.get_connection_settings()
+        self.discovery_task = network.NetworkRequestTask(
+            [
+                network.RequestToPerform(
+                    QtCore.QUrl(f"{current_settings.base_url}/version.txt")
+                )
+            ],
+            network_task_timeout=current_settings.network_requests_timeout,
+            authcfg=current_settings.auth_config,
+            description="Connect to a GeoNode client",
+        )
+        self.discovery_task.task_done.connect(self.handle_discovery_test)
+        utils.show_message(self.bar, tr("Connecting..."), add_loading_widget=True)
+        qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
     def handle_discovery_test(self, task_result: bool):
         self.enable_post_test_connection_buttons()
@@ -304,6 +295,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.connection_pb.setEnabled(enabled_state)
         if url_status != True:
             self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
+            self.connection_pb.setEnabled(False)
+            message = "Please insert only the domain of a valid GeoNode URL"
+            level = qgis.core.Qgis.Info
+            utils.show_message(self.bar, message, level)
 
 
 def _get_wfs_declared_versions(raw_response: QtCore.QByteArray) -> typing.List[str]:
