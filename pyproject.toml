@@ -22,6 +22,8 @@ pytest-custom-exit-code = "^0.3.0"
 mypy = "^1.0.0"
 qgis-stubs = "^0.2.0.post1"
 PyQt5-stubs = "^5.15.6.0"
+PyQt5-Qt5 = "5.15.2"
+PyQt5 = "5.15.6"
 
 [tool.poetry.dev-dependencies]
 

@@ -130,7 +130,7 @@ def compile_resources(
     target_path = output_dir / "resources.py"
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _log(f"compile_resources target_path: {target_path}", context=context)
-    subprocess.run(shlex.split(f"pyrcc5 -o {target_path} {resources_path}"))
+    subprocess.run(shlex.split(f"pyrcc5 -o {target_path.as_posix()} {resources_path.as_posix()}"))
 
 
 @app.command()
