@@ -2,8 +2,6 @@ import os
 import re
 import typing
 import uuid
-from urllib.parse import urlparse
-
 
 import qgis.core
 from qgis.gui import QgsMessageBar
@@ -118,9 +116,11 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     def validate_geonode_url(self):
 
-        inserted_url = self.url_le.text().strip().rstrip("#/")
-        parsed_url = urlparse(inserted_url)
-        if parsed_url.path != "":
+        inserted_url = QtCore.QUrl(self.url_le.text().strip().rstrip("#/"))
+
+        if inserted_url.isValid() == False:
+            return False
+        elif inserted_url.path() != "":
             return False
         else:
             return True
@@ -188,7 +188,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
         else:
             self.enable_post_test_connection_buttons()
-            message = "Please insert only the domain part from the GeoNode URL"
+            message = "Please insert only the domain of a valid GeoNode URL"
             level = qgis.core.Qgis.Critical
             utils.show_message(self.bar, message, level)
 
