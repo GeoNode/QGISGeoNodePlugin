@@ -314,8 +314,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         dataset = self.get_dataset()
         updated_metadata = populate_metadata(self.layer.metadata(), dataset)
         self.layer.setMetadata(updated_metadata)
-        layer_properties_dialog = self._get_layer_properties_dialog()
-        layer_properties_dialog.syncToLayer()
+        self._get_layer_properties_dialog(self.layer)
 
     # FIXME: rather use the api_client to perform the metadata upload
     def upload_metadata(self) -> None:
@@ -433,8 +432,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             dataset.default_style.sld, sld_load_error_msg
         )
         if sld_load_result:
-            layer_properties_dialog = self._get_layer_properties_dialog()
-            layer_properties_dialog.syncToLayer()
+            self._get_layer_properties_dialog(self.layer)
         else:
             self._show_message(
                 message=f"Could not load GeoNode style: {sld_load_error_msg}",
@@ -449,10 +447,10 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     ) -> None:
         utils.show_message(self.message_bar, message, level, add_loading_widget)
 
-    def _get_layer_properties_dialog(self):
-        # FIXME: This is a very hacky way to get the layer properties dialog
-        #  but I've not been able to find a more elegant way to retrieve it yet
-        return self.parent().parent().parent().parent()
+    def _get_layer_properties_dialog(self, layer):
+        # We use the function syncToLayer of QgsMapLayerConfigWidget
+        # https://qgis.org/pyqgis/3.38/gui/QgsMapLayerConfigWidget.html
+        return self.syncToLayer(layer)
 
     def _toggle_link_controls(self, enabled: bool) -> None:
         self.links_gb.setEnabled(enabled)
