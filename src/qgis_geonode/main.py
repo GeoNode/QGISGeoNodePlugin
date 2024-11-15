@@ -11,6 +11,7 @@
 
 import os.path
 
+from qgis.core import QgsSettings
 from qgis.gui import QgsGui
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
@@ -35,6 +36,17 @@ class QgisGeoNode:
         locale_path = os.path.join(
             self.plugin_dir, "i18n", "QgisGeoNode_{}.qm".format(locale)
         )
+
+        settings = QgsSettings()
+        help_paths = settings.value("help/helpSearchPath")
+        homepage_root = plugin_metadata.get("homepage_root")
+
+        if isinstance(help_paths, str):
+            help_paths = [homepage_root, help_paths]
+        elif isinstance(help_paths, list):
+            help_paths = [homepage_root] + help_paths
+
+        settings.setValue("help/helpSearchPath", help_paths)
 
         if os.path.exists(locale_path):
             self.translator = QTranslator()

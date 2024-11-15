@@ -73,6 +73,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def __init__(self, layer, canvas, parent):
         super().__init__(layer, canvas, parent)
         self.setupUi(self)
+        self.setProperty("helpPage", conf.plugin_metadata.get("help_page"))
         self.open_detail_url_pb.setIcon(
             QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
         )
