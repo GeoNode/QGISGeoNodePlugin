@@ -43,7 +43,7 @@ class QgisGeoNode:
 
         if isinstance(help_paths, str):
             help_paths = [homepage_root, help_paths]
-        elif isinstance(help_paths, list):
+        elif isinstance(help_paths, list) and not homepage_root in help_paths:
             help_paths = [homepage_root] + help_paths
 
         settings.setValue("help/helpSearchPath", help_paths)
