@@ -106,7 +106,7 @@ class PluginMetadata:
         self.plugin_metadata = _plugin_metadata["general"]
 
         homepage = urllib.parse.urlparse(self.plugin_metadata.get("homepage"))
-        self.homepage_root = f"{homepage.scheme}://{homepage.hostname}"
+        self.homepage_root = f"{homepage.scheme}://{homepage.hostname}/"
         self.help_page = homepage.path.strip("/")
 
     def get(self, attr):
