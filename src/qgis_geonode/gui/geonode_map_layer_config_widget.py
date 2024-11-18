@@ -468,8 +468,13 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         # self.parent().parent()...
         properties_dialog = self.find_parent_by_type(self, QtWidgets.QDialog)
 
-        # Sync GeoNode's SLD or / and metadata with the layer properties dialog
-        properties_dialog.syncToLayer()
+        if properties_dialog != None:
+            # Sync GeoNode's SLD or / and metadata with the layer properties dialog
+            properties_dialog.syncToLayer()
+        else:
+            self._show_message(
+                "The corresponding layer properties from GeoNode cannot be loaded correctly..."
+            )
 
     def _toggle_link_controls(self, enabled: bool) -> None:
         self.links_gb.setEnabled(enabled)
