@@ -473,7 +473,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             properties_dialog.syncToLayer()
         else:
             self._show_message(
-                "The corresponding layer properties from GeoNode cannot be loaded correctly..."
+                "The corresponding layer properties from GeoNode cannot be loaded correctly...",
+                level=qgis.core.Qgis.Critical,
             )
 
     def _toggle_link_controls(self, enabled: bool) -> None:
