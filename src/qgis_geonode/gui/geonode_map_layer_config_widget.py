@@ -466,9 +466,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         # get layer properties dialog
         # We need to find QDialog object from a structure like:
         # self.parent().parent()...
-        target_type = QtWidgets.QDialog
-        obj = self
-        properties_dialog = self.find_parent_by_type(obj, target_type)
+        properties_dialog = self.find_parent_by_type(self, QtWidgets.QDialog)
 
         # Sync GeoNode's SLD or / and metadata with the layer properties dialog
         properties_dialog.syncToLayer()
