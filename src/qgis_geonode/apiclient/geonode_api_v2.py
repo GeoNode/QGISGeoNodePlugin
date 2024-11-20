@@ -266,22 +266,35 @@ class GeoNodeApiClient(BaseGeonodeClient):
                     f"Could not parse server response into a dataset: {str(exc)}",
                     debug=False,
                 )
-            else:
-                try:
-                    style_response_contents = (
-                        self.network_fetcher_task.response_contents[1]
-                    )
-                except IndexError:
-                    pass
-                else:
-                    (
-                        sld_named_layer,
-                        error_message,
-                    ) = geonode_styles.get_usable_sld(style_response_contents)
-                    if sld_named_layer is None:
-                        raise RuntimeError(error_message)
-                    dataset.default_style.sld = sld_named_layer
-                self.dataset_detail_received.emit(dataset)
+
+        self.dataset_detail_received.emit(dataset)
+
+    def handle_sld_detail(self, task_result: bool) -> None:
+        response_contents = self._retrieve_response(
+            task_result,
+            0,
+            self.style_detail_error_received
+            # deserialize_as_json=False
+        )
+        # if response_contents is not None:
+        #    style_response_contents = response_contents
+        #
+        #    self.dataset_sld_received.emit(style_response_contents)
+        try:
+            style_response_contents = response_contents
+
+        except IndexError:
+            pass
+        else:
+            (
+                sld_named_layer,
+                error_message,
+            ) = geonode_styles.get_usable_sld(style_response_contents)
+            if sld_named_layer is None:
+                raise RuntimeError(error_message)
+            # dataset.default_style.sld = sld_named_layer
+
+            self.dataset_sld_received.emit(sld_named_layer)
 
     def handle_dataset_style(
         self,

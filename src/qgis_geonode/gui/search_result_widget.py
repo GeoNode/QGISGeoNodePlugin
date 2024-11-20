@@ -224,9 +224,12 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.layer = self.dataset_loader_task.layer
         self.api_client.dataset_detail_received.connect(self.handle_layer_detail)
         self.api_client.dataset_detail_error_received.connect(self.handle_loading_error)
+        self.api_client.dataset_sld_received.connect(self.handle_layer_detail)
         self.api_client.get_dataset_detail(
-            self.brief_dataset, get_style_too=self.layer.dataProvider().name() != "wms"
+            self.brief_dataset,
+            # get_style_too=self.layer.dataProvider().name() != "wms"
         )
+        self.api_client.get_style_detail(self.brief_dataset)
 
     def handle_layer_detail(self, dataset: typing.Optional[models.Dataset]):
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
