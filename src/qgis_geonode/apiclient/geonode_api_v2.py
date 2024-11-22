@@ -266,35 +266,19 @@ class GeoNodeApiClient(BaseGeonodeClient):
                     f"Could not parse server response into a dataset: {str(exc)}",
                     debug=False,
                 )
-
-        self.dataset_detail_received.emit(dataset)
-
-    def handle_sld_detail(self, task_result: bool) -> None:
-        response_contents = self._retrieve_response(
-            task_result,
-            0,
-            self.style_detail_error_received
-            # deserialize_as_json=False
-        )
-        # if response_contents is not None:
-        #    style_response_contents = response_contents
-        #
-        #    self.dataset_sld_received.emit(style_response_contents)
-        try:
-            style_response_contents = response_contents
-
-        except IndexError:
-            pass
-        else:
-            (
-                sld_named_layer,
-                error_message,
-            ) = geonode_styles.get_usable_sld(style_response_contents)
-            if sld_named_layer is None:
-                raise RuntimeError(error_message)
-            # dataset.default_style.sld = sld_named_layer
-
-            self.dataset_sld_received.emit(sld_named_layer)
+            else:
+                is_vector = (
+                    dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER
+                )
+                should_load_vector_style = (
+                    models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE
+                    in self.capabilities
+                )
+                # Check if the layer is vector and if it has the permissions to read the style
+                if is_vector and should_load_vector_style:
+                    self.get_dataset_style(dataset, emit_dataset_detail_received=True)
+                else:
+                    self.dataset_detail_received.emit(dataset)
 
     def handle_dataset_style(
         self,
