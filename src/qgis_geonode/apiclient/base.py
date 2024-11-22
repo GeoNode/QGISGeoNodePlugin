@@ -122,6 +122,7 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_dataset_detail(
         self,
         dataset: typing.Union[models.BriefDataset, models.Dataset],
+        get_style_too: bool = False,
     ) -> None:
 
         self.network_fetcher_task = network.NetworkRequestTask(
@@ -130,7 +131,9 @@ class BaseGeonodeClient(QtCore.QObject):
             self.auth_config,
             description="Get dataset detail",
         )
-        self.network_fetcher_task.task_done.connect(self.handle_dataset_detail)
+        self.network_fetcher_task.task_done.connect(
+            partial(self.handle_dataset_detail, get_style_too=get_style_too)
+        )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_detail(self, result: bool):

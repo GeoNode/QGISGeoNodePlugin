@@ -251,7 +251,9 @@ class GeoNodeApiClient(BaseGeonodeClient):
             )
             self.dataset_list_received.emit(brief_datasets, pagination_info)
 
-    def handle_dataset_detail(self, task_result: bool) -> None:
+    def handle_dataset_detail(
+        self, task_result: bool, get_style_too: bool = False
+    ) -> None:
         log("inside the API client's handle_dataset_detail")
         deserialized_resource = self._retrieve_response(
             task_result, 0, self.dataset_detail_error_received
@@ -267,16 +269,21 @@ class GeoNodeApiClient(BaseGeonodeClient):
                     debug=False,
                 )
             else:
-                is_vector = (
-                    dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER
-                )
-                should_load_vector_style = (
-                    models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE
-                    in self.capabilities
-                )
-                # Check if the layer is vector and if it has the permissions to read the style
-                if is_vector and should_load_vector_style:
-                    self.get_dataset_style(dataset, emit_dataset_detail_received=True)
+                # check if the request is from a WFS to see if it will retrieve the style
+                if get_style_too:
+                    is_vector = (
+                        dataset.dataset_sub_type
+                        == models.GeonodeResourceType.VECTOR_LAYER
+                    )
+                    should_load_vector_style = (
+                        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE
+                        in self.capabilities
+                    )
+                    # Check if the layer is vector and if it has the permissions to read the style
+                    if is_vector and should_load_vector_style:
+                        self.get_dataset_style(
+                            dataset, emit_dataset_detail_received=True
+                        )
                 else:
                     self.dataset_detail_received.emit(dataset)
 
