@@ -4,6 +4,7 @@ from PyQt5 import QtCore, QtXml
 from qgis.PyQt import QtXml
 
 from . import network
+from .utils import remove_sld_comments
 
 
 def deserialize_sld_doc(
@@ -18,6 +19,11 @@ def deserialize_sld_doc(
     named_layer_element = None
     if sld_loaded:
         root = sld_doc.documentElement()
+
+        # We remove all the comments from the SLD since they cause a QGIS crash
+        # during the SLD serialization (serialize_sld_named_layer, save() method)
+        remove_sld_comments(root)
+
         if not root.isNull():
             sld_named_layer = root.firstChildElement("NamedLayer")
             if not sld_named_layer.isNull():

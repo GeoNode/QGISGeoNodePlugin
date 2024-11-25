@@ -37,3 +37,14 @@ def show_message(
         progress_bar.setMaximum(0)
         message_item.layout().addWidget(progress_bar)
     message_bar.pushWidget(message_item, level=level)
+
+
+def remove_sld_comments(element):
+    child = element.firstChild()
+    while not child.isNull():
+        if child.isComment():
+            element.removeChild(child)
+        else:
+            if child.isElement():
+                remove_sld_comments(child)
+        child = child.nextSibling()
