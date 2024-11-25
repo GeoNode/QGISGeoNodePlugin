@@ -39,12 +39,12 @@ def show_message(
     message_bar.pushWidget(message_item, level=level)
 
 
-def remove_sld_comments(element):
+def remove_comments_from_sld(element):
     child = element.firstChild()
     while not child.isNull():
         if child.isComment():
             element.removeChild(child)
         else:
             if child.isElement():
-                remove_sld_comments(child)
+                remove_comments_from_sld(child)
         child = child.nextSibling()
