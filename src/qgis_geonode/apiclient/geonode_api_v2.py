@@ -252,7 +252,10 @@ class GeoNodeApiClient(BaseGeonodeClient):
             self.dataset_list_received.emit(brief_datasets, pagination_info)
 
     def handle_dataset_detail(
-        self, task_result: bool, get_style_too: bool = False
+        self,
+        task_result: bool,
+        get_style_too: bool = False,
+        authenticated: bool = False,
     ) -> None:
         log("inside the API client's handle_dataset_detail")
         deserialized_resource = self._retrieve_response(
@@ -270,7 +273,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
                 )
             else:
                 # check if the request is from a WFS to see if it will retrieve the style
-                if get_style_too:
+                if get_style_too and authenticated:
                     is_vector = (
                         dataset.dataset_sub_type
                         == models.GeonodeResourceType.VECTOR_LAYER

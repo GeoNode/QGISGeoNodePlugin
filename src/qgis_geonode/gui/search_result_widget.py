@@ -228,7 +228,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.brief_dataset, get_style_too=self.layer.dataProvider().name() != "wms"
         )
 
-    def handle_layer_detail(self, dataset: typing.Optional[models.Dataset]):
+    def handle_layer_detail(
+        self, dataset: typing.Optional[models.Dataset], retrieved_style: bool = False
+    ):
         self.api_client.dataset_detail_received.disconnect(self.handle_layer_detail)
         self.layer.setCustomProperty(
             models.DATASET_CUSTOM_PROPERTY_KEY,
@@ -245,7 +247,11 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         can_load_style = models.loading_style_supported(
             self.layer.type(), self.api_client.capabilities
         )
-        if can_load_style and dataset.default_style:
+
+        if dataset.default_style.sld is not None:
+            retrieved_style = True
+
+        if can_load_style and retrieved_style:
             error_message = ""
             loaded_sld = self.layer.readSld(dataset.default_style.sld, error_message)
             if not loaded_sld:
