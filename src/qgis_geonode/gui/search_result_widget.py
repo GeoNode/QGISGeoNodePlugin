@@ -274,6 +274,9 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
             self.handle_loading_error
         )
         self.api_client.style_detail_error_received.disconnect(self.handle_style_error)
+
+        # Set the final extent using the defined spatial_extent
+        self.layer.setExtent(self.brief_dataset.spatial_extent)
         self.project.addMapLayer(self.layer)
         self.handle_layer_load_end()
 
