@@ -495,12 +495,17 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 models.GeonodePermission.CHANGE_DATASET_STYLE in dataset.permissions
             )
             is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
-            has_style_url = dataset.default_style.sld_url is not None
-            if can_load_style and has_style_url and is_service:
+            has_geonode_style = dataset.default_style.sld is not None
+            if can_load_style and has_geonode_style and is_service:
                 widgets.append(self.download_style_pb)
             else:
                 self.download_style_pb.setEnabled(False)
-            if allowed_to_modify and can_modify_style and has_style_url and is_service:
+            if (
+                allowed_to_modify
+                and can_modify_style
+                and has_geonode_style
+                and is_service
+            ):
                 widgets.append(self.upload_style_pb)
             else:
                 self.upload_style_pb.setEnabled(False)
