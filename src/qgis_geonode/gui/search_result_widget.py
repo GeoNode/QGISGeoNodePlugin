@@ -224,6 +224,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.layer = self.dataset_loader_task.layer
         self.api_client.dataset_detail_received.connect(self.handle_layer_detail)
         self.api_client.dataset_detail_error_received.connect(self.handle_loading_error)
+        self.api_client.style_detail_error_received.connect(self.handle_style_error)
         self.api_client.get_dataset_detail(
             self.brief_dataset, get_style_too=self.layer.dataProvider().name() != "wms"
         )
@@ -263,10 +264,16 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
         self.data_source_widget.show_message(message, level=qgis.core.Qgis.Critical)
         self.handle_layer_load_end(clear_message_bar=False)
 
+    def handle_style_error(self):
+        message = f"Unable to retrieve the style of {self.brief_dataset.title}"
+        self.data_source_widget.show_message(message, level=qgis.core.Qgis.Critical)
+        self.handle_layer_load_end(clear_message_bar=False)
+
     def add_layer_to_project(self):
         self.api_client.dataset_detail_error_received.disconnect(
             self.handle_loading_error
         )
+        self.api_client.style_detail_error_received.disconnect(self.handle_style_error)
         self.project.addMapLayer(self.layer)
         self.handle_layer_load_end()
 
