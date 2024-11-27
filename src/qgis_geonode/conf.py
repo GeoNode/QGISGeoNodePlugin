@@ -4,6 +4,7 @@ import enum
 import json
 import typing
 import uuid
+import urllib.parse
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -104,8 +105,15 @@ class PluginMetadata:
 
         self.plugin_metadata = _plugin_metadata["general"]
 
+        homepage = urllib.parse.urlparse(self.plugin_metadata.get("homepage"))
+        self.homepage_root = f"{homepage.scheme}://{homepage.hostname}/"
+        self.help_page = homepage.path.strip("/")
+
     def get(self, attr):
-        return self.plugin_metadata.get(attr)
+        try:
+            return getattr(self, attr)
+        except ValueError:
+            return self.plugin_metadata.get(attr)
 
 
 class SettingsManager(QtCore.QObject):
