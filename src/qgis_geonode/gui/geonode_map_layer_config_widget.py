@@ -73,6 +73,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def __init__(self, layer, canvas, parent):
         super().__init__(layer, canvas, parent)
         self.setupUi(self)
+        self.setProperty("helpPage", conf.plugin_metadata.get("help_page"))
         self.open_detail_url_pb.setIcon(
             QtGui.QIcon(":/plugins/qgis_geonode/mIconGeonode.svg")
         )
@@ -314,8 +315,8 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         dataset = self.get_dataset()
         updated_metadata = populate_metadata(self.layer.metadata(), dataset)
         self.layer.setMetadata(updated_metadata)
-        layer_properties_dialog = self._get_layer_properties_dialog()
-        layer_properties_dialog.syncToLayer()
+        # sync layer properties with the reloaded SLD and/or Metadata from GeoNode
+        self.sync_layer_properties()
 
     # FIXME: rather use the api_client to perform the metadata upload
     def upload_metadata(self) -> None:
@@ -433,8 +434,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             dataset.default_style.sld, sld_load_error_msg
         )
         if sld_load_result:
-            layer_properties_dialog = self._get_layer_properties_dialog()
-            layer_properties_dialog.syncToLayer()
+            self.sync_layer_properties()
         else:
             self._show_message(
                 message=f"Could not load GeoNode style: {sld_load_error_msg}",
@@ -449,10 +449,33 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     ) -> None:
         utils.show_message(self.message_bar, message, level, add_loading_widget)
 
-    def _get_layer_properties_dialog(self):
-        # FIXME: This is a very hacky way to get the layer properties dialog
-        #  but I've not been able to find a more elegant way to retrieve it yet
-        return self.parent().parent().parent().parent()
+    def find_parent_by_type(self, obj, target_type):
+        # Find the desired object by type
+        # from a structure: self.parent().parent()...
+        current_obj = obj
+        while current_obj is not None:
+            if isinstance(current_obj, target_type):
+                return current_obj
+            if hasattr(current_obj, "parent"):
+                current_obj = current_obj.parent()
+            else:
+                break
+        return None
+
+    def sync_layer_properties(self):
+        # get layer properties dialog
+        # We need to find QDialog object from a structure like:
+        # self.parent().parent()...
+        properties_dialog = self.find_parent_by_type(self, QtWidgets.QDialog)
+
+        if properties_dialog is not None:
+            # Sync GeoNode's SLD or / and metadata with the layer properties dialog
+            properties_dialog.syncToLayer()
+        else:
+            self._show_message(
+                "The corresponding layer properties from GeoNode cannot be loaded correctly...",
+                level=qgis.core.Qgis.Critical,
+            )
 
     def _toggle_link_controls(self, enabled: bool) -> None:
         self.links_gb.setEnabled(enabled)
@@ -472,12 +495,17 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 models.GeonodePermission.CHANGE_DATASET_STYLE in dataset.permissions
             )
             is_service = self.layer.dataProvider().name().lower() in ("wfs", "wcs")
-            has_style_url = dataset.default_style.sld_url is not None
-            if can_load_style and has_style_url and is_service:
+            has_geonode_style = dataset.default_style.sld is not None
+            if can_load_style and has_geonode_style and is_service:
                 widgets.append(self.download_style_pb)
             else:
                 self.download_style_pb.setEnabled(False)
-            if allowed_to_modify and can_modify_style and has_style_url and is_service:
+            if (
+                allowed_to_modify
+                and can_modify_style
+                and has_geonode_style
+                and is_service
+            ):
                 widgets.append(self.upload_style_pb)
             else:
                 self.upload_style_pb.setEnabled(False)

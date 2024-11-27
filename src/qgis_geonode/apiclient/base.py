@@ -123,28 +123,28 @@ class BaseGeonodeClient(QtCore.QObject):
         self,
         dataset: typing.Union[models.BriefDataset, models.Dataset],
         get_style_too: bool = False,
+        authenticated: bool = False,
     ) -> None:
-        requests_to_perform = [
-            network.RequestToPerform(url=self.get_dataset_detail_url(dataset.pk))
-        ]
-        if get_style_too:
-            is_vector = (
-                dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER
-            )
-            should_load_vector_style = (
-                models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE in self.capabilities
-            )
-            if is_vector and should_load_vector_style:
-                sld_url = QtCore.QUrl(dataset.default_style.sld_url)
-                requests_to_perform.append(network.RequestToPerform(url=sld_url))
+
+        auth_manager = qgis.core.QgsApplication.authManager()
+        auth_provider_name = auth_manager.configAuthMethodKey(self.auth_config).lower()
+
+        if auth_provider_name == "basic":
+            authenticated = True
 
         self.network_fetcher_task = network.NetworkRequestTask(
-            requests_to_perform,
+            [network.RequestToPerform(url=self.get_dataset_detail_url(dataset.pk))],
             self.network_requests_timeout,
             self.auth_config,
             description="Get dataset detail",
         )
-        self.network_fetcher_task.task_done.connect(self.handle_dataset_detail)
+        self.network_fetcher_task.task_done.connect(
+            partial(
+                self.handle_dataset_detail,
+                get_style_too=get_style_too,
+                authenticated=authenticated,
+            )
+        )
         qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
     def handle_dataset_detail(self, result: bool):
