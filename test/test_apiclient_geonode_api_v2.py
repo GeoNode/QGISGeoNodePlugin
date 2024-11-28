@@ -12,6 +12,7 @@ from qgis_geonode.apiclient import (
     geonode_api_v2,
     models,
 )
+from qgis_geonode.utils import url_from_geoserver
 
 
 @pytest.mark.parametrize(
@@ -260,6 +261,44 @@ def test_apiclient_build_search_filters(
     assert result.toString() == expected
 
 
+@pytest.mark.parametrize(
+    "geoserver_url, base_url, expected",
+    [
+        pytest.param(
+            "http://fake.com/geoserver/ows/",
+            "http://fake.com",
+            "http://fake.com/gs/ows/",
+        ),
+        pytest.param(
+            "http://fake.com/gs/ows/", "http://fake.com", "http://fake.com/gs/ows/"
+        ),
+        pytest.param(
+            "http://fake.geoserver.com/geoserver/ows/",
+            "http://fake.geoserver.com",
+            "http://fake.geoserver.com/gs/ows/",
+        ),
+        pytest.param(
+            "http://fake.geoserver.com/geoserver/path/to/file.sld",
+            "http://fake.geoserver.com",
+            "http://fake.geoserver.com/gs/path/to/file.sld",
+        ),
+        pytest.param(
+            "http://fake.geoserver.com/gs/path/to/file.sld",
+            "http://fake.geoserver.com",
+            "http://fake.geoserver.com/gs/path/to/file.sld",
+        ),
+        pytest.param(
+            "http://fake.geonode.com/geoserver/path/to/file.sld",
+            "http://fake.geonode.com",
+            "http://fake.geonode.com/gs/path/to/file.sld",
+        ),
+    ],
+)
+def test_url_from_geoserver(geoserver_url, base_url, expected):
+    result = url_from_geoserver(geoserver_Url, base_url)
+    assert result == expected
+
+
 def test_get_common_model_properties_client():
     dataset_uuid = "c22e838f-9503-484e-8769-b5b09a2b6104"
     raw_dataset = {
@@ -324,9 +363,7 @@ def test_get_common_model_properties_client():
             name="fake-style-name", sld_url="fake-sld-url"
         ),
     }
-    client = geonode_api_v2.GeoNodeApiClient(
-        "fake-base-url", 10, WfsVersion.V_1_1_0, 0
-    )
+    client = geonode_api_v2.GeoNodeApiClient("fake-base-url", 10, WfsVersion.V_1_1_0, 0)
     result = client._get_common_model_properties(raw_dataset)
     for k, v in expected.items():
         assert result[k] == v
