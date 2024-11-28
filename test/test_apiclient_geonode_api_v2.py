@@ -279,6 +279,11 @@ def test_apiclient_build_search_filters(
         ),
         pytest.param(
             "http://fake.geoserver.com",
+            "http://fake.geoserver.com/geoserver/ows",
+            "http://fake.geoserver.com/gs/ows",
+        ),
+        pytest.param(
+            "http://fake.geoserver.com",
             "http://fake.geoserver.com/geoserver/path/to/file.sld",
             "http://fake.geoserver.com/gs/path/to/file.sld",
         ),
