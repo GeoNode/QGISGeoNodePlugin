@@ -18,9 +18,7 @@ from qgis.PyQt import (
 
 from .. import network
 from .. import styles as geonode_styles
-from ..utils import (
-    log,
-)
+from ..utils import log, url_from_geoserver
 
 from . import models
 from .base import BaseGeonodeClient
@@ -209,9 +207,10 @@ class GeoNodeApiClient(BaseGeonodeClient):
         if auth_provider_name == "basic":
             for service_type, retrieved_url in result.items():
                 try:
-                    prefix, suffix = retrieved_url.partition("geoserver")[::2]
-                    result[service_type] = f"{self.base_url}/gs{suffix}"
-                    log(f"result[service_type]: {self.base_url}/gs{suffix}")
+                    result[service_type] = url_from_geoserver(
+                        self.base_url, retrieved_url
+                    )
+                    log(f"result[service_type]: {result[service_type]}")
                 except AttributeError:
                     pass
         return result
@@ -352,8 +351,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
         sld_url = raw_style.get("sld_url")
         if auth_provider_name == "basic":
             try:
-                prefix, suffix = sld_url.partition("geoserver")[::2]
-                sld_url = f"{self.base_url}/gs{suffix}"
+                sld_url = url_from_geoserver(self.base_url, sld_url)
                 log(f"sld_url: {sld_url}")
             except AttributeError:
                 pass

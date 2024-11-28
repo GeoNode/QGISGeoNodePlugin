@@ -1,4 +1,5 @@
 import typing
+from urllib.parse import urlparse
 
 import qgis.gui
 from PyQt5 import QtCore, QtWidgets
@@ -48,3 +49,16 @@ def remove_comments_from_sld(element):
             if child.isElement():
                 remove_comments_from_sld(child)
         child = child.nextSibling()
+
+
+def url_from_geoserver(base_url: str, raw_url: str):
+
+    # Clean the URL path from trailing and back slashes
+    url_path = urlparse(raw_url).path.strip("/")
+
+    url_path = url_path.split("/")
+    # re-join URL path without the geoserver path
+    suffix = "/".join(url_path[1:])
+    result = f"{base_url}/gs/{suffix}"
+
+    return result
