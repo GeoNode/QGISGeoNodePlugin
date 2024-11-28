@@ -294,8 +294,8 @@ def test_apiclient_build_search_filters(
         ),
     ],
 )
-def test_url_from_geoserver(geoserver_url, base_url, expected):
-    result = url_from_geoserver(geoserver_url, base_url)
+def test_url_from_geoserver(base_url, geoserver_url, expected):
+    result = url_from_geoserver(base_url, geoserver_url)
     assert result == expected
 
 
