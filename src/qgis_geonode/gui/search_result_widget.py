@@ -267,6 +267,8 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     def handle_style_error(self):
         message = f"Unable to retrieve the style of {self.brief_dataset.title}"
         self.data_source_widget.show_message(message, level=qgis.core.Qgis.Critical)
+        # Terminate the signal if there is an error with the SLD request
+        self.api_client.style_detail_error_received.disconnect(self.handle_style_error)
         self.handle_layer_load_end(clear_message_bar=False)
 
     def add_layer_to_project(self):
