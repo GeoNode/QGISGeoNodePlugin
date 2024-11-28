@@ -262,34 +262,34 @@ def test_apiclient_build_search_filters(
 
 
 @pytest.mark.parametrize(
-    "geoserver_url, base_url, expected",
+    "base_url, geoserver_url, expected",
     [
         pytest.param(
-            "http://fake.com/geoserver/ows/",
             "http://fake.com",
+            "http://fake.com/geoserver/ows/",
             "http://fake.com/gs/ows/",
         ),
         pytest.param(
-            "http://fake.com/gs/ows/", "http://fake.com", "http://fake.com/gs/ows/"
+            "http://fake.com", "http://fake.com/gs/ows/", "http://fake.com/gs/ows/"
         ),
         pytest.param(
-            "http://fake.geoserver.com/geoserver/ows/",
             "http://fake.geoserver.com",
+            "http://fake.geoserver.com/geoserver/ows/",
             "http://fake.geoserver.com/gs/ows/",
         ),
         pytest.param(
+            "http://fake.geoserver.com",
             "http://fake.geoserver.com/geoserver/path/to/file.sld",
-            "http://fake.geoserver.com",
             "http://fake.geoserver.com/gs/path/to/file.sld",
         ),
         pytest.param(
-            "http://fake.geoserver.com/gs/path/to/file.sld",
             "http://fake.geoserver.com",
+            "http://fake.geoserver.com/gs/path/to/file.sld",
             "http://fake.geoserver.com/gs/path/to/file.sld",
         ),
         pytest.param(
-            "http://fake.geonode.com/geoserver/path/to/file.sld",
             "http://fake.geonode.com",
+            "http://fake.geonode.com/geoserver/path/to/file.sld",
             "http://fake.geonode.com/gs/path/to/file.sld",
         ),
     ],
