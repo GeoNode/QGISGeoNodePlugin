@@ -267,15 +267,15 @@ def test_apiclient_build_search_filters(
         pytest.param(
             "http://fake.com",
             "http://fake.com/geoserver/ows/",
-            "http://fake.com/gs/ows/",
+            "http://fake.com/gs/ows",
         ),
         pytest.param(
-            "http://fake.com", "http://fake.com/gs/ows/", "http://fake.com/gs/ows/"
+            "http://fake.com", "http://fake.com/gs/ows/", "http://fake.com/gs/ows"
         ),
         pytest.param(
             "http://fake.geoserver.com",
             "http://fake.geoserver.com/geoserver/ows/",
-            "http://fake.geoserver.com/gs/ows/",
+            "http://fake.geoserver.com/gs/ows",
         ),
         pytest.param(
             "http://fake.geoserver.com",
