@@ -16,12 +16,13 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
+from ..tasks import network_task
+
 from .. import (
     conf,
     network,
     styles,
     utils,
-    tasks,
 )
 from ..apiclient import (
     base,
@@ -52,7 +53,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     upload_layer_pb: QtWidgets.QPushButton
     message_bar: qgis.gui.QgsMessageBar
 
-    network_task: typing.Optional[tasks.NetworkRequestTask]
+    network_task: typing.Optional[network_task.NetworkRequestTask]
     _apply_geonode_style: bool
     _apply_geonode_metadata: bool
     _layer_upload_api_client: typing.Optional[base.BaseGeonodeClient]
@@ -148,7 +149,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def download_style(self):
         dataset = self.get_dataset()
-        self.network_task = tasks.NetworkRequestTask(
+        self.network_task = network_task.NetworkRequestTask(
             [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
             self._api_client.network_requests_timeout,
             self.connection_settings.auth_config,
@@ -190,7 +191,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         if sld_data is not None:
             serialized_sld, content_type = sld_data
             dataset = self.get_dataset()
-            self.network_task = tasks.NetworkRequestTask(
+            self.network_task = network_task.NetworkRequestTask(
                 [
                     network.RequestToPerform(
                         QtCore.QUrl(dataset.default_style.sld_url),
@@ -323,7 +324,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def upload_metadata(self) -> None:
         self.apply()
         current_metadata = self.layer.metadata()
-        self.network_task = tasks.NetworkRequestTask(
+        self.network_task = network_task.NetworkRequestTask(
             [
                 network.RequestToPerform(
                     QtCore.QUrl(self.get_dataset().link),

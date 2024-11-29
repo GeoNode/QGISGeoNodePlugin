@@ -16,7 +16,7 @@ from qgis.PyQt import (
     QtNetwork,
 )
 
-from .. import tasks
+from ..tasks import network_task
 from .. import network
 from .. import styles as geonode_styles
 from ..utils import log, url_from_geoserver, sanitize_layer_name
@@ -415,7 +415,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
         return models.Dataset(**properties)
 
 
-class LayerUploaderTask(tasks.NetworkRequestTask):
+class LayerUploaderTask(network_task.NetworkRequestTask):
     VECTOR_UPLOAD_FORMAT = ExportFormat("ESRI Shapefile", "shp")
     RASTER_UPLOAD_FORMAT = ExportFormat("GTiff", "tif")
 

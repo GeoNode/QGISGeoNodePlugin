@@ -5,8 +5,8 @@ from qgis.PyQt import (
     QtNetwork,
 )
 import qgis.core
-from . import network
-from .utils import log
+from .. import network
+from ..utils import log
 
 
 class NetworkRequestTask(qgis.core.QgsTask):
