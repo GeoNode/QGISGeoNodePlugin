@@ -1,7 +1,6 @@
 """API client class for GeoNode 4"""
 
 import datetime as dt
-import json
 import typing
 import uuid
 
@@ -9,7 +8,6 @@ import qgis.core
 import qgis.utils
 from qgis.PyQt import (
     QtCore,
-    QtNetwork,
 )
 
 from .. import network

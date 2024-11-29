@@ -27,7 +27,6 @@ from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
 from .. import network
 from ..utils import (
-    log,
     tr,
 )
 from ..conf import plugin_metadata
