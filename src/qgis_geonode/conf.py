@@ -112,7 +112,7 @@ class PluginMetadata:
     def get(self, attr):
         try:
             return getattr(self, attr)
-        except ValueError:
+        except AttributeError or ValueError:
             return self.plugin_metadata.get(attr)
 
 
