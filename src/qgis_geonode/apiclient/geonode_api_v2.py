@@ -16,9 +16,10 @@ from qgis.PyQt import (
     QtNetwork,
 )
 
+from .. import tasks
 from .. import network
 from .. import styles as geonode_styles
-from ..utils import log, url_from_geoserver
+from ..utils import log, url_from_geoserver, sanitize_layer_name
 
 from . import models
 from .base import BaseGeonodeClient
@@ -414,7 +415,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
         return models.Dataset(**properties)
 
 
-class LayerUploaderTask(network.NetworkRequestTask):
+class LayerUploaderTask(tasks.NetworkRequestTask):
     VECTOR_UPLOAD_FORMAT = ExportFormat("ESRI Shapefile", "shp")
     RASTER_UPLOAD_FORMAT = ExportFormat("GTiff", "tif")
 
@@ -583,7 +584,7 @@ class LayerUploaderTask(network.NetworkRequestTask):
     def _export_vector_layer(
         self,
     ) -> typing.Tuple[typing.Optional[Path], str]:
-        sanitized_layer_name = network.sanitize_layer_name(self.layer.name())
+        sanitized_layer_name = sanitize_layer_name(self.layer.name())
         target_path = self._temporary_directory / f"{sanitized_layer_name}.shp"
         export_code, error_message = qgis.core.QgsVectorLayerExporter.exportLayer(
             layer=self.layer,
@@ -603,7 +604,7 @@ class LayerUploaderTask(network.NetworkRequestTask):
     def _export_raster_layer(
         self,
     ) -> typing.Tuple[typing.Optional[Path], typing.Optional[int]]:
-        sanitized_layer_name = network.sanitize_layer_name(self.layer.name())
+        sanitized_layer_name = sanitize_layer_name(self.layer.name())
         target_path = (
             self._temporary_directory
             / f"{sanitized_layer_name}.{self.RASTER_UPLOAD_FORMAT.file_extension}"
@@ -627,7 +628,7 @@ class LayerUploaderTask(network.NetworkRequestTask):
         return result
 
     def _export_layer_style(self) -> typing.Tuple[typing.Optional[Path], str]:
-        sanitized_layer_name = network.sanitize_layer_name(self.layer.name())
+        sanitized_layer_name = sanitize_layer_name(self.layer.name())
         if self._temporary_directory is None:
             self._temporary_directory = Path(tempfile.mkdtemp(prefix="qgis_geonode_"))
         target_path = self._temporary_directory / f"{sanitized_layer_name}.sld"

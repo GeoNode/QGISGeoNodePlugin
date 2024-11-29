@@ -17,7 +17,7 @@ from ..apiclient import (
     base,
     models,
 )
-from .. import network
+from .. import tasks, network
 from ..apiclient.models import ApiClientCapability
 from ..conf import settings_manager
 from ..metadata import populate_metadata
@@ -41,7 +41,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     dataset_loader_task: typing.Optional[qgis.core.QgsTask]
     # thumbnail_fetcher_task fetches the thumbnail over the network
     # thumbnail_loader_task then loads the thumbnail
-    thumbnail_fetcher_task: typing.Optional[network.NetworkRequestTask]
+    thumbnail_fetcher_task: typing.Optional[tasks.NetworkRequestTask]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
@@ -170,7 +170,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
-        self.thumbnail_fetcher_task = network.NetworkRequestTask(
+        self.thumbnail_fetcher_task = tasks.NetworkRequestTask(
             [
                 network.RequestToPerform(
                     url=QtCore.QUrl(self.brief_dataset.thumbnail_url)

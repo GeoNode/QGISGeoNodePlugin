@@ -11,6 +11,8 @@ from qgis.PyQt import (
 from qgis.PyQt.uic import loadUiType
 from qgis.utils import iface
 
+from .. import tasks
+
 from ..apiclient import (
     base,
     get_geonode_client,
@@ -40,7 +42,7 @@ _INVALID_CONNECTION_MESSAGE = (
 class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     advanced_search_gb: qgis.gui.QgsCollapsibleGroupBox
     api_client: typing.Optional[base.BaseGeonodeClient] = None
-    discovery_task: typing.Optional[network.NetworkRequestTask]
+    discovery_task: typing.Optional[tasks.NetworkRequestTask]
     abstract_la: QtWidgets.QLabel
     abstract_le: QtWidgets.QLineEdit
     category_la: QtWidgets.QLabel
@@ -438,7 +440,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def discover_api_client(self, next_: typing.Callable, *next_args, **next_kwargs):
         current_connection = conf.settings_manager.get_current_connection_settings()
-        self.discovery_task = network.NetworkRequestTask(
+        self.discovery_task = tasks.NetworkRequestTask(
             [
                 network.RequestToPerform(
                     QtCore.QUrl(f"{current_connection.base_url}/version.txt")
