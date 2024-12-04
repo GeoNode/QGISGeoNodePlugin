@@ -104,181 +104,6 @@ def _forcibly_terminate_loop(loop: QtCore.QEventLoop):
     loop.exit(1)
 
 
-class NetworkRequestTask(qgis.core.QgsTask):
-    authcfg: typing.Optional[str]
-    network_task_timeout: int
-    network_access_manager: qgis.core.QgsNetworkAccessManager
-    requests_to_perform: typing.List[RequestToPerform]
-    response_contents: typing.List[typing.Optional[ParsedNetworkReply]]
-    _num_finished: int
-    _pending_replies: typing.Dict[int, typing.Tuple[int, QtNetwork.QNetworkReply]]
-
-    _all_requests_finished = QtCore.pyqtSignal()
-    task_done = QtCore.pyqtSignal(bool)
-
-    def __init__(
-        self,
-        requests_to_perform: typing.List[RequestToPerform],
-        network_task_timeout: int,
-        authcfg: typing.Optional[str] = None,
-        description: typing.Optional[str] = "AnotherNetworkRequestTask",
-    ):
-        """A QGIS task to run multiple network requests in parallel."""
-        super().__init__(description)
-        self.authcfg = authcfg
-        self.network_task_timeout = network_task_timeout
-        self.requests_to_perform = requests_to_perform[:]
-        self.response_contents = [None] * len(requests_to_perform)
-        self._num_finished = 0
-        self._pending_replies = {}
-        self.network_access_manager = qgis.core.QgsNetworkAccessManager.instance()
-        self.network_access_manager.setTimeout(self.network_task_timeout)
-        self.network_access_manager.requestTimedOut.connect(
-            self._handle_request_timed_out
-        )
-        self.network_access_manager.finished.connect(self._handle_request_finished)
-
-    def run(self) -> bool:
-        """Run the QGIS task
-
-        This method is called by the QGIS task manager.
-
-        Implementation uses a custom Qt event loop that waits until
-        all of the HTTP requests have been performed. This is done by waiting on the
-        `self._all_requests_finished` signal to be emitted.
-
-        """
-
-        if len(self.requests_to_perform) == 0:  # there is nothing to do
-            result = False
-        else:
-            with wait_for_signal(
-                self._all_requests_finished,
-                timeout=self.network_task_timeout * len(self.requests_to_perform),
-            ) as event_loop_result:
-                for index, request_params in enumerate(self.requests_to_perform):
-                    request = create_request(
-                        request_params.url, request_params.content_type
-                    )
-                    if self.authcfg:
-                        auth_manager = qgis.core.QgsApplication.authManager()
-                        auth_added, _ = auth_manager.updateNetworkRequest(
-                            request, self.authcfg
-                        )
-                    else:
-                        auth_added = True
-                    if auth_added:
-                        qt_reply = self._dispatch_request(
-                            request, request_params.method, request_params.payload
-                        )
-                        # QGIS adds a custom `requestId` property to all requests made by
-                        # its network access manager - this can be used to keep track of
-                        # replies
-                        request_id = qt_reply.property("requestId")
-                        # self._pending_replies[request_id] = [index, qt_reply, False]
-                        self._pending_replies[request_id] = PendingReply(
-                            index, qt_reply, False
-                        )
-                    else:
-                        self._all_requests_finished.emit()
-            loop_forcibly_ended = not bool(event_loop_result.result)
-            if loop_forcibly_ended:
-                result = False
-            else:
-                result = self._num_finished >= len(self.requests_to_perform)
-        return result
-
-    def finished(self, result: bool) -> None:
-        """This method is called by the QGIS task manager when this task is finished"""
-        # This class emits the `task_done` signal in order to have a unified way to
-        # deal with the various types of errors that can arise. The alternative would
-        # have been to rely on the base class' `taskCompleted` and `taskTerminated`
-        # signals
-        if result:
-            for index, response in enumerate(self.response_contents):
-                if response is None:
-                    final_result = False
-                    break
-                elif response.qt_error is not None:
-                    final_result = False
-                    break
-            else:
-                final_result = result
-        else:
-            final_result = result
-        # for _, qt_reply in self._pending_replies.values():
-        #     qt_reply.deleteLater()
-        self.task_done.emit(final_result)
-
-    def _dispatch_request(
-        self,
-        request: QtNetwork.QNetworkRequest,
-        method: HttpMethod,
-        payload: typing.Optional[typing.Union[str, QtNetwork.QHttpMultiPart]],
-    ) -> QtNetwork.QNetworkReply:
-        if method == HttpMethod.GET:
-            reply = self.network_access_manager.get(request)
-        elif method == HttpMethod.POST:
-            reply = self.network_access_manager.post(request, payload)
-        elif method == HttpMethod.PUT:
-            data_ = QtCore.QByteArray(payload.encode())
-            reply = self.network_access_manager.put(request, data_)
-        elif method == HttpMethod.PATCH:
-            data_ = QtCore.QByteArray(payload.encode())
-            # QNetworkAccess manager does not have a patch() method
-            reply = self.network_access_manager.sendCustomRequest(
-                request, QtCore.QByteArray(HttpMethod.PATCH.value.encode()), data_
-            )
-        else:
-            raise NotImplementedError
-        return reply
-
-    def _handle_request_finished(self, qgis_reply: qgis.core.QgsNetworkReplyContent):
-        """Handle the finishing of a network request
-
-        This slot is triggered when the network access manager emits the ``finished``
-        signal. The custom QGIS network access manager provides an instance of
-        ``QgsNetworkContentReply`` as an argument to this method. Note that this is not
-        the same as the vanilla QNetworkReply - notoriously it seems to not be possible
-        to retrieve the HTTP response body from this type of instance. Therefore, this
-        method retrieves the original QNetworkReply (by comparing the reply's id) and
-        then uses that to gain access to the response body.
-
-        """
-        qt_reply = None
-        try:
-            pending_reply = self._pending_replies[qgis_reply.requestId()]
-            # See https://github.com/GeoNode/QGISGeoNodePlugin/issues/275
-            if not pending_reply.fullfilled:
-                index = pending_reply.index
-                qt_reply = pending_reply.reply
-                pending_reply.fullfilled = True
-
-        except KeyError:
-            pass  # we are not managing this request, ignore
-        else:
-            if qt_reply:
-                parsed = parse_qt_network_reply(qt_reply)
-                self.response_contents[index] = parsed
-            self._num_finished += 1
-            if self._num_finished >= len(self.requests_to_perform):
-                self._all_requests_finished.emit()
-
-    def _handle_request_timed_out(
-        self, request_params: qgis.core.QgsNetworkRequestParameters
-    ) -> None:
-        log(f"Request with id: {request_params.requestId()} has timed out")
-        try:
-            index, qt_reply = self._pending_replies[request_params.requestId()]
-        except KeyError:
-            pass  # we are not managing this request, ignore
-        else:
-            self.response_contents[index] = None
-            self._num_finished += 1
-            if self._num_finished >= len(self.requests_to_perform):
-                self._all_requests_finished.emit()
-
-
 def deserialize_json_response(
     contents: QtCore.QByteArray,
 ) -> typing.Optional[typing.Union[typing.List, typing.Dict]]:
@@ -343,16 +168,6 @@ def create_request(
     return request
 
 
-def sanitize_layer_name(name: str) -> str:
-    chars_to_replace = [
-        ">",
-        "<",
-        "|",
-        " ",
-    ]
-    return "".join(c if c not in chars_to_replace else "_" for c in name)
-
-
 def handle_discovery_test(
     finished_task_result: bool, finished_task: qgis.core.QgsTask
 ) -> typing.Optional[packaging_version.Version]:
@@ -364,3 +179,71 @@ def handle_discovery_test(
                 response_contents.response_body.data().decode()
             )
     return geonode_version
+
+
+def build_multipart(
+    layer_metadata: qgis.core.QgsLayerMetadata,
+    permissions: typing.Dict,
+    main_file: QtCore.QFile,
+    sidecar_files: typing.List[typing.Tuple[str, QtCore.QFile]],
+) -> QtNetwork.QHttpMultiPart:
+    encoding = "utf-8"
+    multipart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
+    title = layer_metadata.title()
+    if title:
+        title_part = QtNetwork.QHttpPart()
+        title_part.setHeader(
+            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            'form-data; name="dataset_title"',
+        )
+        title_part.setBody(layer_metadata.title().encode(encoding))
+        multipart.append(title_part)
+    abstract = layer_metadata.abstract()
+    if abstract:
+        abstract_part = QtNetwork.QHttpPart()
+        abstract_part.setHeader(
+            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            'form-data; name="abstract"',
+        )
+        abstract_part.setBody(layer_metadata.abstract().encode(encoding))
+        multipart.append(abstract_part)
+    false_items = (
+        "time",
+        "mosaic",
+        "metadata_uploaded_preserve",
+        "metadata_upload_form",
+        "style_upload_form",
+    )
+    for item in false_items:
+        part = QtNetwork.QHttpPart()
+        part.setHeader(
+            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            f'form-data; name="{item}"',
+        )
+        part.setBody("false".encode("utf-8"))
+        multipart.append(part)
+    permissions_part = QtNetwork.QHttpPart()
+    permissions_part.setHeader(
+        QtNetwork.QNetworkRequest.ContentDispositionHeader,
+        'form-data; name="permissions"',
+    )
+    permissions_part.setBody(json.dumps(permissions).encode(encoding))
+    multipart.append(permissions_part)
+    file_parts = [("base_file", main_file)]
+    for additional_file_form_name, additional_file_handler in sidecar_files:
+        file_parts.append((additional_file_form_name, additional_file_handler))
+    for form_element_name, file_handler in file_parts:
+        file_name = file_handler.fileName().rpartition("/")[-1]
+        part = QtNetwork.QHttpPart()
+        part.setHeader(
+            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            f'form-data; name="{form_element_name}"; filename="{file_name}"',
+        )
+        if file_name.rpartition(".")[-1] == "tif":
+            content_type = "image/tiff"
+        else:
+            content_type = "application/qgis"
+        part.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
+        part.setBodyDevice(file_handler)
+        multipart.append(part)
+    return multipart

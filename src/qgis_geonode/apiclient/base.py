@@ -12,6 +12,7 @@ from .. import (
     network,
 )
 
+from ..tasks import network_task
 from . import models
 from .models import GeonodeApiSearchFilters
 from ..utils import log
@@ -20,7 +21,7 @@ from ..utils import log
 class BaseGeonodeClient(QtCore.QObject):
     auth_config: str
     base_url: str
-    network_fetcher_task: typing.Optional[network.NetworkRequestTask]
+    network_fetcher_task: typing.Optional[network_task.NetworkRequestTask]
     capabilities: typing.List[models.ApiClientCapability]
     page_size: int
     wfs_version: conf.WfsVersion
@@ -77,7 +78,7 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_dataset_list(self, search_filters: GeonodeApiSearchFilters) -> None:
-        self.network_fetcher_task = network.NetworkRequestTask(
+        self.network_fetcher_task = network_task.NetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_list_url(search_filters))],
             self.network_requests_timeout,
             self.auth_config,
@@ -96,7 +97,7 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_dataset_style(
         self, dataset: models.Dataset, emit_dataset_detail_received: bool = False
     ) -> None:
-        self.network_fetcher_task = network.NetworkRequestTask(
+        self.network_fetcher_task = network_task.NetworkRequestTask(
             [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
             self.network_requests_timeout,
             self.auth_config,
@@ -132,7 +133,7 @@ class BaseGeonodeClient(QtCore.QObject):
         if auth_provider_name == "basic":
             authenticated = True
 
-        self.network_fetcher_task = network.NetworkRequestTask(
+        self.network_fetcher_task = network_task.NetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_detail_url(dataset.pk))],
             self.network_requests_timeout,
             self.auth_config,
@@ -158,7 +159,7 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_dataset_detail_from_id(self, dataset_id: int):
-        self.network_fetcher_task = network.NetworkRequestTask(
+        self.network_fetcher_task = network_task.NetworkRequestTask(
             [network.RequestToPerform(url=self.get_dataset_detail_url(dataset_id))],
             self.network_requests_timeout,
             self.auth_config,

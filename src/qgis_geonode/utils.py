@@ -62,3 +62,13 @@ def url_from_geoserver(base_url: str, raw_url: str):
     result = f"{base_url}/gs/{suffix}"
 
     return result
+
+
+def sanitize_layer_name(name: str) -> str:
+    chars_to_replace = [
+        ">",
+        "<",
+        "|",
+        " ",
+    ]
+    return "".join(c if c not in chars_to_replace else "_" for c in name)

@@ -13,6 +13,7 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
+from ..tasks import network_task
 from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
 from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
@@ -45,7 +46,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     remote_geonode_version: typing.Optional[
         typing.Union[packaging_version.Version, str]
     ]
-    discovery_task: typing.Optional[network.NetworkRequestTask]
+    discovery_task: typing.Optional[network_task.NetworkRequestTask]
     geonode_client: BaseGeonodeClient = None
 
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
@@ -137,7 +138,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         query.addQueryItem("request", "GetCapabilities")
         url = QtCore.QUrl(f"{current_settings.base_url}/gs/ows")
         url.setQuery(query)
-        self.discovery_task = network.NetworkRequestTask(
+        self.discovery_task = network_task.NetworkRequestTask(
             [network.RequestToPerform(url)],
             network_task_timeout=current_settings.network_requests_timeout,
             authcfg=current_settings.auth_config,
@@ -165,7 +166,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             widget.setEnabled(False)
 
         current_settings = self.get_connection_settings()
-        self.discovery_task = network.NetworkRequestTask(
+        self.discovery_task = network_task.NetworkRequestTask(
             [
                 network.RequestToPerform(
                     QtCore.QUrl(f"{current_settings.base_url}/version.txt")
