@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2024-12-10
+
+### Fixed
+- Fixes and improvements to the GeoNode API client
+- Fixed the synchronization between styles obtained from GeoNode and the QGIS renderer
+- Enhancements to the UX, including better error reporting and resilience errors
+
+### Changed
+- Dropped support for legacy APIs (GeoNode < 4)
+
 ## [1.0.1] - 2023-01-20
 
 ### Fixed
@@ -11,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2022-02-25
 
-### Changed
+### Fixed
 - Default WFS version for new connections is now 1.1.0, which is known to work OK when editing vector
   layers via WFS
 

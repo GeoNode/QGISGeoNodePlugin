@@ -87,10 +87,26 @@ def build(
     icon_path = copy_icon(context, output_dir)
     if icon_path is None:
         _log("Could not copy icon", context=context)
+    licese_path = copy_license(context, output_dir)
+    if licese_path is None:
+        _log("Could not copy LICENSE file", context=context)
     compile_resources(context, output_dir)
     generate_metadata(context, output_dir)
     return output_dir
 
+@app.command()
+def copy_license(context: typer.Context,
+    output_dir: typing.Optional[Path] = LOCAL_ROOT_DIR / "build/temp",
+) -> Path:
+    license_path = LOCAL_ROOT_DIR / "LICENSE"
+    if license_path.is_file():
+        target_path = output_dir / license_path.name
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(license_path, target_path)
+        result = target_path
+    else:
+        result = None
+    return result
 
 @app.command()
 def copy_icon(
@@ -288,19 +304,22 @@ def _get_virtualenv_site_packages_dir() -> Path:
         raise RuntimeError(f"{site_packages_dir} does not exist")
     return result
 
+def _get_author_names(authors):
+    return [author.split("<")[0].strip() for author in authors]
+
+def _get_author_emails(authors):
+    return [author.split("<")[1].strip(">") for author in authors]
 
 @lru_cache()
 def _get_metadata() -> typing.Dict:
     conf = _parse_pyproject()
     poetry_conf = conf["tool"]["poetry"]
-    raw_author_list = poetry_conf["authors"][0].split("<")
-    author = raw_author_list[0].strip()
-    email = raw_author_list[-1].replace(">", "")
+    
     metadata = conf["tool"]["qgis-plugin"]["metadata"].copy()
     metadata.update(
         {
-            "author": author,
-            "email": email,
+            "author": ", ".join(_get_author_names(poetry_conf["authors"])),
+            "email": ", ".join(_get_author_emails(poetry_conf["authors"])),
             "description": poetry_conf["description"],
             "version": poetry_conf["version"],
             "tags": ", ".join(metadata.get("tags", [])),
@@ -377,7 +396,7 @@ def _get_existing_releases(
     """Query the github API and retrieve existing releases"""
     # TODO: add support for pagination
     base_url = "https://api.github.com/repos/kartoza/qgis_geonode/releases"
-    response = httpx.get(base_url)
+    response = httpx.get(base_url, follow_redirects=True)
     result = []
     if response.status_code == 200:
         payload = response.json()
