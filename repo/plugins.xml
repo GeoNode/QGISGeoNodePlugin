@@ -1,0 +1,47 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<plugins>
+<pyqgis_plugin name="QGIS GeoNode" version="2.0.0">
+                <description><![CDATA[A QGIS plugin for integrating with modern GeoNode]]></description>
+                <about><![CDATA[This plugin adds GeoNode client functionality to QGIS - search, load and manage GeoNode resources from inside QGIS.
+
+Initial development has been commissioned by the by the Pacific Community (SPC), with funcding from the World Bank, and implemented by the Kartoza and GeoSolutions teams. The plugin is actively maintained and aims to keep up to date with changes in the GeoNode API.
+
+Check the website for a user guide and more detail.]]></about>
+                <version>2.0.0</version>
+                <qgis_minimum_version>3.34</qgis_minimum_version>
+                <homepage><![CDATA[https://geonode.org/QGISGeoNodePlugin]]></homepage>
+                <file_name>qgis_geonode.2.0.0.zip</file_name>
+                <icon>plugin-logo.png</icon>
+                <author_name><![CDATA[GeoNode Development Team]]></author_name>
+                <download_url>https://github.com/GeoNode/QGISGeoNodePlugin/releases/download/v2.0.0/qgis_geonode.2.0.0.zip</download_url>
+                <update_date>2024-12-12 09:01:15</update_date>
+                <experimental>False</experimental>
+                <deprecated>False</deprecated>
+                <tracker><![CDATA[https://github.com/GeoNode/QGISGeoNodePlugin/issues]]></tracker>
+                <repository><![CDATA[https://github.com/GeoNode/QGISGeoNodePlugin]]></repository>
+                <tags><![CDATA[geonode, wms, wfs, wcs]]></tags>
+                <server>False</server>
+            </pyqgis_plugin>
+<pyqgis_plugin name="QGIS GeoNode" version="1.0.0-rc1">
+                <description><![CDATA[A QGIS plugin for integrating with modern GeoNode]]></description>
+                <about><![CDATA[This plugin adds GeoNode client functionality to QGIS - search, load and manage GeoNode resources from inside QGIS.
+
+Initial development has been commissioned by the by the Pacific Community (SPC), with funcding from the World Bank, and implemented by the Kartoza and GeoSolutions teams. The plugin is actively maintained and aims to keep up to date with changes in the GeoNode API.
+
+Check the website for a user guide and more detail.]]></about>
+                <version>1.0.0-rc1</version>
+                <qgis_minimum_version>3.34</qgis_minimum_version>
+                <homepage><![CDATA[https://geonode.org/QGISGeoNodePlugin]]></homepage>
+                <file_name>qgis_geonode.1.0.0-rc1.zip</file_name>
+                <icon>plugin-logo.png</icon>
+                <author_name><![CDATA[GeoNode Development Team]]></author_name>
+                <download_url>https://github.com/GeoNode/QGISGeoNodePlugin/releases/download/v1.0.0-rc1/qgis_geonode.1.0.0-rc1.zip</download_url>
+                <update_date>2022-02-23 14:40:55</update_date>
+                <experimental>True</experimental>
+                <deprecated>False</deprecated>
+                <tracker><![CDATA[https://github.com/GeoNode/QGISGeoNodePlugin/issues]]></tracker>
+                <repository><![CDATA[https://github.com/GeoNode/QGISGeoNodePlugin]]></repository>
+                <tags><![CDATA[geonode, wms, wfs, wcs]]></tags>
+                <server>False</server>
+            </pyqgis_plugin>
+</plugins>

@@ -1,0 +1,1214 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="QGIS GeoNode plugin">
+      
+      
+        <meta name="author" content="Kartoza">
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../development/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.2.7">
+    
+    
+      
+        <title>User guide - QGIS GeoNode QGIS Plugin</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.046329b4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.85d0ee34.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="preference" data-md-color-primary="green" data-md-color-accent="purple">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#user-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="QGIS GeoNode QGIS Plugin" class="md-header__button md-logo" aria-label="QGIS GeoNode QGIS Plugin" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            QGIS GeoNode QGIS Plugin
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              User guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kartoza/qgis_geonode" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    qgis_geonode
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="QGIS GeoNode QGIS Plugin" class="md-nav__button md-logo" aria-label="QGIS GeoNode QGIS Plugin" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    QGIS GeoNode QGIS Plugin
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kartoza/qgis_geonode" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    qgis_geonode
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    User guide
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    User guide
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#managing-geonode-connections" class="md-nav__link">
+    Managing GeoNode connections
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing GeoNode connections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#add-a-new-geonode-connection" class="md-nav__link">
+    Add a new GeoNode connection
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edit-an-existing-connection" class="md-nav__link">
+    Edit an existing connection
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remove-a-geonode-connection" class="md-nav__link">
+    Remove a GeoNode connection
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-authentication" class="md-nav__link">
+    Configure authentication
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#searching-geonode-datasets" class="md-nav__link">
+    Searching GeoNode datasets
+  </a>
+  
+    <nav class="md-nav" aria-label="Searching GeoNode datasets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#search-results" class="md-nav__link">
+    Search results
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#working-with-geonode-layers" class="md-nav__link">
+    Working with GeoNode layers
+  </a>
+  
+    <nav class="md-nav" aria-label="Working with GeoNode layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layer-metadata" class="md-nav__link">
+    Layer metadata
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-symbology" class="md-nav__link">
+    Layer symbology
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uploading-existing-qgis-layers-to-geonode" class="md-nav__link">
+    Uploading existing QGIS layers to GeoNode
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-capabilities" class="md-nav__link">
+    Plugin capabilities
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Development
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog-base/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Changelog
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repo/plugins.xml" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QGIS Repo
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#managing-geonode-connections" class="md-nav__link">
+    Managing GeoNode connections
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing GeoNode connections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#add-a-new-geonode-connection" class="md-nav__link">
+    Add a new GeoNode connection
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edit-an-existing-connection" class="md-nav__link">
+    Edit an existing connection
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remove-a-geonode-connection" class="md-nav__link">
+    Remove a GeoNode connection
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-authentication" class="md-nav__link">
+    Configure authentication
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#searching-geonode-datasets" class="md-nav__link">
+    Searching GeoNode datasets
+  </a>
+  
+    <nav class="md-nav" aria-label="Searching GeoNode datasets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#search-results" class="md-nav__link">
+    Search results
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#working-with-geonode-layers" class="md-nav__link">
+    Working with GeoNode layers
+  </a>
+  
+    <nav class="md-nav" aria-label="Working with GeoNode layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layer-metadata" class="md-nav__link">
+    Layer metadata
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-symbology" class="md-nav__link">
+    Layer symbology
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uploading-existing-qgis-layers-to-geonode" class="md-nav__link">
+    Uploading existing QGIS layers to GeoNode
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-capabilities" class="md-nav__link">
+    Plugin capabilities
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="user-guide">User guide<a class="headerlink" href="#user-guide" title="Permanent link">&para;</a></h1>
+<h2 id="managing-geonode-connections">Managing GeoNode connections<a class="headerlink" href="#managing-geonode-connections" title="Permanent link">&para;</a></h2>
+<p>The QGIS GeoNode plugin adds a new <em>Geonode Plugin</em> section to the QGIS Data
+Source Manager dialogue. This section can be used to add new GeoNode
+connections, search for existing datasets and load them as QGIS layers. </p>
+<h3 id="add-a-new-geonode-connection">Add a new GeoNode connection<a class="headerlink" href="#add-a-new-geonode-connection" title="Permanent link">&para;</a></h3>
+<p><img alt="Add GeoNode connection" src="../images/user_guide/manage_geonode_connection.png" /></p>
+<p>In order to add a new GeoNode connection:</p>
+<ol>
+<li>
+<p>Open the QGIS <code>Data Source Manager (Ctrl + L)</code> and go to the <em>GeoNode Plugin</em> 
+    section</p>
+</li>
+<li>
+<p>Add a new GeoNode instance connection, by clicking the <code>New</code> button</p>
+</li>
+<li>
+<p>A new dialogue is shown. This dialogue requests the following details of
+   the GeoNode connection being created:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td>The name used by QGIS to refer to this connection</td>
+</tr>
+<tr>
+<td>GeoNode URL</td>
+<td>The base URL of the GeoNode being connected to (<em>e.g.</em> <a href="https://stable.demo.geonde.org">https://stable.demo.geonde.org</a>)</td>
+</tr>
+<tr>
+<td>Authentication</td>
+<td>Whether to use authentication to connect to GeoNode or not. See the <a href="#configure-authentication">Configure authentication</a> section below for more details on how to configure authenticated access to GeoNode</td>
+</tr>
+<tr>
+<td>Page size</td>
+<td>How many search results per page shall be shown by QGIS. This defaults to <code>10</code></td>
+</tr>
+<tr>
+<td>WFS version</td>
+<td>Which version of the Web Feature Service (WFS) to use for requesting vector layers from the remote GeoNode. Defaults to <code>v1.1.0</code>.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>There is currently a bug in QGIS which prevents using WFS version 2.0.0 for editing a vector layer's geometry,</p>
+<p><a href="https://github.com/qgis/QGIS/issues/47254">https://github.com/qgis/QGIS/issues/47254</a></p>
+<p>Therefore, for the time being, we reccomend using WFS version 1.1.0, which works OK.</p>
+</div>
+</li>
+<li>
+<p>Optionally you may now click the <code>Test Connection</code> button. QGIS will then
+    try to connect to GeoNode in order to discover what version of GeoNode is
+    being used by the remote server.</p>
+<p>Upon a successful connection, the detected GeoNode version will be shown
+below. Depending on the detected GeoNode version, the plugin may not be
+able to offer all of its functionalities. The supported capabilities are
+listed in the <code>API client capabilities</code> section. Check the 
+<a href="#supported-capabilities">Supported capabilities</a> section below for more
+information about capabilities</p>
+</li>
+<li>
+<p>Finally, accept the new connection dialogue by clicking the <code>Ok</code> button. 
+    Your new connection is now ready to be used.</p>
+</li>
+</ol>
+<h3 id="edit-an-existing-connection">Edit an existing connection<a class="headerlink" href="#edit-an-existing-connection" title="Permanent link">&para;</a></h3>
+<p>In order to edit the details of an existing connection, just re-open the 
+<code>QGIS Data Source Manager (Ctrl + L)</code>, go to the <code>GeoNode plugin</code> section, 
+select the relevant connection from the <code>Connections</code> dropdown and click the
+<code>Edit</code> button. A dialogue similar to the one discussed above in the 
+<a href="#add-a-new-geonode-connection">Add a new GeoNode connection</a> section shall be
+shown with the connection details ready for editing</p>
+<h3 id="remove-a-geonode-connection">Remove a GeoNode connection<a class="headerlink" href="#remove-a-geonode-connection" title="Permanent link">&para;</a></h3>
+<p>In order to remove an existing connection, re-open the
+<code>QGIS Data Source Manager (Ctrl + L)</code>, go to the <code>GeoNode plugin</code> section,
+select the relevant connection from the <code>Connections</code> drop down and click the
+<code>Remove</code> button. A confirmation dialogue will ask whether to really remove the
+connection. Upon acceptance of this dialogue, the connection will be removed.</p>
+<h3 id="configure-authentication">Configure authentication<a class="headerlink" href="#configure-authentication" title="Permanent link">&para;</a></h3>
+<p>The plugin is able to authenticate to remote GeoNode instances by using HTTP Basic Auth (OAuth2 is also an option, if 
+you really want it).</p>
+<p><img alt="Basic Authentication example" src="../images/user_guide/basic_auth_authentication_example.png" /></p>
+<p>In order to configure Basic Auth:</p>
+<ol>
+<li>
+<p>Open the main QGIS authentication settings dialogue by going to
+   <code>Settings -&gt; Options...</code> in the main QGIS menu bar and then access the
+   <code>Authentication</code> section</p>
+</li>
+<li>
+<p>Press the <code>Add new authentication configuration button</code>. A new dialogue is
+   shown. In this dialogue, fill in the following details:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td>The name used by QGIS to refer to the authentication configuration</td>
+</tr>
+<tr>
+<td>Authentication type</td>
+<td>Select the <code>Basic authentication</code> option from the dropdown</td>
+</tr>
+<tr>
+<td>Username</td>
+<td>Your GeoNode username</td>
+</tr>
+<tr>
+<td>Password</td>
+<td>Your GeoNode user password</td>
+</tr>
+</tbody>
+</table>
+<p>The remaining fields can be left at their default values</p>
+</li>
+<li>
+<p>Now when <a href="#add-a-new-geonode-connection">configuring a new GeoNode connection</a>, select this newly created 
+   authentication configuration in order to have the GeoNode connection use it</p>
+</li>
+</ol>
+<details class="info">
+<summary>Extra - Using OAuth2 for authorization</summary>
+<p>This option is not recommended in most cases, since it involves a more advanced set up and also 
+requires requesting additional information from the remote GeoNode administrators. It may be viable when 
+connecting to GeoNode using shared computing resources, where you do not want to store your GeoNode user 
+credentials locally. </p>
+<p>In order to be able to gain authenticated access to a GeoNode connection
+via OAuth2 you will need to request that one of the GeoNode administrators 
+create an <strong>OAuth2</strong> application and provide you with the following relevant details:</p>
+<ul>
+<li><em>Client ID</em></li>
+<li><em>Client Secret</em></li>
+</ul>
+<p><img alt="Authentication example" src="../images/user_guide/authentication_example.png" /></p>
+<p>Most OAuth2 grant types implemented in QGIS are supported. We recommend using 
+the <code>Authorization Code</code> grant type. In order to configure such an authentication:</p>
+<ol>
+<li>
+<p>Open the main QGIS authentication settings dialogue by going to 
+    <code>Settings -&gt; Options...</code> in the main QGIS menu bar and then access the 
+    <code>Authentication</code> section</p>
+</li>
+<li>
+<p>Press the <code>Add new authentication configuration button</code>. A new dialogue is
+    shown. In this dialogue, fill in the following details:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td>The name used by QGIS to refer to the authentication configuration</td>
+</tr>
+<tr>
+<td>Authentication type</td>
+<td>Select the <code>OAuth2 authentication</code> option from the dropdown</td>
+</tr>
+<tr>
+<td>Request URL</td>
+<td>This is derived from the GeoNode base URL and takes the form <code>&lt;geonode-base-url&gt;/o/authorize/</code>, <em>e.g.</em> <a href="https://stable.demo.geonode.org/o/authorize/">https://stable.demo.geonode.org/o/authorize/</a></td>
+</tr>
+<tr>
+<td>Token URL</td>
+<td>This is derived from the GeoNode base URL and takes the form <code>&lt;geonode-base-url&gt;/o/token/</code>, <em>e.g.</em> <a href="https://stable.demo.geonode.org/o/token/">https://stable.demo.geonode.org/o/token/</a></td>
+</tr>
+<tr>
+<td>Client ID</td>
+<td>The client ID you got from your GeoNode administrator</td>
+</tr>
+<tr>
+<td>Client Secret</td>
+<td>The client secret you got from your GeoNode administrator</td>
+</tr>
+</tbody>
+</table>
+<p>The remaining fields can be left at their default values</p>
+</li>
+<li>
+<p>Now when <a href="#add-a-new-geonode-connection">configuring a new GeoNode connection</a>, 
+   select this newly created authentication configuration in order to have the
+   GeoNode connection use it</p>
+</li>
+</ol>
+</details>
+<h2 id="searching-geonode-datasets">Searching GeoNode datasets<a class="headerlink" href="#searching-geonode-datasets" title="Permanent link">&para;</a></h2>
+<p><img alt="searching" src="../images/user_guide/searching.png" /></p>
+<p>After having configured a GeoNode connection, you may now use the plugin 
+to search and load GeoNode datasets onto QGIS</p>
+<ol>
+<li>Select the relevant connection from the dropdown list</li>
+<li>
+<p>Set any desired filters. Depending on the detected GeoNode version, the 
+    following search filters may be available:</p>
+<table>
+<thead>
+<tr>
+<th>Search filter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Title</td>
+<td>The resource title is used to filter search results and returning records that contains the supplied title</td>
+</tr>
+<tr>
+<td>Abstract</td>
+<td>Same as the title filter, records that contains the provided abstract value will be returned</td>
+</tr>
+<tr>
+<td>Keywords</td>
+<td>Search will filter all resources that have keywords that exactly matches the selected keyword</td>
+</tr>
+<tr>
+<td>Topic Category</td>
+<td>Filters the resources that their categories exactly matches the selected category</td>
+</tr>
+<tr>
+<td>Resources types</td>
+<td>Filters resources based on the selected resource type</td>
+</tr>
+<tr>
+<td>Temporal extent</td>
+<td>This filter used to select resources based on the stored temporal extent. Two fields <code>start</code> and <code>end</code> are used to represent the beginning and end of the extent respectively, during filtering both fields values are excluded. When both fields are supplied, resources containing temporal extent that is greater than <code>start</code> and less than <code>end</code> will be returned. If only <code>start</code> is provided, resources with the temporal extent beginning that is greater than <code>start</code> will be returned, if only <code>end</code> is provided resource with temporal extent end that is less than <code>end</code> will be returned</td>
+</tr>
+<tr>
+<td>Publication date</td>
+<td>This filter has similar conditions as the Temporal extent filter, the difference here is the filter is applied to the resource's publication date and not the resources temporal extent</td>
+</tr>
+<tr>
+<td>Spatial Extent</td>
+<td>The spatial extent filter is used to filter resources based on their geospatial extent, the extent can be filled by using a QGIS layer extent, map canvas extent or values can be manually added</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>Choose which field to use for sorting the search results and whether 
+   to reverse the sort order.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Sorting is performed by the remote GeoNode server. Therefore it must be parametrized 
+before actually searching the remote. If you wish to change the sort order after having
+already performed a search then you need to press the <code>Search GeoNode</code> button again.</p>
+</div>
+</li>
+<li>
+<p>Press the <code>Search Geonode</code> button. The plugin proceeds to contact the 
+   remote GeoNode instance and search for available datasets.</p>
+</li>
+</ol>
+<p>After searching is complete a list of search results is shown below the 
+search buttons. If a large number of results has been found you may use the 
+<code>previous</code> and <code>next</code> buttons to paginate through the whole result set and 
+eventually inspect all of them.</p>
+<h3 id="search-results">Search results<a class="headerlink" href="#search-results" title="Permanent link">&para;</a></h3>
+<p><img alt="search result" src="../images/user_guide/search_item.png" /></p>
+<p>Each dataset shown on the search results list features the following elements:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Title</td>
+<td>The title of the dataset</td>
+</tr>
+<tr>
+<td>Dataset type</td>
+<td>Wheter the dataset is a <code>vector</code> or a <code>raster</code></td>
+</tr>
+<tr>
+<td>Abstract</td>
+<td>Brief description about the dataset</td>
+</tr>
+<tr>
+<td>Thumbnail</td>
+<td>Small image representation of the dataset</td>
+</tr>
+<tr>
+<td><strong>Load layer via WMS</strong></td>
+<td>Button to allow loading the dataset onto QGIS as a WMS layer</td>
+</tr>
+<tr>
+<td><strong>Load via WFS/WCS</strong></td>
+<td>Depending on the type of dataset, a button to load the dataset onto QGIS either as a WFS (for vectors) or WCS (for raster) layer</td>
+</tr>
+<tr>
+<td>Open dataset in web browser</td>
+<td>Button to open your web browser and visit the original dataset URL on the remote GeoNode instance</td>
+</tr>
+</tbody>
+</table>
+<h2 id="working-with-geonode-layers">Working with GeoNode layers<a class="headerlink" href="#working-with-geonode-layers" title="Permanent link">&para;</a></h2>
+<p><img alt="working with geonode layers" src="../images/user_guide/working_with_layers.png" /></p>
+<p>After having discovered some interesting datasets, press one of their 
+respective <code>load</code> buttons to load them as QGIS layers.</p>
+<h3 id="layer-metadata">Layer metadata<a class="headerlink" href="#layer-metadata" title="Permanent link">&para;</a></h3>
+<p>For layers that came from GeoNode, their metadata is also populated from 
+GeoNode. Metadata can be inspected by opening the layer properties 
+dialogue (double-click the layer name on the QGIS <code>layers</code> list) and 
+navigating to the <code>Metadata</code> section.</p>
+<p><img alt="GeoNode demo OAuth2 configuration" src="../images/user_guide/layer_metadata.png" /></p>
+<p>If the relevant <a href="#plugin-capabilities">plugin capabilities</a> are available 
+for the detected GeoNode version, it may also be possible to modify some 
+metadata fields and save them back to GeoNode. This can be achieved by:</p>
+<ol>
+<li>
+<p>Modifying the relevant metadata property by using the QGIS layer metadata
+   section of the layer properties dialogue</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The current version of the QGIS GeoNode plugin is only able to 
+upload the following metadata fields back to GeoNode:</p>
+<ul>
+<li>Title</li>
+<li>Abstract</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Navigating to the <code>GeoNode</code> section of the layer properties dialogue and 
+   locating the <code>Metadata</code> group</p>
+</li>
+<li>
+<p>Pressing the <code>Save current metadata to GeoNode</code> button. The plugin then 
+   proceeds to upload the metadata back to GeoNode.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Uploading metadata back to GeoNode is likely an operation that 
+requires your GeoNode connection to use 
+<a href="#configure-authentication">authentication</a>.</p>
+</div>
+</li>
+</ol>
+<h3 id="layer-symbology">Layer symbology<a class="headerlink" href="#layer-symbology" title="Permanent link">&para;</a></h3>
+<p>Depending on the layer type and on the 
+<a href="#plugin-capabilities">capabilities supported by the plugin</a> for the detected 
+GeoNode version, the plugin may be able to load a layer's symbology
+from the remote GeoNode.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>GeoNode datasets export their symbology using the OGC Styled Layer 
+Descriptor (.sld) format. </p>
+<p>QGIS is not currently able to load SLD for raster layers. Therefore, 
+the QGIS GeoNode plugin is only able to style datasets which are 
+loaded using the WFS vector provider</p>
+</div>
+<p>The plugin may also be able to modify the layer symbology and upload it back
+to the remote GeoNode. This can be achieved by:</p>
+<ol>
+<li>
+<p>Modifying the layer symbology using QGIS symbology tools</p>
+</li>
+<li>
+<p>Navigating to the <code>GeoNode</code> section of the layer properties dialogue and 
+   locating the <code>Layer style</code> group</p>
+</li>
+<li>
+<p>Pressing the <code>Save current style to GeoNode</code> button. The plugin then 
+   proceeds to upload the symbology back to GeoNode.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Uploading symbology back to GeoNode requires an intermediary step 
+whereby the QGIS native symbology is converted to OGC SLD, which 
+is the format GeoNode understands. </p>
+<p>Unfortunately it is currently not possible to perfectly match all 
+QGIS native symbology features to SLD. Therefore, the resulting 
+exported symbology may differ from the original</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Uploading symbology back to GeoNode is likely an operation that 
+requires your GeoNode connection to use 
+<a href="#configure-authentication">authentication</a>.</p>
+</div>
+</li>
+</ol>
+<h2 id="uploading-existing-qgis-layers-to-geonode">Uploading existing QGIS layers to GeoNode<a class="headerlink" href="#uploading-existing-qgis-layers-to-geonode" title="Permanent link">&para;</a></h2>
+<p>The plugin allows uploading existing QGIS layers to GeoNode. This can be achieved by:</p>
+<ol>
+<li>
+<p>Load some layer onto QGIS. Any vector or raster layer should work</p>
+</li>
+<li>
+<p>Access the layer properties dialog and navigate to the <code>GeoNode</code> section. 
+   Then locate the <code>Upload layer to GeoNode</code> group</p>
+</li>
+<li>
+<p>Select an appropriate connection from the <code>GeoNode connection</code> drop down.</p>
+</li>
+<li>
+<p>Choose the default visibility to be applied to the uploaded layer by toggling
+   the <code>Make layer publicly available</code> checkbox as appropriate</p>
+</li>
+<li>
+<p>Press the <code>Upload layer to GeoNode</code> button. The plugin then proceeds to 
+   upload the layer to GeoNode.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Uploading a QGIS layer to GeoNode is likely an operation that 
+requires your GeoNode connection to use 
+<a href="#configure-authentication">authentication</a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The current version of this plugin uses a timeout of ten minutes for 
+the layer upload operation, which may be a limitation for large files.
+A future version of the plugin may allow the user to modify this value.</p>
+</div>
+</li>
+</ol>
+<h2 id="plugin-capabilities">Plugin capabilities<a class="headerlink" href="#plugin-capabilities" title="Permanent link">&para;</a></h2>
+<p>Depending on the detected version of GeoNode, the plugin may allow performing
+different actions. These are classified as a set of capabilities.</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Available for GeoNode version</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FILTER_BY_TITLE</td>
+<td>All</td>
+<td>Filter datasets by their <code>title</code> property according to the presence of a user-provided sub-string</td>
+</tr>
+<tr>
+<td>FILTER_BY_ABSTRACT</td>
+<td>All</td>
+<td>Filter datasets by <code>abstract</code> property according to the presence of a user-provided sub-string</td>
+</tr>
+<tr>
+<td>FILTER_BY_RESOURCE_TYPES</td>
+<td>All</td>
+<td>Filter datasets by their type (<code>vector</code> or <code>raster</code>)</td>
+</tr>
+<tr>
+<td>FILTER_BY_KEYWORD</td>
+<td>&gt;= 3.3.0</td>
+<td>Filter datasets by an arbitrary keyword</td>
+</tr>
+<tr>
+<td>FILTER_BY_TOPIC_CATEGORY</td>
+<td>&gt;= 3.3.0</td>
+<td>Filter datasets by their ISO topic category</td>
+</tr>
+<tr>
+<td>FILTER_BY_TEMPORAL_EXTENT</td>
+<td>&gt;= 3.3.0</td>
+<td>Filter datasets by their temporal extent</td>
+</tr>
+<tr>
+<td>FILTER_BY_PUBLICATION_DATE</td>
+<td>&gt;= 3.3.0</td>
+<td>Filter datasets by their publication date</td>
+</tr>
+<tr>
+<td>FILTER_BY_SPATIAL_EXTENT</td>
+<td>-</td>
+<td>Filter datasets by a spatial bounding box</td>
+</tr>
+<tr>
+<td>LOAD_LAYER_METADATA</td>
+<td>&gt;= 3.3.0</td>
+<td>Load dataset metadata onto QGIS when loading as a layer</td>
+</tr>
+<tr>
+<td>MODIFY_LAYER_METADATA</td>
+<td>&gt;= 3.3.0</td>
+<td>Upload metadata fields of a loaded QGIS layer back to GeoNode</td>
+</tr>
+<tr>
+<td>LOAD_VECTOR_LAYER_STYLE</td>
+<td>&gt;= 3.3.0</td>
+<td>Load SLD style onto QGIS when loading GeoNode dataset as a QGIS vector layer</td>
+</tr>
+<tr>
+<td>LOAD_RASTER_LAYER_STYLE</td>
+<td>-</td>
+<td>Load SLD style onto QGIS when loading GeoNode dataset as QGIS raster layer</td>
+</tr>
+<tr>
+<td>MODIFY_VECTOR_LAYER_STYLE</td>
+<td>&gt;= 3.3.0</td>
+<td>Upload vector layer symbology back to GeoNode<br /><br /><strong>NOTE</strong>: This functionality is currently not supported when using HTTP Basic Authentication. Check <a href="https://github.com/kartoza/qgis_geonode/issues/222">https://github.com/kartoza/qgis_geonode/issues/222</a> for more information</td>
+</tr>
+<tr>
+<td>MODIFY_RASTER_LAYER_STYLE</td>
+<td>&gt;= 3.3.0</td>
+<td>Upload raster layer symbology back to GeoNode<br /><br /><strong>NOTE</strong>: This functionality is currently not supported when using HTTP Basic Authentication. Check <a href="https://github.com/kartoza/qgis_geonode/issues/222">https://github.com/kartoza/qgis_geonode/issues/222</a> for more information</td>
+</tr>
+<tr>
+<td>LOAD_VECTOR_DATASET_VIA_WMS</td>
+<td>All</td>
+<td>Load GeoNode vector dataset as a QGIS layer via OGC WMS</td>
+</tr>
+<tr>
+<td>LOAD_VECTOR_DATASET_VIA_WFS</td>
+<td>All</td>
+<td>Load GeoNode vector dataset as a QGIS layer using via OGC WFS</td>
+</tr>
+<tr>
+<td>LOAD_RASTER_DATASET_VIA_WMS</td>
+<td>All</td>
+<td>Load GeoNode raster dataset as a QGIS layer via OGC WMS</td>
+</tr>
+<tr>
+<td>LOAD_RASTER_DATASET_VIA_WCS</td>
+<td>All</td>
+<td>Load GeoNode raster dataset as a QGIS layer via OGC WCS</td>
+</tr>
+<tr>
+<td>UPLOAD_VECTOR_LAYER</td>
+<td>&gt;= 3.4.0</td>
+<td>Upload QGIS vector layer to GeoNode</td>
+</tr>
+<tr>
+<td>UPLOAD_RASTER_LAYER</td>
+<td>&gt;= 3.4.0</td>
+<td>upload QGIS raster layer to GeoNode</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.dfff1995.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.dff1b7c8.min.js"></script>
+      
+    
+  </body>
+</html>
