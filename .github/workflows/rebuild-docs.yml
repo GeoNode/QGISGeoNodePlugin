@@ -24,4 +24,6 @@ jobs:
         run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
 
       - name: update docs
-        run: poetry run mkdocs gh-deploy --force
+        run: |
+          git config --global --add safe.directory '*'
+          poetry run mkdocs gh-deploy --force
