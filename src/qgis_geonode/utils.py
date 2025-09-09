@@ -57,7 +57,10 @@ def url_from_geoserver(base_url: str, raw_url: str):
     try:
         url_path = urlparse(raw_url).path.strip("/")
     except TypeError:
-        QgsMessageLog.logMessage("Incorrect type returned from GeoServer", "GeoNode", Qgis.Warning )
+        QgsMessageLog.logMessage(
+            "Incorrect type returned from GeoServer", 
+            "GeoNode", 
+            Qgis.Warning)
         return None
 
     url_path = url_path.split("/")
