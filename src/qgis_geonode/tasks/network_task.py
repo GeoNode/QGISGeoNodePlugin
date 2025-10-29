@@ -176,11 +176,11 @@ class NetworkRequestTask(qgis.core.QgsTask):
     ) -> None:
         log(f"Request with id: {request_params.requestId()} has timed out")
         try:
-            index, qt_reply = self._pending_replies[request_params.requestId()]
+            pending_reply = self._pending_replies[request_params.requestId()]
         except KeyError:
             pass  # we are not managing this request, ignore
         else:
-            self.response_contents[index] = None
+            self.response_contents[pending_reply.index] = None
             self._num_finished += 1
             if self._num_finished >= len(self.requests_to_perform):
                 self._all_requests_finished.emit()
