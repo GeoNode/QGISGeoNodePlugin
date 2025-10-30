@@ -16,7 +16,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
     requests_to_perform: typing.List[network.RequestToPerform]
     response_contents: typing.List[typing.Optional[network.ParsedNetworkReply]]
     _num_finished: int
-    _pending_replies: typing.Dict[int, typing.Tuple[int, QtNetwork.QNetworkReply]]
+    _pending_replies: typing.Dict[int, network.PendingReply]
 
     _all_requests_finished = QtCore.pyqtSignal()
     task_done = QtCore.pyqtSignal(bool)
