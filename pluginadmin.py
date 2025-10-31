@@ -290,19 +290,19 @@ def _find_sip_files(sip_dir) -> typing.List[Path]:
 
 
 def _get_virtualenv_site_packages_dir() -> Path:
-    venv_lib_root = Path(sys.executable).parents[1] / "lib"
-    for item in [i for i in venv_lib_root.iterdir() if i.is_dir()]:
-        if item.name.startswith("python"):
-            python_lib_path = item
-            break
-    else:
-        raise RuntimeError("Could not find site_packages_dir")
-    site_packages_dir = python_lib_path / "site-packages"
-    if site_packages_dir.is_dir():
-        result = site_packages_dir
-    else:
-        raise RuntimeError(f"{site_packages_dir} does not exist")
-    return result
+    venv_root = Path(sys.executable).parents[1]
+
+    for lib_dir_name in ("lib", "lib64"):
+        venv_lib_root = venv_root / lib_dir_name
+        if not venv_lib_root.exists():
+            continue
+        for item in [i for i in venv_lib_root.iterdir() if i.is_dir()]:
+            if item.name.startswith("python"):
+                python_lib_path = item
+                site_packages_dir = python_lib_path / "site-packages"
+                if site_packages_dir.is_dir():
+                    return site_packages_dir
+    raise RuntimeError("Could not find site_packages_dir (checked lib and lib64)")
 
 def _get_author_names(authors):
     return [author.split("<")[0].strip() for author in authors]
