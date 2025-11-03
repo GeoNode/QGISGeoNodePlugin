@@ -1,5 +1,6 @@
 import typing
 from urllib.parse import urlparse
+import requests
 
 import qgis.gui
 from PyQt5 import QtCore, QtWidgets
@@ -8,7 +9,27 @@ from qgis.core import (
     QgsMessageLog,
 )
 
-
+def has_metadata_api(base_url: str) -> bool:
+    """
+    Check if the GeoNode server exposes the /api/v2/metadata endpoint.
+    
+    Args:
+        base_url: Base URL of GeoNode, e.g., "https://my-geonode.org"
+    
+    Returns:
+        True if metadata endpoint exists (GeoNode 5+), False otherwise.
+    """
+    #FIXME replace the hardcoded /api/v2 with a clear var like api_client_link
+    url = base_url.rstrip('/') + '/api/v2/'
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return "metadata" in data
+    except Exception:
+        # network error, 404, 400, or JSON parsing issue → assume no metadata
+        return False
+    
 def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):
     level = Qgis.Info if debug else Qgis.Warning
     QgsMessageLog.logMessage(str(message), name, level=level)

@@ -32,6 +32,7 @@ from ..apiclient import (
 from ..metadata import populate_metadata
 from ..utils import (
     log,
+    has_metadata_api
 )
 
 WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dialog.ui")
@@ -324,10 +325,17 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def upload_metadata(self) -> None:
         self.apply()
         current_metadata = self.layer.metadata()
+        dataset_link = self.get_dataset().link
+        base_url = dataset_link.split("/api/v2")[0]
+
+        metadata_link = (
+            self.get_dataset().metadata_link if has_metadata_api(base_url) else dataset_link
+        )
+        
         self.network_task = network_task.NetworkRequestTask(
             [
                 network.RequestToPerform(
-                    QtCore.QUrl(self.get_dataset().link),
+                    QtCore.QUrl(metadata_link),
                     method=network.HttpMethod.PATCH,
                     payload=json.dumps(
                         {
