@@ -1,45 +1,35 @@
+import requests
 import importlib
 import typing
 
-from ..network import UNSUPPORTED_REMOTE
-from packaging import version as packaging_version
-from packaging.specifiers import SpecifierSet
 
-SUPPORTED_VERSIONS = SpecifierSet(">=4.0.0, <5.0.0dev0")
-
-
-def validate_version(
-    version: packaging_version.Version, supported_versions=SUPPORTED_VERSIONS
-) -> bool:
-
-    version = version.base_version
-
-    if version in supported_versions:
-        return True
-    else:
+def is_api_client_supported(base_url: str) -> bool:
+    """
+    Returns True if /api/v2/ endpoint provides a valid response.
+    No version string involved.
+    """
+    url = f"{base_url.rstrip('/')}/api/v2/"
+    try:
+        resp = requests.get(url, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        return isinstance(data, dict) and "resources" in data
+    except Exception:
         return False
 
 
 def get_geonode_client(
     connection_settings: "ConnectionSettings",
 ) -> typing.Optional["BaseGeonodeClient"]:
-    version = connection_settings.geonode_version
 
-    result = None
-    if version is not None and version != UNSUPPORTED_REMOTE:
-        class_path = select_supported_client(connection_settings.geonode_version)
-        if class_path != None:
-            module_path, class_name = class_path.rpartition(".")[::2]
-            imported_module = importlib.import_module(module_path)
-            class_type = getattr(imported_module, class_name)
-            result = class_type.from_connection_settings(connection_settings)
-    return result
+    if not is_api_client_supported(connection_settings.base_url):
+        return None
+
+    module_path, class_name = select_supported_client().rpartition(".")[::2]
+    imported_module = importlib.import_module(module_path)
+    class_type = getattr(imported_module, class_name)
+    return class_type.from_connection_settings(connection_settings)
 
 
-def select_supported_client(geonode_version: packaging_version.Version) -> str:
-
-    result = None
-    if validate_version(geonode_version):
-        result = "qgis_geonode.apiclient.geonode_api_v2.GeoNodeApiClient"
-
-    return result
+def select_supported_client() -> str:
+    return "qgis_geonode.apiclient.geonode_api_v2.GeoNodeApiClient"
