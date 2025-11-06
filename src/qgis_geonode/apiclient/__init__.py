@@ -7,14 +7,18 @@ SUPPORTED_API_CLIENT = "/api/v2/"
 
 def is_api_client_supported(base_url: str) -> bool:
     """
-    Returns True if SUPPORTED_API_CLIENT endpoint provides a valid response.
+    Returns True if SUPPORTED_API_CLIENT endpoint responds with HTTP 200
+    and contains valid JSON.
     """
     url = f"{base_url.rstrip('/')}{SUPPORTED_API_CLIENT}"
     try:
         resp = requests.get(url, timeout=5)
-        resp.raise_for_status()
-        data = resp.json()
-        return isinstance(data, dict) and "resources" in data
+
+        if resp.status_code != 200:
+            return False
+
+        return isinstance(resp.json(), dict)
+
     except Exception:
         return False
 
