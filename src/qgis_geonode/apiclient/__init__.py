@@ -5,22 +5,39 @@ import typing
 SUPPORTED_API_CLIENT = "/api/v2/"
 
 
-def is_api_client_supported(base_url: str) -> bool:
+def _fetch_api_root(base_url: str) -> dict | None:
     """
-    Returns True if SUPPORTED_API_CLIENT endpoint responds with HTTP 200
-    and contains valid JSON.
+    Internal helper:
+    - Makes a request to SUPPORTED_API_CLIENT
+    - Returns the JSON dict if valid, otherwise None
     """
     url = f"{base_url.rstrip('/')}{SUPPORTED_API_CLIENT}"
     try:
         resp = requests.get(url, timeout=5)
 
         if resp.status_code != 200:
-            return False
+            return None
 
-        return isinstance(resp.json(), dict)
+        data = resp.json()
+        return data if isinstance(data, dict) else None
 
     except Exception:
-        return False
+        return None
+
+
+def is_api_client_supported(base_url: str) -> bool:
+    """
+    Is the /api/v2/ endpoint valid and reachable?
+    """
+    return _fetch_api_root(base_url) is not None
+
+
+def has_metadata_api(base_url: str) -> bool:
+    """
+    Does the /api/v2/ root include a 'metadata' key?
+    """
+    data = _fetch_api_root(base_url)
+    return data is not None and "metadata" in data
 
 
 def get_geonode_client(

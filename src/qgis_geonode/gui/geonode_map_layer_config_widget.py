@@ -28,9 +28,10 @@ from ..apiclient import (
     base,
     get_geonode_client,
     models,
+    has_metadata_api,
 )
 from ..metadata import populate_metadata
-from ..utils import log, has_metadata_api
+from ..utils import log
 
 WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dialog.ui")
 
