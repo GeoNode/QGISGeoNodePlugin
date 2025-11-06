@@ -2,13 +2,14 @@ import requests
 import importlib
 import typing
 
+SUPPORTED_API_CLIENT = "/api/v2/"
+
 
 def is_api_client_supported(base_url: str) -> bool:
     """
-    Returns True if /api/v2/ endpoint provides a valid response.
-    No version string involved.
+    Returns True if SUPPORTED_API_CLIENT endpoint provides a valid response.
     """
-    url = f"{base_url.rstrip('/')}/api/v2/"
+    url = f"{base_url.rstrip('/')}{SUPPORTED_API_CLIENT}"
     try:
         resp = requests.get(url, timeout=5)
         resp.raise_for_status()
