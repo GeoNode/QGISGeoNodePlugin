@@ -54,7 +54,14 @@ def remove_comments_from_sld(element):
 def url_from_geoserver(base_url: str, raw_url: str):
 
     # Clean the URL path from trailing and back slashes
-    url_path = urlparse(raw_url).path.strip("/")
+    try:
+        url_path = urlparse(raw_url).path.strip("/")
+    except TypeError:
+        QgsMessageLog.logMessage(
+            "Incorrect type returned from GeoServer", 
+            "GeoNode", 
+            Qgis.Warning)
+        return None
 
     url_path = url_path.split("/")
     # re-join URL path without the geoserver path

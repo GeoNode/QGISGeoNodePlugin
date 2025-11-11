@@ -134,3 +134,6 @@ dmypy.json
 # Development
 .idea/
 .vscode/
+# Generated files
+src/qgis_geonode/metadata.txt
+src/qgis_geonode/resources.py
