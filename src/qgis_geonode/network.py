@@ -222,6 +222,16 @@ def build_multipart(
         )
         part.setBody("false".encode("utf-8"))
         multipart.append(part)
+
+    # Add action=upload
+    action_part = QtNetwork.QHttpPart()
+    action_part.setHeader(
+        QtNetwork.QNetworkRequest.ContentDispositionHeader,
+        'form-data; name="action"',
+    )
+    action_part.setBody("upload".encode("utf-8"))
+    multipart.append(action_part)
+
     permissions_part = QtNetwork.QHttpPart()
     permissions_part.setHeader(
         QtNetwork.QNetworkRequest.ContentDispositionHeader,
