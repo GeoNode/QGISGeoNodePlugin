@@ -3,6 +3,7 @@ import importlib
 import typing
 
 SUPPORTED_API_CLIENT = "/api/v2/"
+_api_v2_cache: dict[str, bool] = {}
 
 
 def is_api_client_supported(base_url: str) -> bool:
@@ -10,17 +11,19 @@ def is_api_client_supported(base_url: str) -> bool:
     Returns True if SUPPORTED_API_CLIENT endpoint responds with HTTP 200
     and contains valid JSON.
     """
-    url = f"{base_url.rstrip('/')}{SUPPORTED_API_CLIENT}"
+
+    if base_url in _api_v2_cache:
+        return _api_v2_cache[base_url]
+
+    url = f"{base_url.rstrip('/')}/api/v2/"
     try:
         resp = requests.get(url, timeout=5)
-
-        if resp.status_code != 200:
-            return False
-
-        return isinstance(resp.json(), dict)
-
+        supported = resp.status_code == 200 and isinstance(resp.json(), dict)
     except Exception:
-        return False
+        supported = False
+
+    _api_v2_cache[base_url] = supported
+    return supported
 
 
 def get_geonode_client(
