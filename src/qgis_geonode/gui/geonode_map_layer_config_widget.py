@@ -328,11 +328,13 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         current_metadata = self.layer.metadata()
         dataset_link = self.get_dataset().link
         base_url = dataset_link.split(SUPPORTED_API_CLIENT)[0]
-        
+
         metadata_link = (
-            self.get_dataset().metadata_link if has_metadata_api(base_url) else dataset_link
+            self.get_dataset().metadata_link
+            if has_metadata_api(base_url)
+            else dataset_link
         )
-        
+
         self.network_task = network_task.NetworkRequestTask(
             [
                 network.RequestToPerform(

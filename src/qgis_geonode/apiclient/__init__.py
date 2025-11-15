@@ -21,6 +21,7 @@ def is_api_client_supported(base_url: str) -> bool:
     _api_v2_cache[base_url] = supported
     return supported
 
+
 def _fetch_api_root(base_url: str) -> dict | None:
     """
     Internal helper:
