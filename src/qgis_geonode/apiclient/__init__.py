@@ -15,15 +15,38 @@ def is_api_client_supported(base_url: str) -> bool:
     if base_url in _api_v2_cache:
         return _api_v2_cache[base_url]
 
-    url = f"{base_url.rstrip('/')}/api/v2/"
-    try:
-        resp = requests.get(url, timeout=5)
-        supported = resp.status_code == 200 and isinstance(resp.json(), dict)
-    except Exception:
-        supported = False
+    # delegate to unified helper
+    supported = _fetch_api_root(base_url) is not None
 
     _api_v2_cache[base_url] = supported
     return supported
+
+def _fetch_api_root(base_url: str) -> dict | None:
+    """
+    Internal helper:
+    - Makes a request to SUPPORTED_API_CLIENT
+    - Returns the JSON dict if valid, otherwise None
+    """
+    url = f"{base_url.rstrip('/')}{SUPPORTED_API_CLIENT}"
+    try:
+        resp = requests.get(url, timeout=5)
+
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        return data if isinstance(data, dict) else None
+
+    except Exception:
+        return None
+
+
+def has_metadata_api(base_url: str) -> bool:
+    """
+    Does the /api/v2/ root include a 'metadata' key?
+    """
+    data = _fetch_api_root(base_url)
+    return data is not None and "metadata" in data
 
 
 def get_geonode_client(
