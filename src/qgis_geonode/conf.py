@@ -56,7 +56,6 @@ class ConnectionSettings:
     network_requests_timeout: int = dataclasses.field(
         default_factory=_get_network_requests_timeout, init=False
     )
-    geonode_version: typing.Optional[packaging_version.Version] = None
     wfs_version: typing.Optional[WfsVersion] = WfsVersion.AUTO
     auth_config: typing.Optional[str] = None
 
@@ -66,18 +65,12 @@ class ConnectionSettings:
             reported_auth_cfg = settings.value("auth_config").strip()
         except AttributeError:
             reported_auth_cfg = None
-        raw_geonode_version = settings.value("geonode_version") or UNSUPPORTED_REMOTE
-        if raw_geonode_version != UNSUPPORTED_REMOTE:
-            geonode_version = packaging_version.parse(raw_geonode_version)
-        else:
-            geonode_version = UNSUPPORTED_REMOTE
         return cls(
             id=uuid.UUID(connection_identifier),
             name=settings.value("name"),
             base_url=settings.value("base_url"),
             page_size=int(settings.value("page_size", defaultValue=10)),
             auth_config=reported_auth_cfg,
-            geonode_version=geonode_version,
             wfs_version=WfsVersion(settings.value("wfs_version", "1.1.0")),
         )
 
@@ -89,9 +82,6 @@ class ConnectionSettings:
                 "base_url": self.base_url,
                 "page_size": self.page_size,
                 "auth_config": self.auth_config,
-                "geonode_version": str(self.geonode_version)
-                if self.geonode_version is not None
-                else None,
                 "wfs_version": self.wfs_version.value,
             }
         )
@@ -187,14 +177,6 @@ class SettingsManager(QtCore.QObject):
             settings.setValue("page_size", connection_settings.page_size)
             settings.setValue("wfs_version", connection_settings.wfs_version.value)
             settings.setValue("auth_config", connection_settings.auth_config)
-            settings.setValue(
-                "geonode_version",
-                (
-                    str(connection_settings.geonode_version)
-                    if connection_settings.geonode_version is not None
-                    else ""
-                ),
-            )
 
     def delete_connection(self, connection_id: uuid.UUID):
         if self.is_current_connection(connection_id):
