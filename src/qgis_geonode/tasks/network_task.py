@@ -16,7 +16,7 @@ class NetworkRequestTask(qgis.core.QgsTask):
     requests_to_perform: typing.List[network.RequestToPerform]
     response_contents: typing.List[typing.Optional[network.ParsedNetworkReply]]
     _num_finished: int
-    _pending_replies: typing.Dict[int, typing.Tuple[int, QtNetwork.QNetworkReply]]
+    _pending_replies: typing.Dict[int, network.PendingReply]
 
     _all_requests_finished = QtCore.pyqtSignal()
     task_done = QtCore.pyqtSignal(bool)
@@ -176,11 +176,11 @@ class NetworkRequestTask(qgis.core.QgsTask):
     ) -> None:
         log(f"Request with id: {request_params.requestId()} has timed out")
         try:
-            index, qt_reply = self._pending_replies[request_params.requestId()]
+            pending_reply = self._pending_replies[request_params.requestId()]
         except KeyError:
             pass  # we are not managing this request, ignore
         else:
-            self.response_contents[index] = None
+            self.response_contents[pending_reply.index] = None
             self._num_finished += 1
             if self._num_finished >= len(self.requests_to_perform):
                 self._all_requests_finished.emit()
