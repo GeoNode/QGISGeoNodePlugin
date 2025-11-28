@@ -263,6 +263,16 @@ class Dataset(BriefDataset):
             ],
         )
 
+    # we need this property for GeoNode 5
+    @property
+    def metadata_link(self) -> typing.Optional[str]:
+        if self.link and self.pk:
+            # dataset.link: https://my-geonode.org/api/v2/datasets/123
+            return self.link.replace(
+                f"/datasets/{self.pk}", f"/metadata/instance/{self.pk}"
+            )
+        return None
+
 
 @dataclasses.dataclass
 class GeonodeApiSearchFilters:

@@ -170,15 +170,25 @@ def create_request(
 
 def handle_discovery_test(
     finished_task_result: bool, finished_task: qgis.core.QgsTask
-) -> typing.Optional[packaging_version.Version]:
-    geonode_version = None
-    if finished_task_result:
-        response_contents = finished_task.response_contents[0]
-        if response_contents is not None and response_contents.qt_error is None:
-            geonode_version = packaging_version.parse(
-                response_contents.response_body.data().decode()
-            )
-    return geonode_version
+) -> bool:
+    """
+    Returns True if the API v2 endpoint responded correctly.
+    """
+    if not finished_task_result:
+        return False
+
+    response_contents = finished_task.response_contents[0]
+    if response_contents is None or response_contents.qt_error is not None:
+        return False
+
+    try:
+        data = response_contents.response_body.data().decode()
+        import json
+
+        parsed = json.loads(data)
+        return isinstance(parsed, dict) and "resources" in parsed
+    except Exception:
+        return False
 
 
 def build_multipart(
