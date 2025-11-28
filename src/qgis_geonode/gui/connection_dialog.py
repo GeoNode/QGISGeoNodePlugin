@@ -16,6 +16,7 @@ from qgis.PyQt.uic import loadUiType
 from ..tasks import network_task
 from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
+from ..apiclient import is_api_client_supported
 from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
 from ..utils import tr
 from packaging import version as packaging_version
@@ -43,9 +44,6 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     detected_capabilities_lw: QtWidgets.QListWidget
 
     connection_id: uuid.UUID
-    remote_geonode_version: typing.Optional[
-        typing.Union[packaging_version.Version, str]
-    ]
     discovery_task: typing.Optional[network_task.NetworkRequestTask]
     geonode_client: BaseGeonodeClient = None
 
@@ -69,7 +67,6 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self._populate_wfs_version_combobox()
         if connection_settings is not None:
             self.connection_id = connection_settings.id
-            self.remote_geonode_version = connection_settings.geonode_version
             self.name_le.setText(connection_settings.name)
             self.url_le.setText(connection_settings.base_url)
             self.authcfg_acs.setConfigId(connection_settings.auth_config)
@@ -78,15 +75,12 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
                 connection_settings.wfs_version
             )
             self.wfs_version_cb.setCurrentIndex(wfs_version_index)
-            if self.remote_geonode_version == network.UNSUPPORTED_REMOTE:
-                utils.show_message(
-                    self.bar,
-                    tr("Invalid configuration. Correct GeoNode URL and/or test again."),
-                    level=qgis.core.Qgis.Critical,
-                )
+
+            self.detected_version_gb.setEnabled(False)
+            self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
+
         else:
             self.connection_id = uuid.uuid4()
-            self.remote_geonode_version = None
         self.update_connection_details()
         # self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
         ok_signals = [
@@ -157,7 +151,6 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             base_url=self.url_le.text().strip().rstrip("#/"),
             auth_config=self.authcfg_acs.configId(),
             page_size=self.page_size_sb.value(),
-            geonode_version=self.remote_geonode_version,
             wfs_version=self.wfs_version_cb.currentData(),
         )
 
@@ -166,38 +159,22 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             widget.setEnabled(False)
 
         current_settings = self.get_connection_settings()
-        self.discovery_task = network_task.NetworkRequestTask(
-            [
-                network.RequestToPerform(
-                    QtCore.QUrl(f"{current_settings.base_url}/version.txt")
-                )
-            ],
-            network_task_timeout=current_settings.network_requests_timeout,
-            authcfg=current_settings.auth_config,
-            description="Connect to a GeoNode client",
-        )
-        self.discovery_task.task_done.connect(self.handle_discovery_test)
-        utils.show_message(self.bar, tr("Connecting..."), add_loading_widget=True)
-        qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
 
-    def handle_discovery_test(self, task_result: bool):
+        # Replace old version.txt request with /api/v2/ check
+        success = is_api_client_supported(current_settings.base_url)
+
+        self.handle_discovery_test(success)
+
+    def handle_discovery_test(self, is_supported: bool):
         self.enable_post_test_connection_buttons()
-        geonode_version = network.handle_discovery_test(
-            task_result, self.discovery_task
-        )
-        if geonode_version is not None:
-            if apiclient.validate_version(geonode_version) == False:
-                message = "This GeoNode version is not supported..."
-                level = qgis.core.Qgis.Critical
-                self.remote_geonode_version = network.UNSUPPORTED_REMOTE
-            else:
-                self.remote_geonode_version = geonode_version
-                message = "Connection is valid"
-                level = qgis.core.Qgis.Info
+
+        if is_supported:
+            message = "Connection is valid"
+            level = qgis.core.Qgis.Info
         else:
-            message = "Connection is not valid"
+            message = "This GeoNode instance does not support the API client."
             level = qgis.core.Qgis.Critical
-            self.remote_geonode_version = network.UNSUPPORTED_REMOTE
+
         utils.show_message(self.bar, message, level)
         self.update_connection_details()
 
@@ -236,20 +213,24 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.wfs_version_cb.setCurrentIndex(index)
 
     def update_connection_details(self):
-        invalid_version = (
-            self.remote_geonode_version is None
-            or self.remote_geonode_version == network.UNSUPPORTED_REMOTE
-        )
+        # Determine if API is reachable
+        api_supported = is_api_client_supported(self.url_le.text().strip().rstrip("#/"))
+
         self.detected_capabilities_lw.clear()
         self.detected_version_le.clear()
-        if not invalid_version:
-            # Enable the detected_version_db and OK button
+
+        if api_supported:
+            # Enable the detected_version group box and OK button
             self.detected_version_gb.setEnabled(True)
             self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(True)
 
             current_settings = self.get_connection_settings()
             client: BaseGeonodeClient = apiclient.get_geonode_client(current_settings)
-            self.detected_version_le.setText(str(current_settings.geonode_version))
+
+            # No version stored; just show "v2 API available"
+            self.detected_version_le.setText("API v2 available")
+
+            # Show capabilities from client
             self.detected_capabilities_lw.insertItems(
                 0, [cap.name for cap in client.capabilities]
             )

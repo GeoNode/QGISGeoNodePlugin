@@ -17,6 +17,7 @@ from ..apiclient import (
     base,
     get_geonode_client,
     models,
+    is_api_client_supported,
 )
 from .. import (
     conf,
@@ -300,6 +301,7 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.clear_search_results()
         self.current_page = 1
         self.total_pages = 1
+
         current_text = self.connections_cmb.itemText(index)
         try:
             current_connection = conf.settings_manager.find_connection_by_name(
@@ -307,42 +309,49 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             )
         except ValueError:
             self.toggle_search_buttons(enable=False)
+            return
+
+        conf.settings_manager.set_current_connection(current_connection.id)
+
+        # Check if API v2 is supported
+        api_supported = is_api_client_supported(current_connection.base_url)
+
+        if not api_supported:
+            self.show_message(
+                tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
+            )
+            self.api_client = None
+            self.toggle_search_buttons(enable=False)
         else:
-            conf.settings_manager.set_current_connection(current_connection.id)
-            if current_connection.geonode_version == network.UNSUPPORTED_REMOTE:
-                self.show_message(
-                    tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
-                )
-            else:
-                if current_connection.geonode_version:
-                    self.api_client = get_geonode_client(current_connection)
-                    self._load_sorting_fields()
-                    self.api_client.dataset_list_received.connect(
-                        self.handle_dataset_list
-                    )
-                    self.api_client.search_error_received.connect(
-                        self.handle_search_error
-                    )
-                else:
-                    # don't know if current config is valid or not yet, need to detect it
-                    pass
-            self.update_gui(current_connection)
-            self.toggle_search_buttons()
+            # API is reachable so instantiate client
+            self.api_client = get_geonode_client(current_connection)
+            if self.api_client:
+                self._load_sorting_fields()
+                self.api_client.dataset_list_received.connect(self.handle_dataset_list)
+                self.api_client.search_error_received.connect(self.handle_search_error)
+            self.toggle_search_buttons(enable=True)
+
+        self.update_gui(current_connection)
 
     def toggle_search_buttons(self, enable: typing.Optional[bool] = None):
         enable_search = False
         enable_previous = False
         enable_next = False
+
         if enable is None or enable:
             current_connection = conf.settings_manager.get_current_connection_settings()
             if current_connection is not None:
-                if current_connection.geonode_version != network.UNSUPPORTED_REMOTE:
+                # Check if /api/v2/ is reachable
+                api_supported = is_api_client_supported(current_connection.base_url)
+
+                if api_supported:
                     for check_box in self.resource_types_btngrp.buttons():
                         if check_box.isChecked():
                             enable_search = True
                             enable_previous = self.current_page > 1
                             enable_next = self.current_page < self.total_pages
                             break
+
         self.search_btn.setEnabled(enable_search)
         self.previous_btn.setEnabled(enable_previous)
         self.next_btn.setEnabled(enable_next)
@@ -457,35 +466,38 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     def handle_api_client_discovery(
         self, next_: typing.Callable, task_result: bool, *next_args, **next_kwargs
     ):
-        geonode_version = network.handle_discovery_test(
-            task_result, self.discovery_task
-        )
         current_connection = conf.settings_manager.get_current_connection_settings()
-        current_connection.geonode_version = (
-            geonode_version
-            if geonode_version is not None
-            else network.UNSUPPORTED_REMOTE
-        )
+
+        # task_result should now reflect is_api_client_supported()
+        api_supported = task_result
+
         conf.settings_manager.save_connection_settings(current_connection)
         self.update_connections_combobox()
         next_(*next_args, **next_kwargs)
 
     def search_geonode(self, reset_pagination: bool = False):
         search_params = self.get_search_filters()
-        if len(search_params.layer_types) > 0:
-            self.search_started.emit()
-            if reset_pagination:
-                self.current_page = 1
-                self.total_pages = 1
-            current_connection = conf.settings_manager.get_current_connection_settings()
-            if not current_connection.geonode_version:
-                self.discover_api_client(
-                    next_=self.search_geonode, reset_pagination=reset_pagination
-                )
-            elif self.api_client is None:
-                self.search_finished.emit(tr(_INVALID_CONNECTION_MESSAGE))
-            else:
-                self.api_client.get_dataset_list(search_params)
+
+        if len(search_params.layer_types) == 0:
+            return
+
+        self.search_started.emit()
+
+        if reset_pagination:
+            self.current_page = 1
+            self.total_pages = 1
+
+        current_connection = conf.settings_manager.get_current_connection_settings()
+
+        # Check if the API is reachable
+        if not is_api_client_supported(current_connection.base_url):
+            self.discover_api_client(
+                next_=self.search_geonode, reset_pagination=reset_pagination
+            )
+        elif self.api_client is None:
+            self.search_finished.emit(tr(_INVALID_CONNECTION_MESSAGE))
+        else:
+            self.api_client.get_dataset_list(search_params)
 
     def toggle_search_controls(self, enabled: bool):
         for widget in self._unusable_search_filters:
