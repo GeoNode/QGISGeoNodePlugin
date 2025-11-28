@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - 2025-11-28
 
 ### Fixed
-* Introduced support for GeoNode 5
-* Fixes a bug in the NetworkRequesttask method which handles the timeout events
+- Introduced support for GeoNode 5
+- Fixes a bug in the NetworkRequesttask method which handles the timeout events
 
 ## [2.0.0] - 2024-12-10
 
