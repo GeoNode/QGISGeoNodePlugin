@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-11-28
+
+### Fixed
+* Introduced support for GeoNode 5
+* Fixes a bug in the NetworkRequesttask method which handles the timeout events
+
 ## [2.0.0] - 2024-12-10
 
 ### Fixed
