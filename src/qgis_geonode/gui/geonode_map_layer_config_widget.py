@@ -23,8 +23,10 @@ from .. import (
 from ..apiclient import (
     base,
     get_geonode_client,
+    is_api_client_supported,
     models,
     has_metadata_api,
+    probe_api_client,
     SUPPORTED_API_CLIENT,
 )
 from ..httpclient import (
@@ -110,12 +112,20 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         else:
             self._api_client = None
         self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
+        self._connection_probes: typing.List[Request] = []
         suitable_connections = self._get_suitable_upload_connections()
         if len(suitable_connections) > 0:
             self._populate_geonode_connection_combo_box(suitable_connections)
             self._toggle_upload_controls(enabled=True)
         else:
             self._toggle_upload_controls(enabled=False)
+        # The api-support cache (5-min TTL) is only warmed by the Data
+        # Source Manager's GeoNode tab. Without this probe, opening the
+        # layer Properties dialog when the cache is cold leaves the upload
+        # group greyed even though the connection is reachable. Probe any
+        # saved connection that isn't currently fresh and re-evaluate the
+        # upload state as each probe lands.
+        self._probe_cold_connections()
         self._toggle_style_controls(enabled=False)
         self._toggle_link_controls(enabled=False)
         self._toggle_metadata_controls(enabled=False)
@@ -127,9 +137,12 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self.open_link_url_pb.clicked.connect(self.open_link_url)
             self.download_metadata_pb.clicked.connect(self.download_metadata)
             self.upload_metadata_pb.clicked.connect(self.upload_metadata)
-            self._toggle_style_controls(enabled=True)
             self._toggle_link_controls(enabled=True)
-            self._toggle_metadata_controls(enabled=True)
+            # Style and metadata toggles dereference ``self._api_client``;
+            # only enable them when the api client is actually resolved.
+            # When the cache was cold at init, the probe handler will
+            # re-toggle these once the api client has been refreshed.
+            self._toggle_geonode_layer_controls()
         else:  # this is not a GeoNode layer
             pass
 
@@ -464,6 +477,55 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     ) -> None:
         for connection in suitable_connections:
             self.geonode_connection_cb.addItem(connection.name, connection)
+
+    def _probe_cold_connections(self) -> None:
+        for connection_settings in conf.settings_manager.list_connections():
+            if is_api_client_supported(connection_settings.base_url):
+                continue
+            probe = probe_api_client(
+                connection_settings.base_url,
+                auth_config=connection_settings.auth_config,
+                timeout_ms=connection_settings.network_requests_timeout,
+                parent=self,
+            )
+            probe.finished.connect(self._refresh_upload_connections)
+            self._connection_probes.append(probe)
+
+    def _refresh_upload_connections(self, _response: NetworkResponse) -> None:
+        # A probe just landed; ``is_api_client_supported`` now reflects the
+        # fresh outcome for that base_url. Rebuild the combo so any newly
+        # reachable connection becomes selectable, preserving the user's
+        # current pick when possible.
+        previous = self.geonode_connection_cb.currentData()
+        self.geonode_connection_cb.clear()
+        suitable_connections = self._get_suitable_upload_connections()
+        if suitable_connections:
+            self._populate_geonode_connection_combo_box(suitable_connections)
+            if previous is not None:
+                for index in range(self.geonode_connection_cb.count()):
+                    if self.geonode_connection_cb.itemData(index) == previous:
+                        self.geonode_connection_cb.setCurrentIndex(index)
+                        break
+            self._toggle_upload_controls(enabled=True)
+        else:
+            self._toggle_upload_controls(enabled=False)
+        # Style/metadata controls of GeoNode-imported layers depend on
+        # ``self._api_client`` (its ``capabilities`` list). If init left it
+        # as ``None`` because the cache was cold, refresh it now that the
+        # corresponding probe has landed and re-toggle.
+        if (
+            self._api_client is None
+            and self.connection_settings is not None
+            and self.layer.customProperty(models.DATASET_CUSTOM_PROPERTY_KEY)
+            is not None
+        ):
+            self._api_client = get_geonode_client(self.connection_settings)
+            self._toggle_geonode_layer_controls()
+
+    def _toggle_geonode_layer_controls(self) -> None:
+        ready = self._api_client is not None
+        self._toggle_style_controls(enabled=ready)
+        self._toggle_metadata_controls(enabled=ready)
 
     def _apply_sld(self) -> None:
         dataset = self.get_dataset()
