@@ -65,6 +65,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
     def get_ordering_fields(self) -> typing.List[typing.Tuple[str, str]]:
         return [
             ("title", "Title"),
+            ("created", "Created"),
         ]
 
     def get_dataset_upload_url(self) -> QtCore.QUrl:
@@ -139,9 +140,8 @@ class GeoNodeApiClient(BaseGeonodeClient):
         if is_raster:
             query.addQueryItem("filter{subtype.in}", "raster")
         if search_filters.ordering_field is not None:
-            query.addQueryItem(
-                "sort[]", f"{'-' if search_filters.reverse_ordering else ''}name"
-            )
+            prefix = "-" if search_filters.reverse_ordering else ""
+            query.addQueryItem("sort[]", f"{prefix}{search_filters.ordering_field}")
         return query
 
     def handle_dataset_detail_from_id(self, response: NetworkResponse) -> None:
