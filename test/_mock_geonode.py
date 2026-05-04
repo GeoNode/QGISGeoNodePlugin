@@ -26,22 +26,24 @@ def _mock_status_code(code):
     return Response(f"status {code}", status=code, mimetype="text/plain")
 
 
-@geonode_flask_app.route("/httpclient/slow")
+@geonode_flask_app.route(
+    "/httpclient/slow", methods=["GET", "POST", "PUT", "PATCH", "DELETE"]
+)
 def _mock_slow():
     time.sleep(2)
     return Response("eventually", status=200, mimetype="text/plain")
 
 
-@geonode_flask_app.route("/httpclient/echo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@geonode_flask_app.route(
+    "/httpclient/echo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"]
+)
 def _mock_echo():
     payload = {
         "method": request.method,
         "content_type": request.headers.get("Content-Type"),
         "body": request.get_data(as_text=True),
     }
-    return Response(
-        json.dumps(payload), status=200, mimetype="application/json"
-    )
+    return Response(json.dumps(payload), status=200, mimetype="application/json")
 
 
 @geonode_flask_app.route("/api/v2/datasets/")
