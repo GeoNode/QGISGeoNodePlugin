@@ -216,29 +216,30 @@ class GeoNodeApiClient(BaseGeonodeClient):
     def get_dataset_detail_url(self, dataset_id: int) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.dataset_list_url}{dataset_id}/")
 
-    def handle_dataset_list(self, task_result: bool) -> None:
-        deserialized_content = self._retrieve_response(
-            task_result, 0, self.search_error_received
+    def handle_dataset_list(self, response: NetworkResponse) -> None:
+        deserialized_content = self._parse_json_response(
+            response, self.search_error_received
         )
-        if deserialized_content is not None:
-            brief_datasets = []
-            for raw_brief_ds in deserialized_content.get(self._DATASET_NAME_PLURAL, []):
-                try:
-                    parsed_properties = self._get_common_model_properties(raw_brief_ds)
-                    brief_dataset = models.BriefDataset(**parsed_properties)
-                except ValueError as exc:
-                    log(
-                        f"Could not parse {raw_brief_ds!r} into a valid item: {str(exc)}",
-                        debug=False,
-                    )
-                else:
-                    brief_datasets.append(brief_dataset)
-            pagination_info = models.GeonodePaginationInfo(
-                total_records=deserialized_content.get("total") or 0,
-                current_page=deserialized_content.get("page") or 1,
-                page_size=deserialized_content.get("page_size") or 0,
-            )
-            self.dataset_list_received.emit(brief_datasets, pagination_info)
+        if deserialized_content is None:
+            return
+        brief_datasets = []
+        for raw_brief_ds in deserialized_content.get(self._DATASET_NAME_PLURAL, []):
+            try:
+                parsed_properties = self._get_common_model_properties(raw_brief_ds)
+                brief_dataset = models.BriefDataset(**parsed_properties)
+            except ValueError as exc:
+                log(
+                    f"Could not parse {raw_brief_ds!r} into a valid item: {str(exc)}",
+                    debug=False,
+                )
+            else:
+                brief_datasets.append(brief_dataset)
+        pagination_info = models.GeonodePaginationInfo(
+            total_records=deserialized_content.get("total") or 0,
+            current_page=deserialized_content.get("page") or 1,
+            page_size=deserialized_content.get("page_size") or 0,
+        )
+        self.dataset_list_received.emit(brief_datasets, pagination_info)
 
     def handle_dataset_detail(
         self,
@@ -308,6 +309,35 @@ class GeoNodeApiClient(BaseGeonodeClient):
         dataset.default_style.sld = sld_named_layer
         if emit_dataset_detail_received:
             self.dataset_detail_received.emit(dataset)
+
+    def _parse_json_response(
+        self,
+        response: NetworkResponse,
+        error_signal,
+    ) -> typing.Optional[typing.Union[typing.Dict, typing.List]]:
+        """Emit ``error_signal`` on failure; return deserialized JSON on success.
+
+        Mirrors the legacy ``_retrieve_response`` for the new ``Request`` /
+        ``NetworkResponse`` world. Failure paths use the structured
+        ``[str, int, str]`` overload when the server produced an HTTP status,
+        and the plain ``[str]`` overload otherwise.
+        """
+        if not response.ok:
+            err = response.error
+            if err.http_status is not None:
+                error_signal[str, int, str].emit(
+                    err.qt_error or "", err.http_status, err.message
+                )
+            else:
+                error_signal[str].emit(err.message)
+            return None
+        deserialized = network.deserialize_json_response(
+            QtCore.QByteArray(response.body)
+        )
+        if deserialized is None:
+            error_signal[str].emit("Could not parse response from remote GeoNode")
+            return None
+        return deserialized
 
     def _retrieve_response(
         self,

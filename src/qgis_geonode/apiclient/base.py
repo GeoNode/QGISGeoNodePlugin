@@ -53,10 +53,8 @@ class BaseGeonodeClient(QtCore.QObject):
         self.wfs_version = wfs_version
         self.network_requests_timeout = network_requests_timeout
         self.network_fetcher_task = None
-        # Phase 2 canary: per-method attribute holding the in-flight request.
-        # The shared ``network_fetcher_task`` slot above is still used by the
-        # other (yet-to-be-migrated) API methods.
         self._style_request: typing.Optional[Request] = None
+        self._dataset_list_request: typing.Optional[Request] = None
 
     @classmethod
     def from_connection_settings(cls, connection_settings: conf.ConnectionSettings):
@@ -83,19 +81,19 @@ class BaseGeonodeClient(QtCore.QObject):
         raise NotImplementedError
 
     def get_dataset_list(self, search_filters: GeonodeApiSearchFilters) -> None:
-        self.network_fetcher_task = network_task.NetworkRequestTask(
-            [network.RequestToPerform(url=self.get_dataset_list_url(search_filters))],
-            self.network_requests_timeout,
-            self.auth_config,
-            description="Get dataset list",
+        self._dataset_list_request = Request(parent=self)
+        self._dataset_list_request.finished.connect(self.handle_dataset_list)
+        self._dataset_list_request.send(
+            RequestToPerform(url=self.get_dataset_list_url(search_filters)),
+            authcfg=self.auth_config,
+            timeout_ms=self.network_requests_timeout,
         )
-        self.network_fetcher_task.task_done.connect(self.handle_dataset_list)
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
 
-    def handle_dataset_list(self, result: bool):
-        """Handle the list of datasets returned by the remote
+    def handle_dataset_list(self, response: NetworkResponse):
+        """Handle the list of datasets returned by the remote.
 
-        This must emit the `dataset_list_received` signal.
+        Implementations must emit either ``dataset_list_received`` on success
+        or ``search_error_received`` on failure.
         """
         raise NotImplementedError
 
