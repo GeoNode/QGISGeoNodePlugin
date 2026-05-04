@@ -11,8 +11,6 @@ from qgis.PyQt import (
 from qgis.PyQt.uic import loadUiType
 from qgis.utils import iface
 
-from ..tasks import network_task
-
 from ..apiclient import (
     base,
     get_geonode_client,
@@ -26,7 +24,7 @@ from .. import (
 from ..apiclient.models import ApiClientCapability, IsoTopicCategory
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from .. import network
+from ..httpclient import NetworkResponse, Request, RequestToPerform
 from ..utils import (
     tr,
 )
@@ -42,7 +40,7 @@ _INVALID_CONNECTION_MESSAGE = (
 class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
     advanced_search_gb: qgis.gui.QgsCollapsibleGroupBox
     api_client: typing.Optional[base.BaseGeonodeClient] = None
-    discovery_task: typing.Optional[network_task.NetworkRequestTask]
+    discovery_task: typing.Optional[Request]
     abstract_la: QtWidgets.QLabel
     abstract_le: QtWidgets.QLineEdit
     category_la: QtWidgets.QLabel
@@ -448,29 +446,26 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def discover_api_client(self, next_: typing.Callable, *next_args, **next_kwargs):
         current_connection = conf.settings_manager.get_current_connection_settings()
-        self.discovery_task = network_task.NetworkRequestTask(
-            [
-                network.RequestToPerform(
-                    QtCore.QUrl(f"{current_connection.base_url}/version.txt")
-                )
-            ],
-            current_connection.network_requests_timeout,
-            current_connection.auth_config,
-            description="Test GeoNode connection",
-        )
-        self.discovery_task.task_done.connect(
+        self.discovery_task = Request(parent=self)
+        self.discovery_task.finished.connect(
             partial(self.handle_api_client_discovery, next_, *next_args, **next_kwargs)
         )
-        qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
+        self.discovery_task.send(
+            RequestToPerform(
+                url=QtCore.QUrl(f"{current_connection.base_url}/version.txt"),
+            ),
+            authcfg=current_connection.auth_config,
+            timeout_ms=current_connection.network_requests_timeout,
+        )
 
     def handle_api_client_discovery(
-        self, next_: typing.Callable, task_result: bool, *next_args, **next_kwargs
+        self,
+        next_: typing.Callable,
+        response: NetworkResponse,
+        *next_args,
+        **next_kwargs,
     ):
         current_connection = conf.settings_manager.get_current_connection_settings()
-
-        # task_result should now reflect is_api_client_supported()
-        api_supported = task_result
-
         conf.settings_manager.save_connection_settings(current_connection)
         self.update_connections_combobox()
         next_(*next_args, **next_kwargs)
