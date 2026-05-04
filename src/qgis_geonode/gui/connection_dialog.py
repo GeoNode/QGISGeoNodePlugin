@@ -18,6 +18,7 @@ from .. import apiclient, network, utils
 from ..apiclient.base import BaseGeonodeClient
 from ..apiclient import is_api_client_supported
 from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
+from ..httpclient import Request, NetworkResponse, RequestToPerform
 from ..utils import tr
 from packaging import version as packaging_version
 
@@ -44,7 +45,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     detected_capabilities_lw: QtWidgets.QListWidget
 
     connection_id: uuid.UUID
-    discovery_task: typing.Optional[network_task.NetworkRequestTask]
+    discovery_task: typing.Optional[Request]
     geonode_client: BaseGeonodeClient = None
 
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
@@ -132,17 +133,16 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         query.addQueryItem("request", "GetCapabilities")
         url = QtCore.QUrl(f"{current_settings.base_url}/gs/ows")
         url.setQuery(query)
-        self.discovery_task = network_task.NetworkRequestTask(
-            [network.RequestToPerform(url)],
-            network_task_timeout=current_settings.network_requests_timeout,
-            authcfg=current_settings.auth_config,
-            description="Detect WFS version",
-        )
-        self.discovery_task.task_done.connect(self.handle_wfs_version_detection_test)
+        self.discovery_task = Request(parent=self)
+        self.discovery_task.finished.connect(self.handle_wfs_version_detection_test)
         utils.show_message(
             self.bar, tr("Detecting WFS version..."), add_loading_widget=True
         )
-        qgis.core.QgsApplication.taskManager().addTask(self.discovery_task)
+        self.discovery_task.send(
+            RequestToPerform(url=url),
+            authcfg=current_settings.auth_config,
+            timeout_ms=current_settings.network_requests_timeout,
+        )
 
     def get_connection_settings(self) -> ConnectionSettings:
         return ConnectionSettings(
@@ -178,7 +178,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         utils.show_message(self.bar, message, level)
         self.update_connection_details()
 
-    def handle_wfs_version_detection_test(self, task_result: bool):
+    def handle_wfs_version_detection_test(self, response: NetworkResponse):
         self.enable_post_test_connection_buttons()
         # TODO: set the default to WfsVersion.AUTO when this QGIS issue has been resolved:
         #
@@ -186,22 +186,20 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         #
         default_version = WfsVersion.V_1_1_0
         version = default_version
-        if task_result:
-            response_contents = self.discovery_task.response_contents[0]
-            if response_contents is not None and response_contents.qt_error is None:
-                raw_response = response_contents.response_body
-                detected_versions = _get_wfs_declared_versions(raw_response)
-                preference_order = [
-                    "1.1.0",
-                    "2.0.0",
-                    "1.0.0",
-                ]
-                for preference in preference_order:
-                    if preference in detected_versions:
-                        version = WfsVersion(preference)
-                        break
-                else:
-                    version = default_version
+        if response.ok:
+            raw_response = QtCore.QByteArray(response.body)
+            detected_versions = _get_wfs_declared_versions(raw_response)
+            preference_order = [
+                "1.1.0",
+                "2.0.0",
+                "1.0.0",
+            ]
+            for preference in preference_order:
+                if preference in detected_versions:
+                    version = WfsVersion(preference)
+                    break
+            else:
+                version = default_version
             self.bar.clearWidgets()
         else:
             utils.show_message(
