@@ -12,6 +12,7 @@ from qgis.PyQt import (
 
 from .. import network
 from .. import styles as geonode_styles
+from ..httpclient import Request, NetworkResponse, RequestToPerform
 from ..utils import log, url_from_geoserver
 from ..tasks import tasks
 
@@ -281,23 +282,32 @@ class GeoNodeApiClient(BaseGeonodeClient):
     def handle_dataset_style(
         self,
         dataset: models.Dataset,
-        task_result: bool,
+        response: NetworkResponse,
         emit_dataset_detail_received: bool = False,
     ) -> None:
-        response_contents = self._retrieve_response(
-            task_result, 0, self.style_detail_error_received, deserialize_as_json=False
-        )
-        if response_contents is not None:
-            sld_named_layer, error_message = geonode_styles.get_usable_sld(
-                response_contents
-            )
-            if sld_named_layer is None:
-                self.style_detail_error_received[str].emit(
-                    f"Could not parse downloaded SLD: {error_message}"
+        if not response.ok:
+            err = response.error
+            if err.http_status is not None:
+                self.style_detail_error_received[str, int, str].emit(
+                    err.qt_error or "", err.http_status, err.message
                 )
-            dataset.default_style.sld = sld_named_layer
-            if emit_dataset_detail_received:
-                self.dataset_detail_received.emit(dataset)
+            else:
+                self.style_detail_error_received[str].emit(err.message)
+            return
+        # ``deserialize_sld_doc`` expects a ``QByteArray`` (it forwards to
+        # ``QDomDocument.setContent``); the legacy ``get_usable_sld`` helper
+        # is still used by the GUI which feeds it a ``ParsedNetworkReply``.
+        sld_named_layer, error_message = geonode_styles.deserialize_sld_doc(
+            QtCore.QByteArray(response.body)
+        )
+        if sld_named_layer is None:
+            self.style_detail_error_received[str].emit(
+                f"Could not parse downloaded SLD: {error_message}"
+            )
+            return
+        dataset.default_style.sld = sld_named_layer
+        if emit_dataset_detail_received:
+            self.dataset_detail_received.emit(dataset)
 
     def _retrieve_response(
         self,
