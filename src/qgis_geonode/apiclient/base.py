@@ -7,13 +7,8 @@ from qgis.PyQt import (
     QtXml,
 )
 
-from .. import (
-    conf,
-    network,
-)
-
+from .. import conf
 from ..httpclient import Request, NetworkResponse, RequestToPerform
-from ..tasks import network_task
 from . import models
 from .models import GeonodeApiSearchFilters
 from ..utils import log
@@ -22,7 +17,7 @@ from ..utils import log
 class BaseGeonodeClient(QtCore.QObject):
     auth_config: str
     base_url: str
-    network_fetcher_task: typing.Optional[network_task.NetworkRequestTask]
+    _upload_task: typing.Optional[qgis.core.QgsTask]
     capabilities: typing.List[models.ApiClientCapability]
     page_size: int
     wfs_version: conf.WfsVersion
@@ -52,7 +47,7 @@ class BaseGeonodeClient(QtCore.QObject):
         self.page_size = page_size
         self.wfs_version = wfs_version
         self.network_requests_timeout = network_requests_timeout
-        self.network_fetcher_task = None
+        self._upload_task = None
         self._style_request: typing.Optional[Request] = None
         self._dataset_list_request: typing.Optional[Request] = None
         self._dataset_detail_request: typing.Optional[Request] = None
@@ -184,11 +179,11 @@ class BaseGeonodeClient(QtCore.QObject):
     def upload_layer(
         self, layer: qgis.core.QgsMapLayer, allow_public_access: bool
     ) -> None:
-        self.network_fetcher_task = self.get_uploader_task(
+        self._upload_task = self.get_uploader_task(
             layer, allow_public_access, timeout=10 * 60 * 1000
         )  # the GeoNode GUI also uses a 10 minute timeout for uploads
-        self.network_fetcher_task.task_done.connect(self.handle_layer_upload)
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+        self._upload_task.task_done.connect(self.handle_layer_upload)
+        qgis.core.QgsApplication.taskManager().addTask(self._upload_task)
 
     def handle_layer_upload(self, result: bool):
         """Handle layer upload outcome.
