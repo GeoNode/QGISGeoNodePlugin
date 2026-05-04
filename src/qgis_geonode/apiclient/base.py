@@ -12,6 +12,7 @@ from .. import (
     network,
 )
 
+from ..httpclient import Request, NetworkResponse, RequestToPerform
 from ..tasks import network_task
 from . import models
 from .models import GeonodeApiSearchFilters
@@ -52,6 +53,10 @@ class BaseGeonodeClient(QtCore.QObject):
         self.wfs_version = wfs_version
         self.network_requests_timeout = network_requests_timeout
         self.network_fetcher_task = None
+        # Phase 2 canary: per-method attribute holding the in-flight request.
+        # The shared ``network_fetcher_task`` slot above is still used by the
+        # other (yet-to-be-migrated) API methods.
+        self._style_request: typing.Optional[Request] = None
 
     @classmethod
     def from_connection_settings(cls, connection_settings: conf.ConnectionSettings):
@@ -97,26 +102,25 @@ class BaseGeonodeClient(QtCore.QObject):
     def get_dataset_style(
         self, dataset: models.Dataset, emit_dataset_detail_received: bool = False
     ) -> None:
-        self.network_fetcher_task = network_task.NetworkRequestTask(
-            [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
-            self.network_requests_timeout,
-            self.auth_config,
-            description="Get dataset style",
-        )
-        self.network_fetcher_task.task_done.connect(
+        self._style_request = Request(parent=self)
+        self._style_request.finished.connect(
             partial(
                 self.handle_dataset_style,
                 dataset,
                 emit_dataset_detail_received=emit_dataset_detail_received,
             )
         )
-        qgis.core.QgsApplication.taskManager().addTask(self.network_fetcher_task)
+        self._style_request.send(
+            RequestToPerform(url=QtCore.QUrl(dataset.default_style.sld_url)),
+            authcfg=self.auth_config,
+            timeout_ms=self.network_requests_timeout,
+        )
 
     def handle_dataset_style(
         self,
         dataset: models.Dataset,
-        task_result: bool,
-        emit_dataset_detail_received: typing.Optional[bool] = False,
+        response: NetworkResponse,
+        emit_dataset_detail_received: bool = False,
     ) -> None:
         raise NotImplementedError
 
