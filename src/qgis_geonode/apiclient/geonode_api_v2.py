@@ -161,20 +161,24 @@ class GeoNodeApiClient(BaseGeonodeClient):
         )
 
     def handle_layer_upload(self, result: bool):
-        success_statuses = (
-            200,
-            201,
-        )
-        if result:
-            response_contents = self._upload_task.response_contents[0]
-            if response_contents.http_status_code in success_statuses:
-                self.dataset_uploaded.emit()
-            else:
+        success_statuses = (200, 201)
+        response = self._upload_task.response
+        if (
+            result
+            and response is not None
+            and response.ok
+            and response.http_status in success_statuses
+        ):
+            self.dataset_uploaded.emit()
+            return
+        if response is not None and response.error is not None:
+            err = response.error
+            if err.http_status is not None:
                 self.dataset_upload_error_received[str, int, str].emit(
-                    response_contents.qt_error,
-                    response_contents.http_status_code,
-                    response_contents.http_status_reason,
+                    err.qt_error or "", err.http_status, err.message
                 )
+            else:
+                self.dataset_upload_error_received[str].emit(err.message)
         else:
             self.dataset_upload_error_received[str].emit(
                 "Could not upload layer to GeoNode"
