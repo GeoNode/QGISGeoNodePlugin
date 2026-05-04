@@ -17,8 +17,12 @@ from ..apiclient import (
     models,
 )
 import qgis.core
-from ..utils import log
-from ..tasks import network_task
+from ..httpclient import (
+    HttpMethod,
+    NetworkResponse,
+    Request,
+    RequestToPerform,
+)
 from ..utils import log, sanitize_layer_name
 from .. import network
 
@@ -180,14 +184,20 @@ class LayerLoaderTask(qgis.core.QgsTask):
         return qgis.core.QgsVectorLayer(uri, self.brief_dataset.title, "WFS")
 
 
-class LayerUploaderTask(network_task.NetworkRequestTask):
+class LayerUploaderTask(qgis.core.QgsTask):
     VECTOR_UPLOAD_FORMAT = ExportFormat("ESRI Shapefile", "shp")
     RASTER_UPLOAD_FORMAT = ExportFormat("GTiff", "tif")
 
     layer: qgis.core.QgsMapLayer
     allow_public_access: bool
+    authcfg: str
+    network_task_timeout: int
+    response: typing.Optional[NetworkResponse]
     _upload_url: QtCore.QUrl
     _temporary_directory: typing.Optional[Path]
+    _request: typing.Optional[Request]
+
+    task_done = QtCore.pyqtSignal(bool)
 
     def __init__(
         self,
@@ -198,80 +208,86 @@ class LayerUploaderTask(network_task.NetworkRequestTask):
         network_task_timeout: int,
         description: str = "LayerUploaderTask",
     ):
-        """Task to perform upload of QGIS layers to remote GeoNode servers."""
-        super().__init__(
-            requests_to_perform=[],
-            authcfg=authcfg,
-            description=description,
-            network_task_timeout=network_task_timeout,
-        )
-        self.response_contents = [None]
+        """Task to perform upload of QGIS layers to remote GeoNode servers.
+
+        Subclasses :class:`qgis.core.QgsTask` directly: ``run()`` does the
+        layer export + multipart assembly on the worker thread, then drives a
+        single ``Request`` POST through a nested ``QEventLoop`` (legitimate
+        here — the surrounding QgsTask is genuinely a worker thread doing
+        non-network work first; this is the case ``wait_for_signal`` was
+        ostensibly written for).
+        """
+        super().__init__(description)
         self.layer = layer
         self.allow_public_access = allow_public_access
+        self.authcfg = authcfg
+        self.network_task_timeout = network_task_timeout
         self._upload_url = upload_url
         self._temporary_directory = None
+        self._request = None
+        self.response = None
 
     def run(self) -> bool:
         if self._is_layer_uploadable():
             source_path = Path(
                 self.layer.dataProvider().dataSourceUri().partition("|")[0]
             )
-            export_error = None
         else:
             log(
                 "Exporting layer to an uploadable format before proceeding with "
                 "the upload..."
             )
             source_path, export_error = self._export_layer_to_temp_dir()
+            if source_path is None:
+                log(f"Could not export layer for upload: {export_error}")
+                return False
         log(f"source_path: {source_path}")
-        if export_error is None:
-            sld_path, sld_error = self._export_layer_style()
-            log(f"sld_path: {sld_path}")
-            if sld_path is None:
-                log(
-                    f"Could not export the layer's style as SLD "
-                    f"({sld_error}), skipping..."
-                )
-            multipart = self._prepare_multipart(source_path, sld_path=sld_path)
-            with network.wait_for_signal(
-                self._all_requests_finished, timeout=self.network_task_timeout
-            ) as event_loop_result:
-                request = QtNetwork.QNetworkRequest(self._upload_url)
-                request.setHeader(
-                    QtNetwork.QNetworkRequest.ContentTypeHeader,
-                    f"multipart/form-data; boundary={multipart.boundary().data().decode()}",
-                )
-                if self.authcfg:
-                    auth_manager = qgis.core.QgsApplication.authManager()
-                    auth_added, _ = auth_manager.updateNetworkRequest(
-                        request, self.authcfg
-                    )
-                else:
-                    auth_added = True
-                if auth_added:
-                    qt_reply = self._dispatch_request(
-                        request, network.HttpMethod.POST, multipart
-                    )
-                    multipart.setParent(qt_reply)
-                    request_id = qt_reply.property("requestId")
-                    self._pending_replies[request_id] = network.PendingReply(
-                        0, qt_reply, False
-                    )
-                else:
-                    self._all_requests_finished.emit()
-            loop_forcibly_ended = not bool(event_loop_result.result)
-            if loop_forcibly_ended:
-                result = False
-            else:
-                result = self._num_finished >= len(self.requests_to_perform)
-        else:
-            result = False
-        return result
+        if self.isCanceled():
+            return False
+
+        sld_path, sld_error = self._export_layer_style()
+        log(f"sld_path: {sld_path}")
+        if sld_path is None:
+            log(
+                f"Could not export the layer's style as SLD "
+                f"({sld_error}), skipping..."
+            )
+        if self.isCanceled():
+            return False
+
+        multipart = self._prepare_multipart(source_path, sld_path=sld_path)
+        boundary = multipart.boundary().data().decode()
+
+        loop = QtCore.QEventLoop()
+        self._request = Request()
+        self._request.finished.connect(self._on_request_finished)
+        self._request.finished.connect(loop.quit)
+        self._request.send(
+            RequestToPerform(
+                url=self._upload_url,
+                method=HttpMethod.POST,
+                payload=multipart,
+                content_type=f"multipart/form-data; boundary={boundary}",
+            ),
+            authcfg=self.authcfg or None,
+            timeout_ms=self.network_task_timeout,
+        )
+        loop.exec_()
+
+        return self.response is not None and self.response.ok
+
+    def _on_request_finished(self, response: NetworkResponse) -> None:
+        self.response = response
+
+    def cancel(self) -> None:
+        super().cancel()
+        if self._request is not None:
+            self._request.cancel()
 
     def finished(self, result: bool) -> None:
         if self._temporary_directory is not None:
             shutil.rmtree(self._temporary_directory, ignore_errors=True)
-        super().finished(result)
+        self.task_done.emit(result)
 
     def _prepare_multipart(
         self, source_path: Path, sld_path: typing.Optional[Path] = None
