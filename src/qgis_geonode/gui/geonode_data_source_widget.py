@@ -316,10 +316,14 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self._apply_active_connection(current_connection)
         else:
             # Cache cold (or known-not-supported); probe and apply on completion.
-            self.show_message(tr("Checking connection..."), add_loading_widget=True)
             self.api_client = None
             self.toggle_search_buttons(enable=False)
             self.discover_api_client(self._apply_active_connection, current_connection)
+            self.show_message(
+                tr("Checking connection..."),
+                add_loading_widget=True,
+                cancel_callback=self.discovery_task.cancel,
+            )
 
     def _apply_active_connection(
         self, current_connection: conf.ConnectionSettings
@@ -436,13 +440,18 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         return confirmation == QtWidgets.QMessageBox.Yes
 
     def show_message(
-        self, message: str, level=qgis.core.Qgis.Info, add_loading_widget: bool = False
+        self,
+        message: str,
+        level=qgis.core.Qgis.Info,
+        add_loading_widget: bool = False,
+        cancel_callback: typing.Optional[typing.Callable[[], None]] = None,
     ) -> None:
         utils.show_message(
             self.message_bar,
             message,
             level=level,
             add_loading_widget=add_loading_widget,
+            cancel_callback=cancel_callback,
         )
 
     def request_next_page(self):

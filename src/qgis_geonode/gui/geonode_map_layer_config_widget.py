@@ -161,7 +161,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._download_style_request = Request(parent=self)
         self._download_style_request.finished.connect(self.handle_style_downloaded)
         self._toggle_style_controls(enabled=False)
-        self._show_message(message="Retrieving style...", add_loading_widget=True)
+        self._show_message(
+            message="Retrieving style...",
+            add_loading_widget=True,
+            cancel_callback=self._download_style_request.cancel,
+        )
         self._download_style_request.send(
             RequestToPerform(url=QtCore.QUrl(dataset.default_style.sld_url)),
             authcfg=self.connection_settings.auth_config,
@@ -204,7 +208,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._upload_style_request = Request(parent=self)
         self._upload_style_request.finished.connect(self.handle_style_uploaded)
         self._toggle_style_controls(enabled=False)
-        self._show_message(message="Uploading style...", add_loading_widget=True)
+        self._show_message(
+            message="Uploading style...",
+            add_loading_widget=True,
+            cancel_callback=self._upload_style_request.cancel,
+        )
         self._upload_style_request.send(
             RequestToPerform(
                 url=QtCore.QUrl(dataset.default_style.sld_url),
@@ -343,7 +351,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._upload_metadata_request = Request(parent=self)
         self._upload_metadata_request.finished.connect(self.handle_metadata_uploaded)
         self._toggle_metadata_controls(enabled=False)
-        self._show_message(message="Uploading metadata...", add_loading_widget=True)
+        self._show_message(
+            message="Uploading metadata...",
+            add_loading_widget=True,
+            cancel_callback=self._upload_metadata_request.cancel,
+        )
         self._upload_metadata_request.send(
             RequestToPerform(
                 url=QtCore.QUrl(metadata_link),
@@ -461,8 +473,15 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         message: str,
         level: typing.Optional[qgis.core.Qgis.MessageLevel] = qgis.core.Qgis.Info,
         add_loading_widget: bool = False,
+        cancel_callback: typing.Optional[typing.Callable[[], None]] = None,
     ) -> None:
-        utils.show_message(self.message_bar, message, level, add_loading_widget)
+        utils.show_message(
+            self.message_bar,
+            message,
+            level,
+            add_loading_widget,
+            cancel_callback=cancel_callback,
+        )
 
     def find_parent_by_type(self, obj, target_type):
         # Find the desired object by type

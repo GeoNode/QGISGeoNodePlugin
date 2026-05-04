@@ -137,7 +137,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.discovery_task = Request(parent=self)
         self.discovery_task.finished.connect(self.handle_wfs_version_detection_test)
         utils.show_message(
-            self.bar, tr("Detecting WFS version..."), add_loading_widget=True
+            self.bar,
+            tr("Detecting WFS version..."),
+            add_loading_widget=True,
+            cancel_callback=self.discovery_task.cancel,
         )
         self.discovery_task.send(
             RequestToPerform(url=url),
@@ -160,14 +163,17 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             widget.setEnabled(False)
 
         current_settings = self.get_connection_settings()
-        utils.show_message(
-            self.bar, tr("Testing connection..."), add_loading_widget=True
-        )
         self._test_connection_probe = apiclient.probe_api_client(
             current_settings.base_url,
             auth_config=current_settings.auth_config,
             timeout_ms=current_settings.network_requests_timeout,
             parent=self,
+        )
+        utils.show_message(
+            self.bar,
+            tr("Testing connection..."),
+            add_loading_widget=True,
+            cancel_callback=self._test_connection_probe.cancel,
         )
         # probe_api_client populates the cache from its own finished slot
         # before this one runs, so is_api_client_supported reflects the
