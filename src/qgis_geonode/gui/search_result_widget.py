@@ -22,6 +22,7 @@ from ..apiclient import (
     models,
 )
 from .. import network
+from ..httpclient import Request, RequestToPerform, NetworkResponse
 from ..apiclient.models import ApiClientCapability
 from ..conf import settings_manager
 from ..metadata import populate_metadata
@@ -45,7 +46,7 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
     dataset_loader_task: typing.Optional[qgis.core.QgsTask]
     # thumbnail_fetcher_task fetches the thumbnail over the network
     # thumbnail_loader_task then loads the thumbnail
-    thumbnail_fetcher_task: typing.Optional[network_task.NetworkRequestTask]
+    thumbnail_fetcher_task: typing.Optional[Request]
     thumbnail_loader_task: typing.Optional[qgis.core.QgsTask]
 
     load_layer_started = QtCore.pyqtSignal()
@@ -174,28 +175,28 @@ class SearchResultWidget(QtWidgets.QWidget, WidgetUi):
 
     def load_thumbnail(self):
         """Fetch the thumbnail from its remote URL and load it"""
-        self.thumbnail_fetcher_task = network_task.NetworkRequestTask(
-            [
-                network.RequestToPerform(
-                    url=QtCore.QUrl(self.brief_dataset.thumbnail_url)
-                )
-            ],
-            self.api_client.network_requests_timeout,
-            self.api_client.auth_config,
-            description=f"Get thumbnail for {self.brief_dataset.title!r}",
+        self.thumbnail_fetcher_task = Request(parent=self)
+        self.thumbnail_fetcher_task.finished.connect(self.handle_thumbnail_response)
+        self.thumbnail_fetcher_task.send(
+            RequestToPerform(url=QtCore.QUrl(self.brief_dataset.thumbnail_url)),
+            authcfg=self.api_client.auth_config,
+            timeout_ms=self.api_client.network_requests_timeout,
         )
-        self.thumbnail_fetcher_task.task_done.connect(self.handle_thumbnail_response)
-        qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_fetcher_task)
 
-    def handle_thumbnail_response(self, fetch_result: bool):
-        if fetch_result:
-            data_ = self.thumbnail_fetcher_task.response_contents[0].response_body
+    def handle_thumbnail_response(self, response: NetworkResponse):
+        if response.ok:
+            data_ = QtCore.QByteArray(response.body)
             self.thumbnail_loader_task = tasks.ThumbnailLoaderTask(
                 data_, self.thumbnail_la, self.brief_dataset.title
             )
             qgis.core.QgsApplication.taskManager().addTask(self.thumbnail_loader_task)
         else:
-            log(f"Could not fetch thumbnail")
+            error_message = (
+                response.error.message
+                if response.error is not None
+                else "unknown error"
+            )
+            log(f"Could not fetch thumbnail: {error_message}")
 
     def handle_dataset_load_start(self):
         self.data_source_widget.toggle_search_controls(False)
