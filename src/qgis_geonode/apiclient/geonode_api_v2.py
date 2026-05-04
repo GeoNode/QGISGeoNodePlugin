@@ -12,7 +12,13 @@ from qgis.PyQt import (
 
 from .. import network
 from .. import styles as geonode_styles
-from ..httpclient import Request, NetworkResponse, RequestToPerform
+from ..httpclient import (
+    ErrorKind,
+    NetworkError,
+    NetworkResponse,
+    Request,
+    RequestToPerform,
+)
 from ..utils import log, url_from_geoserver
 from ..tasks import tasks
 
@@ -172,16 +178,14 @@ class GeoNodeApiClient(BaseGeonodeClient):
             self.dataset_uploaded.emit()
             return
         if response is not None and response.error is not None:
-            err = response.error
-            if err.http_status is not None:
-                self.dataset_upload_error_received[str, int, str].emit(
-                    err.qt_error or "", err.http_status, err.message
-                )
-            else:
-                self.dataset_upload_error_received[str].emit(err.message)
+            self.dataset_upload_error_received.emit(response.error)
         else:
-            self.dataset_upload_error_received[str].emit(
-                "Could not upload layer to GeoNode"
+            self.dataset_upload_error_received.emit(
+                NetworkError(
+                    kind=ErrorKind.TRANSPORT,
+                    url=self.get_dataset_upload_url().toString(),
+                    message="Could not upload layer to GeoNode",
+                )
             )
 
     def _get_service_urls(
@@ -289,23 +293,19 @@ class GeoNodeApiClient(BaseGeonodeClient):
         emit_dataset_detail_received: bool = False,
     ) -> None:
         if not response.ok:
-            err = response.error
-            if err.http_status is not None:
-                self.style_detail_error_received[str, int, str].emit(
-                    err.qt_error or "", err.http_status, err.message
-                )
-            else:
-                self.style_detail_error_received[str].emit(err.message)
+            self.style_detail_error_received.emit(response.error)
             return
-        # ``deserialize_sld_doc`` expects a ``QByteArray`` (it forwards to
-        # ``QDomDocument.setContent``); the legacy ``get_usable_sld`` helper
-        # is still used by the GUI which feeds it a ``ParsedNetworkReply``.
         sld_named_layer, error_message = geonode_styles.deserialize_sld_doc(
             QtCore.QByteArray(response.body)
         )
         if sld_named_layer is None:
-            self.style_detail_error_received[str].emit(
-                f"Could not parse downloaded SLD: {error_message}"
+            self.style_detail_error_received.emit(
+                NetworkError(
+                    kind=ErrorKind.TRANSPORT,
+                    url=response.request.url.toString(),
+                    message=f"Could not parse downloaded SLD: {error_message}",
+                    http_status=response.http_status,
+                )
             )
             return
         dataset.default_style.sld = sld_named_layer
@@ -317,26 +317,23 @@ class GeoNodeApiClient(BaseGeonodeClient):
         response: NetworkResponse,
         error_signal,
     ) -> typing.Optional[typing.Union[typing.Dict, typing.List]]:
-        """Emit ``error_signal`` on failure; return deserialized JSON on success.
-
-        Failure paths use the structured ``[str, int, str]`` overload when the
-        server produced an HTTP status, and the plain ``[str]`` overload
-        otherwise.
-        """
+        """Emit ``error_signal`` (a ``pyqtSignal(NetworkError)``) on failure;
+        return deserialized JSON on success."""
         if not response.ok:
-            err = response.error
-            if err.http_status is not None:
-                error_signal[str, int, str].emit(
-                    err.qt_error or "", err.http_status, err.message
-                )
-            else:
-                error_signal[str].emit(err.message)
+            error_signal.emit(response.error)
             return None
         deserialized = network.deserialize_json_response(
             QtCore.QByteArray(response.body)
         )
         if deserialized is None:
-            error_signal[str].emit("Could not parse response from remote GeoNode")
+            error_signal.emit(
+                NetworkError(
+                    kind=ErrorKind.TRANSPORT,
+                    url=response.request.url.toString(),
+                    message="Could not parse response from remote GeoNode",
+                    http_status=response.http_status,
+                )
+            )
             return None
         return deserialized
 

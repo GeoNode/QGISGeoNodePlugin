@@ -25,7 +25,7 @@ from .. import (
 from ..apiclient.models import ApiClientCapability, IsoTopicCategory
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from ..httpclient import NetworkResponse, Request
+from ..httpclient import NetworkError, NetworkResponse, Request
 from ..utils import (
     tr,
 )
@@ -523,20 +523,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self.toggle_search_buttons()
         self.title_le.setFocus()
 
-    def handle_search_error(
-        self,
-        qt_error_message: str,
-        http_status_code: int = 0,
-        http_status_reason: str = None,
-    ):
-        message_fragments = [
-            "Search ended with error",
-            qt_error_message,
-            f"HTTP {http_status_code}" if http_status_code != 0 else None,
-            http_status_reason,
-        ]
-        error_message = " - ".join(i for i in message_fragments if i)
-        self.search_finished.emit(error_message)
+    def handle_search_error(self, error: NetworkError):
+        fragments = ["Search ended with error", error.qt_error or None]
+        if error.http_status is not None:
+            fragments.append(f"HTTP {error.http_status}")
+        fragments.append(error.message)
+        self.search_finished.emit(" - ".join(f for f in fragments if f))
 
     def handle_dataset_list(
         self,

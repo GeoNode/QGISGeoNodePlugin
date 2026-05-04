@@ -29,6 +29,7 @@ from ..apiclient import (
 )
 from ..httpclient import (
     HttpMethod,
+    NetworkError,
     NetworkResponse,
     Request,
     RequestToPerform,
@@ -408,10 +409,15 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._toggle_upload_controls(enabled=True)
         self._show_message("Layer uploaded successfully!")
 
-    def handle_layer_upload_error(self, *args):
+    def handle_layer_upload_error(self, error: NetworkError):
         self._toggle_upload_controls(enabled=True)
+        fragments = [error.qt_error or None]
+        if error.http_status is not None:
+            fragments.append(f"HTTP {error.http_status}")
+        fragments.append(error.message)
         self._show_message(
-            " - ".join(str(i) for i in args), level=qgis.core.Qgis.Critical
+            " - ".join(f for f in fragments if f),
+            level=qgis.core.Qgis.Critical,
         )
         self._layer_upload_api_client = None
 
