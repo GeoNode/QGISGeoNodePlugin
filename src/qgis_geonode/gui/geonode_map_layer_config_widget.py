@@ -1,4 +1,3 @@
-import json
 import typing
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -16,11 +15,8 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
-from ..tasks import network_task
-
 from .. import (
     conf,
-    network,
     styles,
     utils,
 )
@@ -30,6 +26,12 @@ from ..apiclient import (
     models,
     has_metadata_api,
     SUPPORTED_API_CLIENT,
+)
+from ..httpclient import (
+    HttpMethod,
+    NetworkResponse,
+    Request,
+    RequestToPerform,
 )
 from ..metadata import populate_metadata
 from ..utils import (
@@ -55,11 +57,13 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     upload_layer_pb: QtWidgets.QPushButton
     message_bar: qgis.gui.QgsMessageBar
 
-    network_task: typing.Optional[network_task.NetworkRequestTask]
     _apply_geonode_style: bool
     _apply_geonode_metadata: bool
     _layer_upload_api_client: typing.Optional[base.BaseGeonodeClient]
     _api_client: typing.Optional[base.BaseGeonodeClient]
+    _download_style_request: typing.Optional[Request]
+    _upload_style_request: typing.Optional[Request]
+    _upload_metadata_request: typing.Optional[Request]
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
@@ -93,7 +97,9 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         )
         self.layout().insertWidget(0, self.message_bar)
         self.public_access_chb.setChecked(True)
-        self.network_task = None
+        self._download_style_request = None
+        self._upload_style_request = None
+        self._upload_metadata_request = None
         self._apply_geonode_style = False
         self._apply_geonode_metadata = False
         self.layer = layer
@@ -151,65 +157,63 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     def download_style(self):
         dataset = self.get_dataset()
-        self.network_task = network_task.NetworkRequestTask(
-            [network.RequestToPerform(QtCore.QUrl(dataset.default_style.sld_url))],
-            self._api_client.network_requests_timeout,
-            self.connection_settings.auth_config,
-            description="Get dataset style",
-        )
-        self.network_task.task_done.connect(self.handle_style_downloaded)
+        self._download_style_request = Request(parent=self)
+        self._download_style_request.finished.connect(self.handle_style_downloaded)
         self._toggle_style_controls(enabled=False)
         self._show_message(message="Retrieving style...", add_loading_widget=True)
-        qgis.core.QgsApplication.taskManager().addTask(self.network_task)
+        self._download_style_request.send(
+            RequestToPerform(url=QtCore.QUrl(dataset.default_style.sld_url)),
+            authcfg=self.connection_settings.auth_config,
+            timeout_ms=self._api_client.network_requests_timeout,
+        )
 
-    def handle_style_downloaded(self, task_result: bool):
+    def handle_style_downloaded(self, response: NetworkResponse):
         self._toggle_style_controls(enabled=True)
-        if task_result:
-            sld_named_layer, error_message = styles.get_usable_sld(
-                self.network_task.response_contents[0]
-            )
-            if sld_named_layer is not None:
-                dataset = self.get_dataset()
-                dataset.default_style.sld = sld_named_layer
-                self.update_dataset(dataset)
-                self._apply_geonode_style = True
-                self.apply()
-            else:
-                self._show_message(
-                    message=(
-                        f"Unable to download and parse SLD style from remote "
-                        f"GeoNode: {error_message}"
-                    ),
-                    level=qgis.core.Qgis.Warning,
-                )
-        else:
+        if not response.ok:
             self._show_message(
-                "Unable to retrieve GeoNode style", level=qgis.core.Qgis.Warning
+                f"Unable to retrieve GeoNode style: {response.error.message}",
+                level=qgis.core.Qgis.Warning,
             )
+            return
+        sld_named_layer, error_message = styles.deserialize_sld_doc(
+            QtCore.QByteArray(response.body)
+        )
+        if sld_named_layer is None:
+            self._show_message(
+                message=(
+                    f"Unable to download and parse SLD style from remote "
+                    f"GeoNode: {error_message}"
+                ),
+                level=qgis.core.Qgis.Warning,
+            )
+            return
+        dataset = self.get_dataset()
+        dataset.default_style.sld = sld_named_layer
+        self.update_dataset(dataset)
+        self._apply_geonode_style = True
+        self.apply()
 
     def upload_style(self):
         self.apply()
         sld_data = self._prepare_style_for_upload()
-        if sld_data is not None:
-            serialized_sld, content_type = sld_data
-            dataset = self.get_dataset()
-            self.network_task = network_task.NetworkRequestTask(
-                [
-                    network.RequestToPerform(
-                        QtCore.QUrl(dataset.default_style.sld_url),
-                        method=network.HttpMethod.PUT,
-                        payload=serialized_sld,
-                        content_type=content_type,
-                    )
-                ],
-                self._api_client.network_requests_timeout,
-                self.connection_settings.auth_config,
-                description="Upload dataset style to GeoNode",
-            )
-            self.network_task.task_done.connect(self.handle_style_uploaded)
-            self._toggle_style_controls(enabled=False)
-            self._show_message(message="Uploading style...", add_loading_widget=True)
-            qgis.core.QgsApplication.taskManager().addTask(self.network_task)
+        if sld_data is None:
+            return
+        serialized_sld, content_type = sld_data
+        dataset = self.get_dataset()
+        self._upload_style_request = Request(parent=self)
+        self._upload_style_request.finished.connect(self.handle_style_uploaded)
+        self._toggle_style_controls(enabled=False)
+        self._show_message(message="Uploading style...", add_loading_widget=True)
+        self._upload_style_request.send(
+            RequestToPerform(
+                url=QtCore.QUrl(dataset.default_style.sld_url),
+                method=HttpMethod.PUT,
+                payload=serialized_sld,
+                content_type=content_type,
+            ),
+            authcfg=self.connection_settings.auth_config,
+            timeout_ms=self._api_client.network_requests_timeout,
+        )
 
     def _prepare_style_for_upload(self) -> typing.Optional[typing.Tuple[str, str]]:
         doc = QtXml.QDomDocument()
@@ -270,27 +274,27 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         content_type = "application/vnd.ogc.sld+xml"
         return new_serialized, content_type
 
-    def handle_style_uploaded(self, task_result: bool) -> None:
+    def handle_style_uploaded(self, response: NetworkResponse) -> None:
         self._toggle_style_controls(enabled=True)
-        if task_result:
-            parsed_reply = self.network_task.response_contents[0]
-            if parsed_reply is not None:
-                if parsed_reply.http_status_code == 200:
-                    self._show_message("Style uploaded successfully!")
-                else:
-                    error_message_parts = [
-                        "Could not upload style",
-                        parsed_reply.qt_error,
-                        f"HTTP {parsed_reply.http_status_code}",
-                        parsed_reply.http_status_reason,
-                    ]
-                    error_message = " - ".join(i for i in error_message_parts if i)
-                    self._show_message(error_message, level=qgis.core.Qgis.Warning)
-        else:
-            self._show_message(
-                f"Could not upload style",
-                level=qgis.core.Qgis.Warning,
-            )
+        if response.ok and response.http_status == 200:
+            self._show_message("Style uploaded successfully!")
+            return
+        err = response.error
+        error_message_parts = ["Could not upload style"]
+        if err is not None:
+            if err.qt_error:
+                error_message_parts.append(err.qt_error)
+            if err.http_status is not None:
+                error_message_parts.append(f"HTTP {err.http_status}")
+            error_message_parts.append(err.message)
+        elif response.http_status is not None:
+            error_message_parts.append(f"HTTP {response.http_status}")
+            if response.http_reason:
+                error_message_parts.append(response.http_reason)
+        self._show_message(
+            " - ".join(p for p in error_message_parts if p),
+            level=qgis.core.Qgis.Warning,
+        )
 
     def download_metadata(self) -> None:
         """Initiate download of metadata from the remote GeoNode"""
@@ -335,53 +339,45 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             else dataset_link
         )
 
-        self.network_task = network_task.NetworkRequestTask(
-            [
-                network.RequestToPerform(
-                    QtCore.QUrl(metadata_link),
-                    method=network.HttpMethod.PATCH,
-                    payload=json.dumps(
-                        {
-                            "title": current_metadata.title(),
-                            "abstract": current_metadata.abstract(),
-                        }
-                    ),
-                    content_type="application/json",
-                )
-            ],
-            self._api_client.network_requests_timeout,
-            self._api_client.auth_config,
-            description="Upload metadata",
-        )
-        self.network_task.task_done.connect(self.handle_metadata_uploaded)
+        self._upload_metadata_request = Request(parent=self)
+        self._upload_metadata_request.finished.connect(self.handle_metadata_uploaded)
         self._toggle_metadata_controls(enabled=False)
         self._show_message(message="Uploading metadata...", add_loading_widget=True)
-        qgis.core.QgsApplication.taskManager().addTask(self.network_task)
+        self._upload_metadata_request.send(
+            RequestToPerform(
+                url=QtCore.QUrl(metadata_link),
+                method=HttpMethod.PATCH,
+                payload={
+                    "title": current_metadata.title(),
+                    "abstract": current_metadata.abstract(),
+                },
+                content_type="application/json",
+            ),
+            authcfg=self._api_client.auth_config,
+            timeout_ms=self._api_client.network_requests_timeout,
+        )
 
-    def handle_metadata_uploaded(self, task_result: bool) -> None:
+    def handle_metadata_uploaded(self, response: NetworkResponse) -> None:
         self._toggle_metadata_controls(enabled=True)
-        if task_result:
-            parsed_reply = self.network_task.response_contents[0]
-            if parsed_reply is not None:
-                if parsed_reply.http_status_code == 200:
-                    self._show_message("Metadata uploaded successfully!")
-                else:
-                    error_message_parts = [
-                        "Could not upload metadata",
-                        parsed_reply.qt_error,
-                        f"HTTP {parsed_reply.http_status_code}",
-                        parsed_reply.http_status_reason,
-                    ]
-                    error_message = " - ".join(i for i in error_message_parts if i)
-                    self._show_message(error_message, level=qgis.core.Qgis.Warning)
-            else:
-                self._show_message(
-                    "Could not upload metadata", level=qgis.core.Qgis.Warning
-                )
-        else:
-            self._show_message(
-                "Could not upload metadata", level=qgis.core.Qgis.Warning
-            )
+        if response.ok and response.http_status == 200:
+            self._show_message("Metadata uploaded successfully!")
+            return
+        err = response.error
+        error_message_parts = ["Could not upload metadata"]
+        if err is not None:
+            if err.qt_error:
+                error_message_parts.append(err.qt_error)
+            if err.http_status is not None:
+                error_message_parts.append(f"HTTP {err.http_status}")
+            error_message_parts.append(err.message)
+        elif response.http_status is not None:
+            error_message_parts.append(f"HTTP {response.http_status}")
+            if response.http_reason:
+                error_message_parts.append(response.http_reason)
+        self._show_message(
+            " - ".join(p for p in error_message_parts if p),
+            level=qgis.core.Qgis.Warning,
+        )
 
     def open_detail_url(self) -> None:
         dataset = self.get_dataset()
