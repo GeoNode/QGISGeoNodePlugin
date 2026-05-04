@@ -11,17 +11,11 @@ from qgis.PyQt.uic import loadUiType
 import qgis.core
 import qgis.gui
 
-from ..tasks import (
-    tasks,
-    network_task,
-)
-
-
+from ..tasks import tasks
 from ..apiclient import (
     base,
     models,
 )
-from .. import network
 from ..httpclient import Request, RequestToPerform, NetworkResponse
 from ..apiclient.models import ApiClientCapability
 from ..conf import settings_manager
