@@ -16,6 +16,7 @@ from ..apiclient import (
     get_geonode_client,
     models,
     is_api_client_supported,
+    probe_api_client,
 )
 from .. import (
     conf,
@@ -24,7 +25,7 @@ from .. import (
 from ..apiclient.models import ApiClientCapability, IsoTopicCategory
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from ..httpclient import NetworkResponse, Request, RequestToPerform
+from ..httpclient import NetworkResponse, Request
 from ..utils import (
     tr,
 )
@@ -311,24 +312,32 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
         conf.settings_manager.set_current_connection(current_connection.id)
 
-        # Check if API v2 is supported
-        api_supported = is_api_client_supported(current_connection.base_url)
+        if is_api_client_supported(current_connection.base_url):
+            self._apply_active_connection(current_connection)
+        else:
+            # Cache cold (or known-not-supported); probe and apply on completion.
+            self.show_message(tr("Checking connection..."), add_loading_widget=True)
+            self.api_client = None
+            self.toggle_search_buttons(enable=False)
+            self.discover_api_client(self._apply_active_connection, current_connection)
 
-        if not api_supported:
+    def _apply_active_connection(
+        self, current_connection: conf.ConnectionSettings
+    ) -> None:
+        self.message_bar.clearWidgets()
+        if not is_api_client_supported(current_connection.base_url):
             self.show_message(
                 tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
             )
             self.api_client = None
             self.toggle_search_buttons(enable=False)
         else:
-            # API is reachable so instantiate client
             self.api_client = get_geonode_client(current_connection)
             if self.api_client:
                 self._load_sorting_fields()
                 self.api_client.dataset_list_received.connect(self.handle_dataset_list)
                 self.api_client.search_error_received.connect(self.handle_search_error)
             self.toggle_search_buttons(enable=True)
-
         self.update_gui(current_connection)
 
     def toggle_search_buttons(self, enable: typing.Optional[bool] = None):
@@ -446,16 +455,17 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
     def discover_api_client(self, next_: typing.Callable, *next_args, **next_kwargs):
         current_connection = conf.settings_manager.get_current_connection_settings()
-        self.discovery_task = Request(parent=self)
+        # probe_api_client populates the api-support cache as a side-effect
+        # before the handler below runs, so is_api_client_supported reflects
+        # the probe outcome by the time next_() is invoked.
+        self.discovery_task = probe_api_client(
+            current_connection.base_url,
+            auth_config=current_connection.auth_config,
+            timeout_ms=current_connection.network_requests_timeout,
+            parent=self,
+        )
         self.discovery_task.finished.connect(
             partial(self.handle_api_client_discovery, next_, *next_args, **next_kwargs)
-        )
-        self.discovery_task.send(
-            RequestToPerform(
-                url=QtCore.QUrl(f"{current_connection.base_url}/version.txt"),
-            ),
-            authcfg=current_connection.auth_config,
-            timeout_ms=current_connection.network_requests_timeout,
         )
 
     def handle_api_client_discovery(
