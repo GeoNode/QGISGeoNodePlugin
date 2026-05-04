@@ -70,6 +70,15 @@ class GeoNodeApiClient(BaseGeonodeClient):
     def get_dataset_upload_url(self) -> QtCore.QUrl:
         return QtCore.QUrl(f"{self.api_url}/uploads/upload/")
 
+    def get_execution_request_url_template(self) -> str:
+        # NOTE: no trailing slash — the GeoNode router serves the detail at
+        # ``/executionrequest/{id}`` and a request to ``/{id}/`` returns a 3xx
+        # redirect that Qt does not follow, leaving the response with
+        # ``http_status=301/302`` and no error → ``handle_layer_upload`` falls
+        # through to its generic "Could not upload layer to GeoNode" branch
+        # even though the upload itself was fine.
+        return f"{self.api_url}/executionrequest/{{execution_id}}"
+
     def build_search_query(
         self, search_filters: models.GeonodeApiSearchFilters
     ) -> QtCore.QUrlQuery:
@@ -164,6 +173,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
             self.auth_config,
             network_task_timeout=timeout,
             description="Upload layer to GeoNode",
+            execution_request_url_template=self.get_execution_request_url_template(),
         )
 
     def handle_layer_upload(self, result: bool):

@@ -31,6 +31,7 @@ class BaseGeonodeClient(QtCore.QObject):
     keyword_list_received = QtCore.pyqtSignal(list)
     search_error_received = QtCore.pyqtSignal(NetworkError)
     dataset_uploaded = QtCore.pyqtSignal()
+    dataset_upload_processing = QtCore.pyqtSignal()
     dataset_upload_error_received = QtCore.pyqtSignal(NetworkError)
 
     def __init__(
@@ -183,6 +184,10 @@ class BaseGeonodeClient(QtCore.QObject):
             layer, allow_public_access, timeout=10 * 60 * 1000
         )  # the GeoNode GUI also uses a 10 minute timeout for uploads
         self._upload_task.task_done.connect(self.handle_layer_upload)
+        # Re-emit the task's transition signal so the GUI can swap the
+        # "uploading" message for "processing on the server" without having
+        # to know about the QgsTask itself.
+        self._upload_task.upload_received.connect(self.dataset_upload_processing)
         qgis.core.QgsApplication.taskManager().addTask(self._upload_task)
 
     def handle_layer_upload(self, result: bool):

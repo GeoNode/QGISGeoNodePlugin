@@ -1,3 +1,4 @@
+import json
 import typing
 import urllib.parse
 import shutil
@@ -18,7 +19,9 @@ from ..apiclient import (
 )
 import qgis.core
 from ..httpclient import (
+    ErrorKind,
     HttpMethod,
+    NetworkError,
     NetworkResponse,
     Request,
     RequestToPerform,
@@ -188,16 +191,27 @@ class LayerUploaderTask(qgis.core.QgsTask):
     VECTOR_UPLOAD_FORMAT = ExportFormat("ESRI Shapefile", "shp")
     RASTER_UPLOAD_FORMAT = ExportFormat("GTiff", "tif")
 
+    _POLL_INTERVAL_MS = 3000
+    _POLL_OVERALL_TIMEOUT_MS = 60 * 60 * 1000
+
     layer: qgis.core.QgsMapLayer
     allow_public_access: bool
     authcfg: str
     network_task_timeout: int
     response: typing.Optional[NetworkResponse]
+    upload_response: typing.Optional[NetworkResponse]
     _upload_url: QtCore.QUrl
+    _execution_request_url_template: typing.Optional[str]
     _temporary_directory: typing.Optional[Path]
     _request: typing.Optional[Request]
+    _poll_wait_loop: typing.Optional[QtCore.QEventLoop]
 
     task_done = QtCore.pyqtSignal(bool)
+    # Fired once the multipart POST has been accepted by the server (HTTP
+    # 2xx + execution_id parsed) and the task is about to enter the polling
+    # phase. The GUI uses this to switch the status message from
+    # "uploading" to "processing on the server".
+    upload_received = QtCore.pyqtSignal()
 
     def __init__(
         self,
@@ -207,6 +221,7 @@ class LayerUploaderTask(qgis.core.QgsTask):
         authcfg: str,
         network_task_timeout: int,
         description: str = "LayerUploaderTask",
+        execution_request_url_template: typing.Optional[str] = None,
     ):
         """Task to perform upload of QGIS layers to remote GeoNode servers.
 
@@ -216,6 +231,14 @@ class LayerUploaderTask(qgis.core.QgsTask):
         here — the surrounding QgsTask is genuinely a worker thread doing
         non-network work first; this is the case ``wait_for_signal`` was
         ostensibly written for).
+
+        ``execution_request_url_template`` must contain an ``{execution_id}``
+        placeholder. When provided, the task does not consider the upload done
+        once the POST returns 201 — that response only carries the
+        ``execution_id`` for the async ingestion job. The task then polls
+        ``GET /executionrequest/{id}`` until the server reports status
+        ``finished`` (success) or ``failed`` (error). When the template is
+        ``None`` the POST result is the final answer (used by tests).
         """
         super().__init__(description)
         self.layer = layer
@@ -223,9 +246,12 @@ class LayerUploaderTask(qgis.core.QgsTask):
         self.authcfg = authcfg
         self.network_task_timeout = network_task_timeout
         self._upload_url = upload_url
+        self._execution_request_url_template = execution_request_url_template
         self._temporary_directory = None
         self._request = None
+        self._poll_wait_loop = None
         self.response = None
+        self.upload_response = None
 
     def run(self) -> bool:
         if self._is_layer_uploadable():
@@ -258,22 +284,35 @@ class LayerUploaderTask(qgis.core.QgsTask):
         multipart = self._prepare_multipart(source_path, sld_path=sld_path)
         boundary = multipart.boundary().data().decode()
 
-        loop = QtCore.QEventLoop()
-        self._request = Request()
-        self._request.finished.connect(self._on_request_finished)
-        self._request.finished.connect(loop.quit)
-        self._request.send(
+        self._dispatch_request_blocking(
             RequestToPerform(
                 url=self._upload_url,
                 method=HttpMethod.POST,
                 payload=multipart,
                 content_type=f"multipart/form-data; boundary={boundary}",
-            ),
-            authcfg=self.authcfg or None,
-            timeout_ms=self.network_task_timeout,
+            )
         )
-        loop.exec_()
 
+        self.upload_response = self.response
+        if self.isCanceled():
+            return False
+        if self.response is None or not self.response.ok:
+            return False
+
+        if self._execution_request_url_template is None:
+            return True
+
+        execution_id = self._parse_execution_id(self.response.body)
+        if not execution_id:
+            self.response = self._synthesise_error_response(
+                self._upload_url,
+                "Upload accepted but server did not return an execution_id",
+                body=self.response.body,
+            )
+            return False
+
+        self.upload_received.emit()
+        self.response = self._poll_execution_status(execution_id)
         return self.response is not None and self.response.ok
 
     def _on_request_finished(self, response: NetworkResponse) -> None:
@@ -283,6 +322,175 @@ class LayerUploaderTask(qgis.core.QgsTask):
         super().cancel()
         if self._request is not None:
             self._request.cancel()
+        if self._poll_wait_loop is not None:
+            self._poll_wait_loop.quit()
+
+    def _dispatch_request_blocking(self, request: RequestToPerform) -> None:
+        """Send ``request`` and block until it completes.
+
+        Uses the same nested ``QEventLoop`` pattern as the original POST —
+        the worker thread is genuinely waiting for I/O here. The result
+        lands in ``self.response`` via ``_on_request_finished``.
+
+        The ``_on_request_finished`` slot is connected with
+        ``Qt.DirectConnection``: this task QObject lives on the main thread
+        but ``run()`` executes on a worker thread, so the default
+        ``AutoConnection`` would queue the slot on the main thread's event
+        loop — which the nested ``QEventLoop`` here does not process. The
+        loop would then exit on ``loop.quit`` (a same-thread direct call)
+        with ``self.response`` still ``None``. ``DirectConnection`` makes
+        the assignment happen synchronously in the worker thread; it's a
+        plain Python attribute set, so the GIL is enough for safety.
+        """
+        loop = QtCore.QEventLoop()
+        self._request = Request()
+        self._request.finished.connect(
+            self._on_request_finished, type=QtCore.Qt.DirectConnection
+        )
+        self._request.finished.connect(loop.quit)
+        self._request.send(
+            request,
+            authcfg=self.authcfg or None,
+            timeout_ms=self.network_task_timeout,
+        )
+        loop.exec_()
+
+    def _poll_execution_status(self, execution_id: str) -> NetworkResponse:
+        """Poll the executionrequest endpoint until the import terminates.
+
+        Returns the last poll response. On a logical failure (HTTP 200 but
+        ``status == "failed"``) the response carries a synthesised
+        ``NetworkError`` so callers can rely on ``response.ok`` alone.
+        """
+        poll_url = QtCore.QUrl(
+            self._execution_request_url_template.format(execution_id=execution_id)
+        )
+        deadline_ms = self._POLL_OVERALL_TIMEOUT_MS
+        elapsed_ms = 0
+        last_response: typing.Optional[NetworkResponse] = None
+
+        while not self.isCanceled() and elapsed_ms < deadline_ms:
+            self._dispatch_request_blocking(
+                RequestToPerform(url=poll_url, method=HttpMethod.GET)
+            )
+            last_response = self.response
+            if self.isCanceled():
+                return last_response or self._synthesise_error_response(
+                    poll_url, "Upload tracking cancelled"
+                )
+            if last_response is None or not last_response.ok:
+                return last_response or self._synthesise_error_response(
+                    poll_url, "Upload tracking failed: empty response"
+                )
+
+            status = self._parse_execution_status(last_response.body)
+            if status == "finished":
+                return last_response
+            if status == "failed":
+                return dataclasses.replace(
+                    last_response,
+                    error=NetworkError(
+                        kind=ErrorKind.HTTP,
+                        url=poll_url.toString(),
+                        message=self._failure_message(last_response.body),
+                        body=last_response.body,
+                    ),
+                )
+
+            self._sleep_between_polls()
+            elapsed_ms += self._POLL_INTERVAL_MS
+
+        if self.isCanceled():
+            return last_response or self._synthesise_error_response(
+                poll_url, "Upload tracking cancelled"
+            )
+        return self._synthesise_error_response(
+            poll_url,
+            f"Upload tracking timed out after {deadline_ms // 1000}s",
+            body=last_response.body if last_response is not None else None,
+        )
+
+    def _sleep_between_polls(self) -> None:
+        """Block the worker thread for ``_POLL_INTERVAL_MS``, cancellable.
+
+        ``cancel()`` calls ``quit()`` on this loop to interrupt the wait
+        immediately rather than waiting out the full interval.
+        """
+        self._poll_wait_loop = QtCore.QEventLoop()
+        QtCore.QTimer.singleShot(self._POLL_INTERVAL_MS, self._poll_wait_loop.quit)
+        self._poll_wait_loop.exec_()
+        self._poll_wait_loop = None
+
+    @staticmethod
+    def _parse_execution_id(body: typing.Optional[bytes]) -> typing.Optional[str]:
+        if not body:
+            return None
+        try:
+            data = json.loads(body)
+        except (ValueError, TypeError):
+            return None
+        if isinstance(data, dict):
+            value = data.get("execution_id")
+            if isinstance(value, str) and value:
+                return value
+        return None
+
+    @staticmethod
+    def _parse_execution_status(body: typing.Optional[bytes]) -> typing.Optional[str]:
+        # DynamicREST wraps detail responses under the serializer's ``name``
+        # ("request" for ExecutionRequestSerializer); fall back to a flat
+        # shape so older / non-wrapped responses still parse.
+        if not body:
+            return None
+        try:
+            data = json.loads(body)
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        wrapped = data.get("request")
+        record = wrapped if isinstance(wrapped, dict) else data
+        status = record.get("status")
+        return status if isinstance(status, str) else None
+
+    @staticmethod
+    def _failure_message(body: typing.Optional[bytes]) -> str:
+        default = "Upload failed on the GeoNode server"
+        if not body:
+            return default
+        try:
+            data = json.loads(body)
+        except (ValueError, TypeError):
+            return default
+        if not isinstance(data, dict):
+            return default
+        record = data.get("request") if isinstance(data.get("request"), dict) else data
+        log_text = record.get("log") if isinstance(record.get("log"), str) else None
+        if log_text:
+            return f"{default}: {log_text}"
+        return default
+
+    @staticmethod
+    def _synthesise_error_response(
+        url: typing.Union[QtCore.QUrl, str],
+        message: str,
+        body: typing.Optional[bytes] = None,
+    ) -> NetworkResponse:
+        url_str = url.toString() if isinstance(url, QtCore.QUrl) else url
+        request = RequestToPerform(
+            url=url if isinstance(url, QtCore.QUrl) else QtCore.QUrl(url),
+            method=HttpMethod.GET,
+        )
+        return NetworkResponse(
+            request=request,
+            body=body or b"",
+            error=NetworkError(
+                kind=ErrorKind.TRANSPORT,
+                url=url_str,
+                message=message,
+                body=body,
+            ),
+        )
 
     def finished(self, result: bool) -> None:
         if self._temporary_directory is not None:

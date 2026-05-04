@@ -410,11 +410,22 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         self._layer_upload_api_client.dataset_uploaded.connect(
             self.handle_layer_uploaded
         )
+        self._layer_upload_api_client.dataset_upload_processing.connect(
+            self.handle_layer_upload_processing
+        )
         self._layer_upload_api_client.dataset_upload_error_received.connect(
             self.handle_layer_upload_error
         )
         self._layer_upload_api_client.upload_layer(
             self.layer, allow_public_access=self.public_access_chb.isChecked()
+        )
+
+    def handle_layer_upload_processing(self):
+        # POST is done; the server is now ingesting asynchronously. Keep the
+        # spinner and the controls disabled, just swap the message.
+        self._show_message(
+            "Upload received. GeoNode is processing the dataset...",
+            add_loading_widget=True,
         )
 
     def handle_layer_uploaded(self):
