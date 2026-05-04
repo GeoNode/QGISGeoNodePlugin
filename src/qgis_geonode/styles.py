@@ -3,7 +3,6 @@ import typing
 from PyQt5 import QtCore, QtXml
 from qgis.PyQt import QtXml
 
-from . import network
 from .utils import remove_comments_from_sld
 
 
@@ -59,10 +58,3 @@ def serialize_sld_named_layer(sld_named_layer: QtXml.QDomElement) -> str:
     except UnicodeDecodeError:
         element_string = buffer_.data().decode(encoding="latin-1")
     return element_string
-
-
-def get_usable_sld(
-    http_response: network.ParsedNetworkReply,
-) -> typing.Tuple[typing.Optional[QtXml.QDomElement], str]:
-    raw_sld = http_response.response_body
-    return deserialize_sld_doc(raw_sld)
