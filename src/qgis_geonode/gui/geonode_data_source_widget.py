@@ -25,7 +25,7 @@ from .. import (
 from ..apiclient.models import ApiClientCapability, IsoTopicCategory
 from ..gui.connection_dialog import ConnectionDialog
 from ..gui.search_result_widget import SearchResultWidget
-from ..httpclient import NetworkError, NetworkResponse, Request
+from ..httpclient import NetworkError, Request
 from ..utils import (
     tr,
 )
@@ -473,14 +473,24 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             timeout_ms=current_connection.network_requests_timeout,
             parent=self,
         )
+        # A lambda — not partial — is required here. ``finished`` emits one
+        # positional NetworkResponse; ``partial(handler, next_, *next_args)``
+        # would *append* that NetworkResponse after the bound args, which
+        # quietly mis-slots ``response`` as ``next_args[0]`` whenever the
+        # caller passes any positional next_args (e.g.
+        # ``discover_api_client(self._apply_active_connection,
+        # current_connection)``). The lambda explicitly discards the
+        # NetworkResponse — handle_api_client_discovery doesn't need it; the
+        # api-support cache is the source of truth by the time it runs.
         self.discovery_task.finished.connect(
-            partial(self.handle_api_client_discovery, next_, *next_args, **next_kwargs)
+            lambda _response: self.handle_api_client_discovery(
+                next_, *next_args, **next_kwargs
+            )
         )
 
     def handle_api_client_discovery(
         self,
         next_: typing.Callable,
-        response: NetworkResponse,
         *next_args,
         **next_kwargs,
     ):
