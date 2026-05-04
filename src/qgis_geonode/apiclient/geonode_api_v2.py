@@ -129,23 +129,24 @@ class GeoNodeApiClient(BaseGeonodeClient):
             )
         return query
 
-    def handle_dataset_detail_from_id(self, task_result: bool) -> None:
-        deserialized_resource = self._retrieve_response(
-            task_result, 0, self.dataset_detail_error_received
+    def handle_dataset_detail_from_id(self, response: NetworkResponse) -> None:
+        deserialized_resource = self._parse_json_response(
+            response, self.dataset_detail_error_received
         )
-        if deserialized_resource is not None:
-            try:
-                dataset = self._parse_dataset_detail(deserialized_resource["dataset"])
-            except KeyError as exc:
-                log(
-                    f"Could not parse server response into a dataset: {str(exc)}",
-                    debug=False,
-                )
-            else:
-                if dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER:
-                    self.get_dataset_style(dataset, emit_dataset_detail_received=True)
-                else:
-                    self.dataset_detail_received.emit(dataset)
+        if deserialized_resource is None:
+            return
+        try:
+            dataset = self._parse_dataset_detail(deserialized_resource["dataset"])
+        except KeyError as exc:
+            log(
+                f"Could not parse server response into a dataset: {str(exc)}",
+                debug=False,
+            )
+            return
+        if dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER:
+            self.get_dataset_style(dataset, emit_dataset_detail_received=True)
+        else:
+            self.dataset_detail_received.emit(dataset)
 
     def get_uploader_task(
         self, layer: qgis.core.QgsMapLayer, allow_public_access: bool, timeout: int
@@ -243,42 +244,39 @@ class GeoNodeApiClient(BaseGeonodeClient):
 
     def handle_dataset_detail(
         self,
-        task_result: bool,
+        response: NetworkResponse,
         get_style_too: bool = False,
         authenticated: bool = False,
     ) -> None:
         log("inside the API client's handle_dataset_detail")
-        deserialized_resource = self._retrieve_response(
-            task_result, 0, self.dataset_detail_error_received
+        deserialized_resource = self._parse_json_response(
+            response, self.dataset_detail_error_received
         )
-        if deserialized_resource is not None:
-            try:
-                dataset = self._parse_dataset_detail(
-                    deserialized_resource[self._DATASET_NAME]
-                )
-            except KeyError as exc:
-                log(
-                    f"Could not parse server response into a dataset: {str(exc)}",
-                    debug=False,
-                )
-            else:
-                # check if the request is from a WFS to see if it will retrieve the style
-                if get_style_too and authenticated:
-                    is_vector = (
-                        dataset.dataset_sub_type
-                        == models.GeonodeResourceType.VECTOR_LAYER
-                    )
-                    should_load_vector_style = (
-                        models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE
-                        in self.capabilities
-                    )
-                    # Check if the layer is vector and if it has the permissions to read the style
-                    if is_vector and should_load_vector_style:
-                        self.get_dataset_style(
-                            dataset, emit_dataset_detail_received=True
-                        )
-                else:
-                    self.dataset_detail_received.emit(dataset)
+        if deserialized_resource is None:
+            return
+        try:
+            dataset = self._parse_dataset_detail(
+                deserialized_resource[self._DATASET_NAME]
+            )
+        except KeyError as exc:
+            log(
+                f"Could not parse server response into a dataset: {str(exc)}",
+                debug=False,
+            )
+            return
+        # check if the request is from a WFS to see if it will retrieve the style
+        if get_style_too and authenticated:
+            is_vector = (
+                dataset.dataset_sub_type == models.GeonodeResourceType.VECTOR_LAYER
+            )
+            should_load_vector_style = (
+                models.ApiClientCapability.LOAD_VECTOR_LAYER_STYLE in self.capabilities
+            )
+            # Check if the layer is vector and if it has the permissions to read the style
+            if is_vector and should_load_vector_style:
+                self.get_dataset_style(dataset, emit_dataset_detail_received=True)
+        else:
+            self.dataset_detail_received.emit(dataset)
 
     def handle_dataset_style(
         self,
@@ -317,10 +315,9 @@ class GeoNodeApiClient(BaseGeonodeClient):
     ) -> typing.Optional[typing.Union[typing.Dict, typing.List]]:
         """Emit ``error_signal`` on failure; return deserialized JSON on success.
 
-        Mirrors the legacy ``_retrieve_response`` for the new ``Request`` /
-        ``NetworkResponse`` world. Failure paths use the structured
-        ``[str, int, str]`` overload when the server produced an HTTP status,
-        and the plain ``[str]`` overload otherwise.
+        Failure paths use the structured ``[str, int, str]`` overload when the
+        server produced an HTTP status, and the plain ``[str]`` overload
+        otherwise.
         """
         if not response.ok:
             err = response.error
@@ -338,41 +335,6 @@ class GeoNodeApiClient(BaseGeonodeClient):
             error_signal[str].emit("Could not parse response from remote GeoNode")
             return None
         return deserialized
-
-    def _retrieve_response(
-        self,
-        task_result: bool,
-        contents_index: int,
-        error_signal,
-        deserialize_as_json: typing.Optional[bool] = True,
-    ) -> typing.Optional[typing.Union[typing.Dict, network.ParsedNetworkReply]]:
-        """Internal method that takes care of boilerplate-ish response parsing."""
-        result = None
-        if task_result:
-            response_content = self.network_fetcher_task.response_contents[
-                contents_index
-            ]
-            if response_content.qt_error is None:
-                result = response_content
-                if deserialize_as_json:
-                    deserialized = network.deserialize_json_response(
-                        response_content.response_body
-                    )
-                    if deserialized is not None:
-                        result = deserialized
-                    else:
-                        error_signal[str].emit(
-                            "Could not parse response from remote GeoNode"
-                        )
-            else:
-                error_signal[str, int, str].emit(
-                    response_content.qt_error,
-                    response_content.http_status_code,
-                    response_content.http_status_reason,
-                )
-        else:
-            error_signal[str].emit("Could not complete network request")
-        return result
 
     def _get_sld_url(self, raw_style: typing.Dict) -> typing.Optional[str]:
         auth_manager = qgis.core.QgsApplication.authManager()
