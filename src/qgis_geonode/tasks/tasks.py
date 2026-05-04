@@ -24,7 +24,7 @@ from ..httpclient import (
     RequestToPerform,
 )
 from ..utils import log, sanitize_layer_name
-from .. import network
+from . import upload
 
 
 @dataclasses.dataclass()
@@ -325,7 +325,7 @@ class LayerUploaderTask(qgis.core.QgsTask):
                 "view_resourcebase",
                 "download_resourcebase",
             ]
-        multipart = network.build_multipart(
+        multipart = upload.build_multipart(
             self.layer.metadata(), permissions, main_file, sidecar_files=sidecar_files
         )
         # below we set all QFiles as children of the multipart object and later we
