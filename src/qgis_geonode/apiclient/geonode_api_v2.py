@@ -166,7 +166,7 @@ class GeoNodeApiClient(BaseGeonodeClient):
             201,
         )
         if result:
-            response_contents = self.network_fetcher_task.response_contents[0]
+            response_contents = self._upload_task.response_contents[0]
             if response_contents.http_status_code in success_statuses:
                 self.dataset_uploaded.emit()
             else:
