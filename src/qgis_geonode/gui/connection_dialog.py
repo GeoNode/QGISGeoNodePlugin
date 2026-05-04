@@ -13,8 +13,7 @@ from qgis.PyQt import (
 )
 from qgis.PyQt.uic import loadUiType
 
-from ..tasks import network_task
-from .. import apiclient, network, utils
+from .. import apiclient, utils
 from ..apiclient.base import BaseGeonodeClient
 from ..apiclient import is_api_client_supported
 from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
@@ -46,6 +45,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
 
     connection_id: uuid.UUID
     discovery_task: typing.Optional[Request]
+    _test_connection_probe: typing.Optional[Request]
     geonode_client: BaseGeonodeClient = None
 
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
@@ -65,6 +65,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         )
         self.layout().insertWidget(0, self.bar, alignment=QtCore.Qt.AlignTop)
         self.discovery_task = None
+        self._test_connection_probe = None
         self._populate_wfs_version_combobox()
         if connection_settings is not None:
             self.connection_id = connection_settings.id
@@ -159,11 +160,23 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             widget.setEnabled(False)
 
         current_settings = self.get_connection_settings()
-
-        # Replace old version.txt request with /api/v2/ check
-        success = is_api_client_supported(current_settings.base_url)
-
-        self.handle_discovery_test(success)
+        utils.show_message(
+            self.bar, tr("Testing connection..."), add_loading_widget=True
+        )
+        self._test_connection_probe = apiclient.probe_api_client(
+            current_settings.base_url,
+            auth_config=current_settings.auth_config,
+            timeout_ms=current_settings.network_requests_timeout,
+            parent=self,
+        )
+        # probe_api_client populates the cache from its own finished slot
+        # before this one runs, so is_api_client_supported reflects the
+        # probe outcome.
+        self._test_connection_probe.finished.connect(
+            lambda _response, url=current_settings.base_url: self.handle_discovery_test(
+                is_api_client_supported(url)
+            )
+        )
 
     def handle_discovery_test(self, is_supported: bool):
         self.enable_post_test_connection_buttons()
