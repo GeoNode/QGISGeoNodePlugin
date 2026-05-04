@@ -30,8 +30,6 @@ PyQt5 = {version = "5.15.6", platform = "win32"}
 urllib3 = "^2.6.3"
 h11 = "^0.16.0"
 
-[tool.poetry.dev-dependencies]
-
 [tool.pytest.ini_options]
 addopts = "--verbose --exitfirst"
 
