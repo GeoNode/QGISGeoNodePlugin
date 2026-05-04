@@ -51,14 +51,18 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     def __init__(self, connection_settings: typing.Optional[ConnectionSettings] = None):
         super().__init__()
         self.setupUi(self)
+        # ``connection_pb`` and ``detect_wfs_version_pb`` are intentionally
+        # absent here — they get flipped to a "Cancel" affordance instead of
+        # disabled while their respective probes are in flight (see
+        # ``_set_button_to_cancel`` / ``_restore_button``).
         self._widgets_to_toggle_during_connection_test = [
-            self.connection_pb,
             self.buttonBox,
             self.authcfg_acs,
             self.options_gb,
             self.connection_details,
             self.detected_version_gb,
         ]
+        self._original_button_texts = {}
         self.bar = QgsMessageBar()
         self.bar.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
@@ -93,6 +97,10 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             signal.connect(self.update_ok_buttons)
         self.detect_wfs_version_pb.clicked.connect(self.detect_wfs_version)
         self.connection_pb.clicked.connect(self.test_connection)
+        self._original_button_texts = {
+            self.connection_pb: self.connection_pb.text(),
+            self.detect_wfs_version_pb: self.detect_wfs_version_pb.text(),
+        }
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
         self.name_le.setValidator(
@@ -125,6 +133,40 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         v_1_1_0_index = self.wfs_version_cb.findData(WfsVersion.V_1_1_0)
         self.wfs_version_cb.setCurrentIndex(v_1_1_0_index)
 
+    def _set_button_to_cancel(
+        self,
+        button: QtWidgets.QAbstractButton,
+        cancel_callback: typing.Callable[[], None],
+    ) -> None:
+        """Flip *button* into a cancel affordance for the duration of a probe.
+
+        Disconnects the original click handler, rebinds the click to the
+        provided cancel callable, and re-labels the button to ``Cancel``.
+        Pair every call with :meth:`_restore_button` from the matching
+        completion handler.
+        """
+        try:
+            button.clicked.disconnect()
+        except TypeError:
+            pass
+        button.clicked.connect(cancel_callback)
+        button.setText(tr("Cancel"))
+        button.setEnabled(True)
+
+    def _restore_button(
+        self,
+        button: QtWidgets.QAbstractButton,
+        original_handler: typing.Callable[[], None],
+    ) -> None:
+        try:
+            button.clicked.disconnect()
+        except TypeError:
+            pass
+        button.clicked.connect(original_handler)
+        original_text = self._original_button_texts.get(button)
+        if original_text is not None:
+            button.setText(original_text)
+
     def detect_wfs_version(self):
         for widget in self._widgets_to_toggle_during_connection_test:
             widget.setEnabled(False)
@@ -141,6 +183,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             tr("Detecting WFS version..."),
             add_loading_widget=True,
             cancel_callback=self.discovery_task.cancel,
+        )
+        self._set_button_to_cancel(
+            self.detect_wfs_version_pb, self.discovery_task.cancel
         )
         self.discovery_task.send(
             RequestToPerform(url=url),
@@ -175,6 +220,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             add_loading_widget=True,
             cancel_callback=self._test_connection_probe.cancel,
         )
+        self._set_button_to_cancel(
+            self.connection_pb, self._test_connection_probe.cancel
+        )
         # probe_api_client populates the cache from its own finished slot
         # before this one runs, so is_api_client_supported reflects the
         # probe outcome.
@@ -185,6 +233,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         )
 
     def handle_discovery_test(self, is_supported: bool):
+        self._restore_button(self.connection_pb, self.test_connection)
         self.enable_post_test_connection_buttons()
 
         if is_supported:
@@ -198,6 +247,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.update_connection_details()
 
     def handle_wfs_version_detection_test(self, response: NetworkResponse):
+        self._restore_button(self.detect_wfs_version_pb, self.detect_wfs_version)
         self.enable_post_test_connection_buttons()
         # TODO: set the default to WfsVersion.AUTO when this QGIS issue has been resolved:
         #
