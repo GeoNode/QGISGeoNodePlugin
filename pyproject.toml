@@ -21,9 +21,6 @@ pytest-xvfb = "^3.0.0"
 pytest-custom-exit-code = "^0.3.0"
 mypy = "^1.0.0"
 qgis-stubs = "^0.2.0.post1"
-PyQt5-stubs = "^5.15.6.0"
-PyQt5-Qt5 = {version = "5.15.2", platform = "win32"}
-PyQt5 = {version = "5.15.6", platform = "win32"}
 # Security-pinned transitives (dependabot alerts):
 # - urllib3 <2.6.3 has high-severity decompression-bomb / proxy-auth-leak CVEs
 # - h11    <0.16   has a CRITICAL Chunked-Encoding parsing CVE (pulled by httpx)
@@ -40,6 +37,7 @@ exclude = """\
 [tool.qgis-plugin.metadata]
 name = "QGIS GeoNode"
 qgisMinimumVersion = "3.34"
+qgisMaximumVersion=4.99
 icon = "plugin-logo.png"
 experimental = "False"
 deprecated = "False"

@@ -1,6 +1,6 @@
 import typing
 
-from PyQt5 import QtCore, QtXml
+from qgis.PyQt import QtCore, QtXml
 from qgis.PyQt import QtXml
 
 from .utils import remove_comments_from_sld
