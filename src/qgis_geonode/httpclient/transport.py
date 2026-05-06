@@ -281,9 +281,9 @@ class Request(QtCore.QObject):
         request = self._request
         assert reply is not None and request is not None  # for type checkers
 
-        http_status = reply.attribute(QtNetwork.QNetworkRequest.HttpStatusCodeAttribute)
+        http_status = reply.attribute(QtNetwork.QNetworkRequest.Attribute.HttpStatusCodeAttribute)
         http_reason = reply.attribute(
-            QtNetwork.QNetworkRequest.HttpReasonPhraseAttribute
+            QtNetwork.QNetworkRequest.Attribute.HttpReasonPhraseAttribute
         )
         body_bytes = bytes(reply.readAll().data())
 
@@ -291,11 +291,11 @@ class Request(QtCore.QObject):
         qt_error_name: typing.Optional[str] = None
         error: typing.Optional[NetworkError] = None
 
-        if qt_error_value != QtNetwork.QNetworkReply.NoError:
+        if qt_error_value != QtNetwork.QNetworkReply.NetworkError.NoError:
             qt_error_name = _QT_ERROR_MAP.get(qt_error_value, str(qt_error_value))
 
         # Classify the error.
-        if qt_error_value == QtNetwork.QNetworkReply.NoError:
+        if qt_error_value == QtNetwork.QNetworkReply.NetworkError.NoError:
             # The reply succeeded at the transport layer. The HTTP status may
             # still be a 4xx/5xx — surface that as an HTTP error.
             if isinstance(http_status, int) and http_status >= 400:
@@ -309,7 +309,7 @@ class Request(QtCore.QObject):
                     http_status=http_status,
                     body=body_bytes,
                 )
-        elif qt_error_value == QtNetwork.QNetworkReply.OperationCanceledError:
+        elif qt_error_value == QtNetwork.QNetworkReply.NetworkError.OperationCanceledError:
             # The reply was aborted. This happens both on explicit
             # ``cancel()`` and on transfer timeout (Qt 5.15 fires the same
             # error code in both cases).
@@ -332,8 +332,8 @@ class Request(QtCore.QObject):
                     body=body_bytes or None,
                 )
         elif qt_error_value in (
-            QtNetwork.QNetworkReply.TimeoutError,
-            QtNetwork.QNetworkReply.ProxyTimeoutError,
+            QtNetwork.QNetworkReply.NetworkError.TimeoutError,
+            QtNetwork.QNetworkReply.NetworkError.ProxyTimeoutError,
         ):
             error = NetworkError(
                 kind=ErrorKind.TIMEOUT,

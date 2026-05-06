@@ -2,7 +2,7 @@ import typing
 from urllib.parse import urlparse
 
 import qgis.gui
-from PyQt5 import QtCore, QtWidgets
+from qgis.PyQt import QtCore, QtWidgets
 from qgis.core import (
     Qgis,
     QgsMessageLog,
@@ -10,7 +10,7 @@ from qgis.core import (
 
 
 def log(message: typing.Any, name: str = "qgis_geonode", debug: bool = True):
-    level = Qgis.Info if debug else Qgis.Warning
+    level = Qgis.MessageLevel.Info if debug else Qgis.MessageLevel.Warning
     QgsMessageLog.logMessage(str(message), name, level=level)
 
 
@@ -34,7 +34,7 @@ def show_message(
     message_item = message_bar.createMessage(message)
     if add_loading_widget:
         progress_bar = QtWidgets.QProgressBar()
-        progress_bar.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        progress_bar.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
         progress_bar.setMinimum(0)
         progress_bar.setMaximum(0)
         message_item.layout().addWidget(progress_bar)
@@ -66,7 +66,7 @@ def url_from_geoserver(base_url: str, raw_url: str):
         url_path = urlparse(raw_url).path.strip("/")
     except TypeError:
         QgsMessageLog.logMessage(
-            "Incorrect type returned from GeoServer", "GeoNode", Qgis.Warning
+            "Incorrect type returned from GeoServer", "GeoNode", Qgis.MessageLevel.Warning
         )
         return None
 

@@ -146,8 +146,14 @@ def compile_resources(
     target_path = output_dir / "resources.py"
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _log(f"compile_resources target_path: {target_path}", context=context)
-    subprocess.run(shlex.split(f"pyrcc5 -o {target_path.as_posix()} {resources_path.as_posix()}"))
+    subprocess.run(shlex.split(f"pyside6-rcc -g python -o {target_path.as_posix()} {resources_path.as_posix()}"))
 
+    s = target_path.read_text(encoding="utf-8") 
+    s = s.replace(
+       "from PySide6 import QtCore",
+       "from qgis.PyQt import QtCore",
+    )
+    target_path.write_text(s, encoding="utf-8")
 
 @app.command()
 def generate_metadata(

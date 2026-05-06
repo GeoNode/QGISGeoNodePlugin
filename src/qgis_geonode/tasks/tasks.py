@@ -353,7 +353,7 @@ class LayerUploaderTask(qgis.core.QgsTask):
             authcfg=self.authcfg or None,
             timeout_ms=self.network_task_timeout,
         )
-        loop.exec_()
+        loop.exec()
 
     def _poll_execution_status(self, execution_id: str) -> NetworkResponse:
         """Poll the executionrequest endpoint until the import terminates.
@@ -418,7 +418,7 @@ class LayerUploaderTask(qgis.core.QgsTask):
         """
         self._poll_wait_loop = QtCore.QEventLoop()
         QtCore.QTimer.singleShot(self._POLL_INTERVAL_MS, self._poll_wait_loop.quit)
-        self._poll_wait_loop.exec_()
+        self._poll_wait_loop.exec()
         self._poll_wait_loop = None
 
     @staticmethod
