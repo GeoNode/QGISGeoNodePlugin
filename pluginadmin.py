@@ -148,11 +148,9 @@ def compile_resources(
     _log(f"compile_resources target_path: {target_path}", context=context)
     subprocess.run(shlex.split(f"pyside6-rcc -g python -o {target_path.as_posix()} {resources_path.as_posix()}"))
 
-    s = target_path.read_text(encoding="utf-8") 
-    s = s.replace(
-       "from PySide6 import QtCore",
-       "from qgis.PyQt import QtCore",
-    )
+    s = target_path.read_text(encoding="utf-8")
+    s = re.sub(r"from PySide6 import (\w+)", r"from qgis.PyQt import \1", s)
+    s = re.sub(r"from PySide6\.(\w+) import (.+)", r"from qgis.PyQt.\1 import \2", s)
     target_path.write_text(s, encoding="utf-8")
 
 @app.command()
