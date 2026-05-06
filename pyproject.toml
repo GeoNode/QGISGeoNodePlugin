@@ -29,6 +29,25 @@ mkdocs = "^1.5.3"
 mkdocs-material = "^9.2.0"
 qgis-stubs = "^0.2.0.post1"
 
+# Qt runtime bindings — only needed on Windows where QGIS does not ship them
+# system-wide. Optional groups: install exactly one with
+#   poetry install --with qt5         (when targeting QGIS 3.x)
+#   poetry install --with qt6         (when targeting QGIS 4.x)
+[tool.poetry.group.qt5]
+optional = true
+
+[tool.poetry.group.qt5.dependencies]
+PyQt5 = {version = "5.15.6", platform = "win32"}
+PyQt5-Qt5 = {version = "5.15.2", platform = "win32"}
+PyQt5-stubs = "^5.15.6.0"
+
+[tool.poetry.group.qt6]
+optional = true
+
+[tool.poetry.group.qt6.dependencies]
+PyQt6 = {version = "^6.7", platform = "win32"}
+PyQt6-Qt6 = {version = "^6.7", platform = "win32"}
+
 [tool.pytest.ini_options]
 addopts = "--verbose --exitfirst"
 
