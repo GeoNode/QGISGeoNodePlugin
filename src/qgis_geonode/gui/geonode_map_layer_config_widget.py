@@ -39,6 +39,7 @@ from ..httpclient import (
 from ..metadata import populate_metadata
 from ..utils import (
     log,
+    tr,
 )
 
 WidgetUi, _ = loadUiType(Path(__file__).parents[1] / "ui/qgis_geonode_layer_dialog.ui")
@@ -52,6 +53,7 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     download_metadata_pb: QtWidgets.QPushButton
     upload_metadata_pb: QtWidgets.QPushButton
     links_gb: qgis.gui.QgsCollapsibleGroupBox
+    source_connection_la: QtWidgets.QLabel
     open_detail_url_pb: QtWidgets.QPushButton
     open_link_url_pb: QtWidgets.QPushButton
     upload_gb: qgis.gui.QgsCollapsibleGroupBox
@@ -70,15 +72,22 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
 
     @property
     def connection_settings(self) -> typing.Optional[conf.ConnectionSettings]:
+        """Settings of the connection this layer was loaded from, if any."""
         connection_settings_id = self.layer.customProperty(
             models.DATASET_CONNECTION_CUSTOM_PROPERTY_KEY
         )
+        result = None
         if connection_settings_id is not None:
-            result = conf.settings_manager.get_connection_settings(
-                UUID(connection_settings_id)
-            )
-        else:
-            result = None
+            # the id is looked up among the saved connections rather than
+            # handed straight to the settings manager: for a connection that
+            # has been deleted meanwhile, the latter reports a
+            # ConnectionSettings with empty name and base_url instead of
+            # signalling that it is gone
+            stored_id = UUID(connection_settings_id)
+            for connection_settings in conf.settings_manager.list_connections():
+                if connection_settings.id == stored_id:
+                    result = connection_settings
+                    break
         return result
 
     def __init__(self, layer, canvas, parent):
@@ -111,14 +120,24 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self._api_client = get_geonode_client(self.connection_settings)
         else:
             self._api_client = None
-        self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
         self._connection_probes: typing.List[Request] = []
-        suitable_connections = self._get_suitable_upload_connections()
-        if len(suitable_connections) > 0:
-            self._populate_geonode_connection_combo_box(suitable_connections)
-            self._toggle_upload_controls(enabled=True)
+        self._layer_came_from_geonode = (
+            self.layer.customProperty(models.DATASET_CONNECTION_CUSTOM_PROPERTY_KEY)
+            is not None
+        )
+        if self._layer_came_from_geonode:
+            # This layer belongs to the GeoNode it was loaded from, so there is
+            # no upload target to choose: offering the other connections would
+            # let a user holding credentials for several of them push changes
+            # to the wrong server. The upload group box goes away entirely and
+            # the GeoNode source group states which GeoNode the layer is bound
+            # to instead
+            self._show_source_connection()
+            self.upload_gb.setVisible(False)
         else:
-            self._toggle_upload_controls(enabled=False)
+            self.source_connection_la.setVisible(False)
+            self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
+            self._refresh_upload_connections()
         # The api-support cache (5-min TTL) is only warmed by the Data
         # Source Manager's GeoNode tab. Without this probe, opening the
         # layer Properties dialog when the cache is cold leaves the upload
@@ -475,8 +494,41 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
     def _populate_geonode_connection_combo_box(
         self, suitable_connections: typing.List[conf.ConnectionSettings]
     ) -> None:
+        """Offer every connection that can take an upload of this layer."""
+
+        previous = self.geonode_connection_cb.currentData()
+        self.geonode_connection_cb.clear()
         for connection in suitable_connections:
             self.geonode_connection_cb.addItem(connection.name, connection)
+        if previous is not None:
+            for index in range(self.geonode_connection_cb.count()):
+                if self.geonode_connection_cb.itemData(index).id == previous.id:
+                    self.geonode_connection_cb.setCurrentIndex(index)
+                    break
+
+    def _show_source_connection(self) -> None:
+        """State which GeoNode this layer comes from.
+
+        Nothing else in the dialog names it, since the connection combo box
+        lives in the upload group box, which is hidden for these layers.
+        """
+
+        origin = self.connection_settings
+        if origin is not None:
+            described_connection = f"<b>{origin.name}</b> ({origin.base_url})"
+        else:
+            # the connection was deleted after the layer had been loaded from
+            # it, so all that is left of its origin is the id kept in the
+            # layer's custom property
+            stored_id = self.layer.customProperty(
+                models.DATASET_CONNECTION_CUSTOM_PROPERTY_KEY
+            )
+            described_connection = tr(
+                "a GeoNode connection that no longer exists (id {})"
+            ).format(stored_id)
+        self.source_connection_la.setText(
+            tr("This layer comes from {}").format(described_connection)
+        )
 
     def _probe_cold_connections(self) -> None:
         for connection_settings in conf.settings_manager.list_connections():
@@ -488,27 +540,16 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
                 timeout_ms=connection_settings.network_requests_timeout,
                 parent=self,
             )
-            probe.finished.connect(self._refresh_upload_connections)
+            probe.finished.connect(self._handle_connection_probe_finished)
             self._connection_probes.append(probe)
 
-    def _refresh_upload_connections(self, _response: NetworkResponse) -> None:
+    def _handle_connection_probe_finished(self, _response: NetworkResponse) -> None:
         # A probe just landed; ``is_api_client_supported`` now reflects the
-        # fresh outcome for that base_url. Rebuild the combo so any newly
-        # reachable connection becomes selectable, preserving the user's
-        # current pick when possible.
-        previous = self.geonode_connection_cb.currentData()
-        self.geonode_connection_cb.clear()
-        suitable_connections = self._get_suitable_upload_connections()
-        if suitable_connections:
-            self._populate_geonode_connection_combo_box(suitable_connections)
-            if previous is not None:
-                for index in range(self.geonode_connection_cb.count()):
-                    if self.geonode_connection_cb.itemData(index) == previous:
-                        self.geonode_connection_cb.setCurrentIndex(index)
-                        break
-            self._toggle_upload_controls(enabled=True)
-        else:
-            self._toggle_upload_controls(enabled=False)
+        # fresh outcome for that base_url, which can change both the set of
+        # connections that can take an upload and whether this layer's own
+        # api client resolves.
+        if not self._layer_came_from_geonode:
+            self._refresh_upload_connections()
         # Style/metadata controls of GeoNode-imported layers depend on
         # ``self._api_client`` (its ``capabilities`` list). If init left it
         # as ``None`` because the cache was cold, refresh it now that the
@@ -521,6 +562,13 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         ):
             self._api_client = get_geonode_client(self.connection_settings)
             self._toggle_geonode_layer_controls()
+
+    def _refresh_upload_connections(self) -> None:
+        """(Re)build the upload target choices, preserving the current pick."""
+
+        suitable_connections = self._get_suitable_upload_connections()
+        self._populate_geonode_connection_combo_box(suitable_connections)
+        self._toggle_upload_controls(enabled=len(suitable_connections) > 0)
 
     def _toggle_geonode_layer_controls(self) -> None:
         ready = self._api_client is not None
@@ -585,7 +633,12 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             )
 
     def _toggle_link_controls(self, enabled: bool) -> None:
-        self.links_gb.setEnabled(enabled)
+        # the group box holds the source text too, so it stays enabled for a
+        # layer that came from a GeoNode even when the dataset details it
+        # links to could not be fetched - only the buttons follow ``enabled``
+        self.links_gb.setEnabled(enabled or self._layer_came_from_geonode)
+        for widget in (self.open_detail_url_pb, self.open_link_url_pb):
+            widget.setEnabled(enabled)
 
     def _toggle_style_controls(self, enabled: bool) -> None:
         widgets = []

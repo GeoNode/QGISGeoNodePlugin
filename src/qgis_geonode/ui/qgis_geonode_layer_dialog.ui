@@ -17,25 +17,39 @@
    <item>
     <widget class="QgsCollapsibleGroupBox" name="links_gb">
      <property name="title">
-      <string>Links</string>
+      <string>GeoNode source</string>
      </property>
      <property name="collapsed">
       <bool>false</bool>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_5">
       <item>
-       <widget class="QPushButton" name="open_detail_url_pb">
+       <widget class="QLabel" name="source_connection_la">
         <property name="text">
-         <string>View dataset on GeoNode...</string>
+         <string/>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="open_link_url_pb">
-        <property name="text">
-         <string>View dataset API details...</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QPushButton" name="open_detail_url_pb">
+          <property name="text">
+           <string>View dataset on GeoNode...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="open_link_url_pb">
+          <property name="text">
+           <string>View dataset API details...</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
