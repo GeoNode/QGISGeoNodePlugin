@@ -26,10 +26,10 @@ input from the broader community.
 
 The plugin is released as open source software and is available for usage by the QGIS community at large.
 
+* [GeoSolutions](https://www.geosolutionsgroup.com/)
+* [Kartoza](https://kartoza.com)
 * [The Pacific Community (SPC)](https://www.spc.int/)
 * [World Bank](https://www.worldbank.org/en/home)
-* [Kartoza](https://kartoza.com)
-* [GeoSolutions](https://www.geosolutionsgroup.com/)
 
 ## Vendorized dependencies
 

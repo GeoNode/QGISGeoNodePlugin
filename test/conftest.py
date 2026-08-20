@@ -13,7 +13,9 @@ import _mock_geonode
 QGIS_PREFIX_PATH = Path(os.getenv("QGIS_PREFIX_PATH", "/usr"))
 
 
-@pytest.fixture(scope="session")
+# autouse: QGIS >= 3.40 segfaults when the CRS/geometry machinery is touched
+# before QgsApplication has been initialized, which plain (non-fixture) tests do
+@pytest.fixture(scope="session", autouse=True)
 def qgis_application():
     qgis.core.QgsApplication.setPrefixPath(str(QGIS_PREFIX_PATH), True)
     profile_directory = (

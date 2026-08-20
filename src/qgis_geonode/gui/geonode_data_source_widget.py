@@ -202,7 +202,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self._hide_core_geonode_provider()
 
         # Plugin's docs open through the help button
-        self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Help).clicked.connect(
+        self.buttonBox.button(
+            QtWidgets.QDialogButtonBox.StandardButton.Help
+        ).clicked.connect(
             lambda: QtGui.QDesktopServices.openUrl(
                 QtCore.QUrl(plugin_metadata.get("homepage"))
             )
@@ -434,10 +436,10 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             self,
             tr("QGIS GeoNode"),
             message,
-            QtWidgets.QMessageBox.Yes,
-            QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.StandardButton.Yes,
+            QtWidgets.QMessageBox.StandardButton.No,
         )
-        return confirmation == QtWidgets.QMessageBox.Yes
+        return confirmation == QtWidgets.QMessageBox.StandardButton.Yes
 
     def show_message(
         self,
@@ -575,10 +577,16 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
                     data_source_widget=self,
                 )
                 layout.addWidget(search_result_widget)
-                layout.setAlignment(search_result_widget, QtCore.Qt.AlignmentFlag.AlignTop)
+                layout.setAlignment(
+                    search_result_widget, QtCore.Qt.AlignmentFlag.AlignTop
+                )
             scroll_container.setLayout(layout)
-            self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-            self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.scroll_area.setVerticalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+            )
+            self.scroll_area.setHorizontalScrollBarPolicy(
+                QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            )
             self.scroll_area.setWidgetResizable(True)
             self.scroll_area.setWidget(scroll_container)
             self.message_bar.clearWidgets()
@@ -696,7 +704,9 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
             keyword=self.keyword_le.text() or None,
             topic_category=category,
             layer_types=resource_types,
-            ordering_field=self.sort_field_cmb.currentData(QtCore.Qt.ItemDataRole.UserRole),
+            ordering_field=self.sort_field_cmb.currentData(
+                QtCore.Qt.ItemDataRole.UserRole
+            ),
             reverse_ordering=self.reverse_order_chb.isChecked(),
             temporal_extent_start=temp_ex_start if not temp_ex_start.isNull() else None,
             temporal_extent_end=temp_ex_end if not temp_ex_end.isNull() else None,

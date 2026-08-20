@@ -44,10 +44,12 @@ class _StubbedUploaderTask(LayerUploaderTask):
         return None, "skipped in test"
 
     def _prepare_multipart(self, source_path, sld_path=None):
-        multipart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
+        multipart = QtNetwork.QHttpMultiPart(
+            QtNetwork.QHttpMultiPart.ContentType.FormDataType
+        )
         part = QtNetwork.QHttpPart()
         part.setHeader(
-            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
             'form-data; name="probe"',
         )
         part.setBody(b"x")

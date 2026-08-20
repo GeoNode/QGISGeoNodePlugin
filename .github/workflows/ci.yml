@@ -9,62 +9,149 @@ on:
     branches:
       - main
   workflow_dispatch:
-  
+
 
 jobs:
-  ci:
-    runs-on: ubuntu-24.04
-    container:
-      image: qgis/qgis:final-3_34_12
+  # Fastest feedback: pure verification, needing neither the project nor QGIS
+  # installed - just the tools from the `dev` dependency group
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: fix Python command
-        run: apt-get install python-is-python3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
-      - name: Install poetry
-        uses: Gr1N/setup-poetry@v8
-
-      - name: Install pluginadmin dependencies
-        run: poetry install
+      - name: Install dev tools
+        run: |
+          # pip >= 25.1 is needed for `--group`
+          python -m pip install --upgrade pip
+          python -m pip install --group dev
 
       - name: Check formatting
-        run: poetry run black --check src/qgis_geonode
+        run: python -m black --check src/qgis_geonode
 
-      - name: Rebuild docs
-        run: poetry run mkdocs build
+      # catches broken docs before merge - the publish job on main builds the
+      # site again via `gh-deploy`, but by then it is too late to block anything
+      - name: Check that the docs build
+        run: python -m mkdocs build
 
-      - name: Regenerate plugin repo XML
-        run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
-
-      - name: Install QGIS Python bindings inside virtualenv
-        run: poetry run python pluginadmin.py --verbose install-qgis-into-venv
-
-      - name: Run tests
-        run: poetry run pytest --suppress-no-test-exit-code
-
-  publish-docs:
-    needs: ci
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-22.04
-    container:
-      image: qgis/qgis:final-3_34_12
+  # Packages the plugin exactly the way a release does, so that a break in
+  # resource compilation or metadata generation surfaces on every push instead
+  # of only at tag time. Needs no QGIS, so it runs once on a plain runner
+  # instead of paying for a ~3 GB QGIS image pull
+  package:
+    name: package
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: fix Python command
-        run: apt-get install python-is-python3
-
-      - name: Install poetry
-        uses: Gr1N/setup-poetry@v8
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install pluginadmin dependencies
-        run: poetry install
+        run: |
+          # pip >= 25.1 is needed for `--group`
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
 
-      - name: generate plugin repo XML
-        run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
+      - name: Build the plugin zip
+        run: python pluginadmin.py --verbose generate-zip
 
-      - name: update docs
-        run: poetry run mkdocs gh-deploy --force
+      - name: Upload plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: qgis-geonode-plugin
+          path: dist/*.zip
+          if-no-files-found: error
+
+  # The test suite is the only thing that needs the QGIS Python bindings, so it
+  # is also the only thing worth running against both QGIS major versions
+  tests:
+    name: tests (QGIS ${{ matrix.qgis }})
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # LTR is the primary target
+          - image: "qgis/qgis:ltr-noble"
+            qgis: "3.44 LTR"
+            qt: qt5
+          - image: "qgis/qgis:stable-trixie"
+            qgis: "4.2 stable"
+            qt: qt6
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # A virtualenv with --system-site-packages sees the QGIS and PyQt bindings
+      # that the container already provides, so they need no further setup
+      - name: Create virtualenv
+        run: |
+          python3 -m venv --help >/dev/null 2>&1 || {
+            apt-get update -qq
+            apt-get install -y --no-install-recommends python3-venv
+          }
+          python3 -m venv --system-site-packages .venv
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
+
+      # `--upgrade` matters here: without it pip would consider a dependency
+      # already satisfied by the container's system packages and leave it out of
+      # the virtualenv, which would then run e.g. the distro's pytest instead of
+      # the declared one
+      - name: Install pluginadmin dependencies
+        run: |
+          # pip >= 25.1 is needed for `--group`
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install --upgrade -e ".[${{ matrix.qt }}]" --group dev
+
+      - name: Run tests
+        run: .venv/bin/python -m pytest --suppress-no-test-exit-code
+
+  # `mkdocs gh-deploy` builds the site itself before pushing it, so publishing is
+  # the only docs step needed. The plugin repo XML is generated first, since it
+  # is part of the published site
+  publish-docs:
+    name: publish docs
+    needs:
+      - checks
+      - package
+      - tests
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install pluginadmin dependencies
+        run: |
+          # pip >= 25.1 is needed for `--group`
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
+
+      - name: Generate plugin repo XML
+        run: python pluginadmin.py --verbose generate-plugin-repo-xml
+
+      - name: Publish docs
+        run: python -m mkdocs gh-deploy --force

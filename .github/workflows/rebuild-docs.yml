@@ -4,26 +4,25 @@ on: workflow_dispatch
 jobs:
 
   rebuild-docs:
-    runs-on: ubuntu-22.04
-    container:
-      image: qgis/qgis:final-3_34_12
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: fix Python command
-        run: apt-get install python-is-python3
-
-      - name: Install poetry
-        uses: Gr1N/setup-poetry@v8
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install pluginadmin dependencies
-        run: poetry install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
 
       - name: generate plugin repo XML
-        run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
+        run: python pluginadmin.py --verbose generate-plugin-repo-xml
 
       - name: update docs
-        run: |
-          git config --global --add safe.directory '*'
-          poetry run mkdocs gh-deploy --force
+        run: mkdocs gh-deploy --force

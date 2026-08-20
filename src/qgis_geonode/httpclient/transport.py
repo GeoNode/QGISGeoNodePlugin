@@ -96,16 +96,19 @@ def _build_qt_error_map() -> typing.Dict["QtNetwork.QNetworkReply.NetworkError",
     return result
 
 
-_QT_ERROR_MAP: typing.Dict[
-    "QtNetwork.QNetworkReply.NetworkError", str
-] = _build_qt_error_map()
+_QT_ERROR_MAP: typing.Dict["QtNetwork.QNetworkReply.NetworkError", str] = (
+    _build_qt_error_map()
+)
 
 
 def _coerce_payload(
     payload: PayloadType,
     content_type: typing.Optional[str],
     allow_multipart: bool,
-) -> typing.Tuple[typing.Union[bytes, QtNetwork.QHttpMultiPart], typing.Optional[str],]:
+) -> typing.Tuple[
+    typing.Union[bytes, QtNetwork.QHttpMultiPart],
+    typing.Optional[str],
+]:
     """Coerce the user-supplied payload into something the NAM can send.
 
     Returns the coerced payload and an optional content-type override (used
@@ -174,7 +177,7 @@ class Request(QtCore.QObject):
         qnetwork_request = QtNetwork.QNetworkRequest(request.url)
         if request.content_type is not None:
             qnetwork_request.setHeader(
-                QtNetwork.QNetworkRequest.ContentTypeHeader,
+                QtNetwork.QNetworkRequest.KnownHeaders.ContentTypeHeader,
                 request.content_type,
             )
         if request.extra_headers:
@@ -251,7 +254,7 @@ class Request(QtCore.QObject):
         )
         if ct_override is not None and request.content_type is None:
             qnetwork_request.setHeader(
-                QtNetwork.QNetworkRequest.ContentTypeHeader, ct_override
+                QtNetwork.QNetworkRequest.KnownHeaders.ContentTypeHeader, ct_override
             )
 
         if method == HttpMethod.POST:
@@ -281,7 +284,9 @@ class Request(QtCore.QObject):
         request = self._request
         assert reply is not None and request is not None  # for type checkers
 
-        http_status = reply.attribute(QtNetwork.QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+        http_status = reply.attribute(
+            QtNetwork.QNetworkRequest.Attribute.HttpStatusCodeAttribute
+        )
         http_reason = reply.attribute(
             QtNetwork.QNetworkRequest.Attribute.HttpReasonPhraseAttribute
         )
@@ -309,7 +314,10 @@ class Request(QtCore.QObject):
                     http_status=http_status,
                     body=body_bytes,
                 )
-        elif qt_error_value == QtNetwork.QNetworkReply.NetworkError.OperationCanceledError:
+        elif (
+            qt_error_value
+            == QtNetwork.QNetworkReply.NetworkError.OperationCanceledError
+        ):
             # The reply was aborted. This happens both on explicit
             # ``cancel()`` and on transfer timeout (Qt 5.15 fires the same
             # error code in both cases).

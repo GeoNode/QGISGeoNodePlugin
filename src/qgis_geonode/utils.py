@@ -34,7 +34,9 @@ def show_message(
     message_item = message_bar.createMessage(message)
     if add_loading_widget:
         progress_bar = QtWidgets.QProgressBar()
-        progress_bar.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        progress_bar.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter
+        )
         progress_bar.setMinimum(0)
         progress_bar.setMaximum(0)
         message_item.layout().addWidget(progress_bar)
@@ -66,7 +68,9 @@ def url_from_geoserver(base_url: str, raw_url: str):
         url_path = urlparse(raw_url).path.strip("/")
     except TypeError:
         QgsMessageLog.logMessage(
-            "Incorrect type returned from GeoServer", "GeoNode", Qgis.MessageLevel.Warning
+            "Incorrect type returned from GeoServer",
+            "GeoNode",
+            Qgis.MessageLevel.Warning,
         )
         return None
 

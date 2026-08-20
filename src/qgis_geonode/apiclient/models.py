@@ -175,9 +175,9 @@ class Dataset(BriefDataset):
                 "dataset_sub_type": self.dataset_sub_type.value,
                 "title": self.title,
                 "abstract": self.abstract,
-                "published_date": self.published_date.isoformat()
-                if self.published_date
-                else None,
+                "published_date": (
+                    self.published_date.isoformat() if self.published_date else None
+                ),
                 "spatial_extent": self.spatial_extent.asWktPolygon(),
                 "temporal_extent": serialized_temporal_extent,
                 "srid": self.srid.postgisSrid(),

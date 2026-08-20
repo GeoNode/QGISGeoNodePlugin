@@ -6,26 +6,33 @@ on:
 
 jobs:
   create-release:
-    runs-on: ubuntu-22.04
-    container:
-      image: qgis/qgis:final-3_34_12
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: fix Python command
-        run: apt-get install python-is-python3
-
-      - name: Install poetry
-        uses: Gr1N/setup-poetry@v8
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install pluginadmin dependencies
-        run: poetry install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
 
       - name: Get experimental info
         id: get-experimental
         run: |
-          echo "::set-output name=IS_EXPERIMENTAL::$(poetry run python -c "import toml; data=toml.load('pyproject.toml'); print(data['tool']['qgis-plugin']['metadata']['experimental'].lower())")"
+          python - <<'EOF' >> "${GITHUB_OUTPUT}"
+          import tomllib
+          with open("pyproject.toml", "rb") as fh:
+              data = tomllib.load(fh)
+          experimental = data["tool"]["qgis-plugin"]["metadata"]["experimental"].lower()
+          print(f"IS_EXPERIMENTAL={experimental}")
+          EOF
 
       - name: create release from tag
         id: create-release
@@ -39,13 +46,15 @@ jobs:
           draft: false
 
       - name: generate zip
-        run: poetry run python pluginadmin.py generate-zip
+        run: python pluginadmin.py generate-zip
 
       - name: get zip details
         id: get-zip-details
         run: |
-          echo "::set-output name=ZIP_PATH::dist/$(ls dist)\n"
-          echo "::set-output name=ZIP_NAME::$(ls dist)"
+          {
+            echo "ZIP_PATH=dist/$(ls dist)"
+            echo "ZIP_NAME=$(ls dist)"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: upload release asset
         id: upload-release-asset
@@ -60,24 +69,25 @@ jobs:
 
   update-docs:
     needs: create-release
-    runs-on: ubuntu-22.04
-    container:
-      image: qgis/qgis:final-3_34_12
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: fix Python command
-        run: apt-get install python-is-python3
-
-      - name: Install poetry
-        uses: Gr1N/setup-poetry@v8
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install pluginadmin dependencies
-        run: poetry install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
 
       - name: generate plugin repo XML
-        run: poetry run python pluginadmin.py --verbose generate-plugin-repo-xml
+        run: python pluginadmin.py --verbose generate-plugin-repo-xml
 
       - name: update docs
-        run: poetry run mkdocs gh-deploy --force
+        run: mkdocs gh-deploy --force

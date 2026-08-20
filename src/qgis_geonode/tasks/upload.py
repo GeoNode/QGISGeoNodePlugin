@@ -22,12 +22,14 @@ def build_multipart(
     sidecar_files: typing.List[typing.Tuple[str, QtCore.QFile]],
 ) -> QtNetwork.QHttpMultiPart:
     encoding = "utf-8"
-    multipart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
+    multipart = QtNetwork.QHttpMultiPart(
+        QtNetwork.QHttpMultiPart.ContentType.FormDataType
+    )
     title = layer_metadata.title()
     if title:
         title_part = QtNetwork.QHttpPart()
         title_part.setHeader(
-            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
             'form-data; name="dataset_title"',
         )
         title_part.setBody(layer_metadata.title().encode(encoding))
@@ -36,7 +38,7 @@ def build_multipart(
     if abstract:
         abstract_part = QtNetwork.QHttpPart()
         abstract_part.setHeader(
-            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
             'form-data; name="abstract"',
         )
         abstract_part.setBody(layer_metadata.abstract().encode(encoding))
@@ -51,7 +53,7 @@ def build_multipart(
     for item in false_items:
         part = QtNetwork.QHttpPart()
         part.setHeader(
-            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
             f'form-data; name="{item}"',
         )
         part.setBody("false".encode("utf-8"))
@@ -59,7 +61,7 @@ def build_multipart(
 
     action_part = QtNetwork.QHttpPart()
     action_part.setHeader(
-        QtNetwork.QNetworkRequest.ContentDispositionHeader,
+        QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
         'form-data; name="action"',
     )
     action_part.setBody("upload".encode("utf-8"))
@@ -67,7 +69,7 @@ def build_multipart(
 
     permissions_part = QtNetwork.QHttpPart()
     permissions_part.setHeader(
-        QtNetwork.QNetworkRequest.ContentDispositionHeader,
+        QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
         'form-data; name="permissions"',
     )
     permissions_part.setBody(json.dumps(permissions).encode(encoding))
@@ -79,14 +81,16 @@ def build_multipart(
         file_name = file_handler.fileName().rpartition("/")[-1]
         part = QtNetwork.QHttpPart()
         part.setHeader(
-            QtNetwork.QNetworkRequest.ContentDispositionHeader,
+            QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader,
             f'form-data; name="{form_element_name}"; filename="{file_name}"',
         )
         if file_name.rpartition(".")[-1] == "tif":
             content_type = "image/tiff"
         else:
             content_type = "application/qgis"
-        part.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, content_type)
+        part.setHeader(
+            QtNetwork.QNetworkRequest.KnownHeaders.ContentTypeHeader, content_type
+        )
         part.setBodyDevice(file_handler)
         multipart.append(part)
     return multipart

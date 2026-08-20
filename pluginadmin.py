@@ -1,11 +1,9 @@
 import configparser
 import datetime as dt
-import os
 import re
 import shlex
 import shutil
 import subprocess
-import sys
 import typing
 import zipfile
 from dataclasses import dataclass
@@ -172,44 +170,6 @@ def generate_metadata(
 
 
 @app.command()
-def install_qgis_into_venv(
-    context: typer.Context,
-    pyqt5_dir: Path = os.getenv(
-        "PYQT5_DIR_PATH", "/usr/lib/python3/dist-packages/PyQt5"
-    ),
-    sip_dir: Path = os.getenv("SIP_DIR_PATH", "/usr/lib/python3/dist-packages"),
-    qgis_dir: Path = os.getenv(
-        "QGIS_PYTHON_DIR_PATH", "/usr/lib/python3/dist-packages/qgis"
-    ),
-):
-    venv_dir = _get_virtualenv_site_packages_dir()
-    _log(f"venv_dir: {venv_dir}")
-    _log(f"pyqt5_dir: {pyqt5_dir}")
-    _log(f"sip_dir: {sip_dir}")
-    _log(f"qgis_dir: {qgis_dir}")
-    suitable, relevant_paths = _check_suitable_system(pyqt5_dir, sip_dir, qgis_dir)
-    if suitable:
-        target_pyqt5_dir_path = venv_dir / "PyQt5"
-        print(f"Symlinking {relevant_paths['pyqt5']} to {target_pyqt5_dir_path}...")
-        target_pyqt5_dir_path.symlink_to(
-            relevant_paths["pyqt5"], target_is_directory=True
-        )
-        for sip_file in relevant_paths["sip"]:
-            target = venv_dir / sip_file.name
-            print(f"Symlinking {sip_file} to {target}...")
-            target.symlink_to(sip_file)
-        target_qgis_dir_path = venv_dir / "qgis"
-        print(f"Symlinking {relevant_paths['qgis']} to {target_qgis_dir_path}...")
-        target_qgis_dir_path.symlink_to(
-            relevant_paths["qgis"], target_is_directory=True
-        )
-        final_message = "Done!"
-    else:
-        final_message = f"Could not find all relevant paths: {relevant_paths}"
-    return final_message
-
-
-@app.command()
 def generate_plugin_repo_xml(
     context: typer.Context,
 ):
@@ -266,66 +226,26 @@ def generate_plugin_repo_xml(
     _log(f"Plugin repo XML file saved at {repo_index}", context=context)
 
 
-def _check_suitable_system(
-    pyqt5_dir: Path, sip_dir: Path, qgis_dir: Path
-) -> typing.Tuple[bool, typing.Dict]:
-    pyqt5_found = pyqt5_dir.is_dir()
-    try:
-        sip_files = _find_sip_files(sip_dir)
-    except IndexError:
-        sip_files = []
-    sip_found = len(sip_files) > 0
-    qgis_found = qgis_dir.is_dir()
-    suitable = pyqt5_found and sip_found and qgis_found
-    return (
-        suitable,
-        {
-            "pyqt5": pyqt5_dir,
-            "sip": sip_files,
-            "qgis": qgis_dir,
-        },
-    )
-
-
-def _find_sip_files(sip_dir) -> typing.List[Path]:
-    sip_so_file = list(sip_dir.glob("sip.*.so"))[0]
-    sipconfig_files = list(sip_dir.glob("sipconfig*.py"))
-    return sipconfig_files + [sip_so_file]
-
-
-def _get_virtualenv_site_packages_dir() -> Path:
-    venv_root = Path(sys.executable).parents[1]
-
-    for lib_dir_name in ("lib", "lib64"):
-        venv_lib_root = venv_root / lib_dir_name
-        if not venv_lib_root.exists():
-            continue
-        for item in [i for i in venv_lib_root.iterdir() if i.is_dir()]:
-            if item.name.startswith("python"):
-                python_lib_path = item
-                site_packages_dir = python_lib_path / "site-packages"
-                if site_packages_dir.is_dir():
-                    return site_packages_dir
-    raise RuntimeError("Could not find site_packages_dir (checked lib and lib64)")
-
 def _get_author_names(authors):
-    return [author.split("<")[0].strip() for author in authors]
+    """Extract names from PEP 621 `project.authors` entries."""
+    return [author["name"] for author in authors if author.get("name")]
 
 def _get_author_emails(authors):
-    return [author.split("<")[1].strip(">") for author in authors]
+    """Extract emails from PEP 621 `project.authors` entries."""
+    return [author["email"] for author in authors if author.get("email")]
 
 @lru_cache()
 def _get_metadata() -> typing.Dict:
     conf = _parse_pyproject()
-    poetry_conf = conf["tool"]["poetry"]
-    
+    project_conf = conf["project"]
+
     metadata = conf["tool"]["qgis-plugin"]["metadata"].copy()
     metadata.update(
         {
-            "author": ", ".join(_get_author_names(poetry_conf["authors"])),
-            "email": ", ".join(_get_author_emails(poetry_conf["authors"])),
-            "description": poetry_conf["description"],
-            "version": poetry_conf["version"],
+            "author": ", ".join(_get_author_names(project_conf["authors"])),
+            "email": ", ".join(_get_author_emails(project_conf["authors"])),
+            "description": project_conf["description"],
+            "version": project_conf["version"],
             "tags": ", ".join(metadata.get("tags", [])),
             "changelog": _parse_changelog(),
         }

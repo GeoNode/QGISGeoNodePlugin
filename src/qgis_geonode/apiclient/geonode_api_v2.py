@@ -102,22 +102,30 @@ class GeoNodeApiClient(BaseGeonodeClient):
         if search_filters.temporal_extent_start is not None:
             query.addQueryItem(
                 "filter{temporal_extent_start.gte}",
-                search_filters.temporal_extent_start.toString(QtCore.Qt.ISODate),
+                search_filters.temporal_extent_start.toString(
+                    QtCore.Qt.DateFormat.ISODate
+                ),
             )
         if search_filters.temporal_extent_end is not None:
             query.addQueryItem(
                 "filter{temporal_extent_end.lte}",
-                search_filters.temporal_extent_end.toString(QtCore.Qt.ISODate),
+                search_filters.temporal_extent_end.toString(
+                    QtCore.Qt.DateFormat.ISODate
+                ),
             )
         if search_filters.publication_date_start is not None:
             query.addQueryItem(
                 "filter{date.gte}",
-                search_filters.publication_date_start.toString(QtCore.Qt.ISODate),
+                search_filters.publication_date_start.toString(
+                    QtCore.Qt.DateFormat.ISODate
+                ),
             )
         if search_filters.publication_date_end is not None:
             query.addQueryItem(
                 "filter{date.lte}",
-                search_filters.publication_date_end.toString(QtCore.Qt.ISODate),
+                search_filters.publication_date_end.toString(
+                    QtCore.Qt.DateFormat.ISODate
+                ),
             )
         # TODO revisit once the support for spatial extent is available on
         # GeoNode API V2

@@ -1,19 +1,37 @@
 # Development
 
-This plugin uses [poetry], [typer] and [black].
+This plugin uses [setuptools], [typer] and [black].
 
 The general instructions for development are:
 
 -  Fork the code repository
 -  Clone your fork locally
--  Install poetry
--  Install the plugin dependencies into a new virtual env with
-   
+-  Create a virtual environment and install the plugin and its development
+   dependencies into it with
+
    ```
    cd qgis_geonode
-   poetry install
+   python3 -m venv --system-site-packages .venv
+   source .venv/bin/activate
+   python -m pip install --upgrade pip  # pip >= 25.1 is needed for --group
+   python -m pip install -e . --group dev
    ```
-   
+
+   The `--system-site-packages` flag lets the virtual environment see the QGIS
+   Python bindings that are installed system-wide, which is what the tests need.
+
+-  On Windows, QGIS does not provide the Qt bindings system-wide, so they have to
+   be installed into the virtual environment as well. Add the extra that matches
+   the QGIS version you are targeting:
+
+   ```
+   python -m pip install -e ".[qt5]" --group dev   # QGIS 3.x
+   python -m pip install -e ".[qt6]" --group dev   # QGIS 4.x
+   ```
+
+   Both extras are declared with `sys_platform == 'win32'` markers, so they are
+   no-ops on Linux and macOS and safe to use on any platform.
+
 -  Work on a feature/bug on a new branch
 -  When ready, submit a PR for your code to be reviewed and merged
 
@@ -24,21 +42,28 @@ This plugin comes with a `pluginadmin.py` python module which provides a CLI wit
 It is used to perform all operations related to the plugin:
 
 - Install the plugin to your local QGIS user profile
-- Ensure your virtual env has access to the QGIS Python bindings
 - Build a zip of the plugin
+- Generate the plugin metadata and the custom plugin repo XML
 - etc.
 
-It is run inside the virtual environment created by poetry. As such it must be invoked like this:
+It is run inside the virtual environment. As such it must be invoked with the
+environment activated:
 
 ```
 # get an overview of existing commands
-poetry run python pluginadmin.py --help
+python pluginadmin.py --help
 ```
+
+!!! note
+    Building the plugin shells out to `pyside6-rcc` to compile the Qt resources,
+    so the virtual environment's `bin` (or `Scripts`, on Windows) directory needs
+    to be on your `PATH`. Activating the environment takes care of that;
+    calling `.venv/bin/python pluginadmin.py build` without activating does not.
 
 ## Install plugin into your local QGIS python plugins directory
 
 When developing, in order to try out the plugin locally you need to 
-call `poetry run python pluginadmin.py install` command. This command will copy all files into your 
+call the `python pluginadmin.py install` command. This command will copy all files into your 
 local QGIS python plugins directory. Upon making changes to the code you
 will need to call this installation command again and potentially also restart QGIS.
 
@@ -48,35 +73,116 @@ will need to call this installation command again and potentially also restart Q
 
 
 ```
-poetry run python pluginadmin.py install
+python pluginadmin.py install
 ```
 
 
 ## Running tests
 
-Tests are made with [pytest] and [pytest-qt]. In order to be able to run the tests, 
-the Python virtual environment needs to have the QGIS Python bindings available. 
-This can be achieved by running:
+Tests are made with [pytest] and [pytest-qt]. What they need, before anything else:
 
-!!! note
-If your QGIS is in a non-standard location, you can set these env variables before running the command:
+- **The QGIS Python bindings and the matching Qt bindings.** The tests
+  `import qgis.core` and go through `qgis.PyQt`, and a session-scoped autouse
+  fixture in `test/conftest.py` builds a real `QgsApplication`. These bindings are
+  *not* installable from PyPI - they come from a QGIS installation. QGIS 3.x
+  brings PyQt5, QGIS 4.x brings PyQt6; the plugin supports both.
+- **`xvfb`**, so the Qt widgets can be exercised headlessly ([pytest-xvfb] picks
+  it up automatically). The official QGIS images already have it; on Debian and
+  Ubuntu it is `apt install xvfb`. Without it, the tests run against your normal
+  display.
+- If QGIS lives somewhere unusual, point `QGIS_PREFIX_PATH` at it (it defaults to
+  `/usr`), since the fixture passes it to `QgsApplication.setPrefixPath()`.
 
-    - `PYQT5_DIR_PATH` - location of PyQt5. Defaults to `/usr/lib/python3/dist-packages/PyQt5`
-    - `SIP_DIR_PATH` - Location of the SIP package. Defaults to `/usr/lib/python3/dist-packages`
-    - `QGIS_PYTHON_DIR_PATH` - Location of the QGIS Python bindings. Defaults to `/usr/lib/python3/dist-packages/qgis`
+There are two ways to satisfy that: use the QGIS installed on your machine, or
+run inside one of the official QGIS Docker images.
+
+### Option 1 - against the QGIS installed on your system
+
+The virtual environment has to be able to see the system-wide bindings, which is
+what the `--system-site-packages` flag in the setup instructions above is for.
+With that environment activated:
 
 ```
-poetry run python pluginadmin.py install-qgis-into-venv
+pytest
 ```
 
-Installing QGIS Python bindings into the Python virtual environment only needs to be done once.
-
-
-Finally, run tests with:
+To confirm the bindings really are visible before hunting for other causes:
 
 ```
-poetry run pytest
+python -c "import qgis.core; from qgis.PyQt.QtCore import QT_VERSION_STR; \
+    print(qgis.core.Qgis.QGIS_VERSION, '- Qt', QT_VERSION_STR)"
 ```
+
+If that prints a `ModuleNotFoundError`, the environment was created without
+`--system-site-packages`. Recreate it:
+
+```
+deactivate
+rm -rf .venv
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e . --group dev
+```
+
+### Option 2 - inside an official QGIS container
+
+This needs no QGIS on the host and is the closest thing to what CI does. These
+are the images the CI matrix uses:
+
+| image | QGIS | Qt | Python |
+| --- | --- | --- | --- |
+| `qgis/qgis:ltr-noble` | 3.44 LTR | 5.15 | 3.12 |
+| `qgis/qgis:stable-trixie` | 4.x | 6.8 | 3.13 |
+
+From the repository root:
+
+```
+docker run --rm -it \
+  -v "$PWD":/plugin -w /plugin \
+  -u "$(id -u):$(id -g)" -e HOME=/tmp/home \
+  qgis/qgis:ltr-noble \
+  bash -c '
+    python3 -m venv --system-site-packages /tmp/venv
+    /tmp/venv/bin/python -m pip install --upgrade pip
+    /tmp/venv/bin/python -m pip install -e . --group dev
+    /tmp/venv/bin/python -m pytest
+  '
+```
+
+Swap the image name to run the same suite against the other QGIS major version.
+Why the invocation looks like that:
+
+- `-u "$(id -u):$(id -g)"` runs as you rather than as root, so the files the run
+  leaves in the bind mount (`.pytest_cache`, `*.egg-info`) stay yours instead of
+  needing `sudo` to clean up.
+- `-e HOME=/tmp/home` provides a writable home. The fixture creates a QGIS user
+  profile under `~/.local/share/QGIS`, and pip wants a cache directory.
+- The virtualenv goes in `/tmp`, not in the mounted repository, so it cannot
+  collide with the `.venv` you use on the host - that one is built against a
+  different Python and Qt.
+- `pip install --upgrade pip` first because the images ship pip 24.0, while
+  `--group` needs pip 25.1 or newer.
+- No `[qt5]` / `[qt6]` extra is needed: those exist for Windows only (they carry
+  `sys_platform == 'win32'` markers) and the container already provides Qt.
+- Always invoke pytest as `python -m pytest` from the virtualenv. A bare `pytest`
+  can resolve to the distribution's `/usr/bin/pytest`, which runs under the
+  system interpreter where the virtualenv's packages are invisible.
+
+### Notes
+
+`[tool.pytest.ini_options]` in `pyproject.toml` sets `--verbose --exitfirst`, so a
+run stops at the first failure. Pass `-o addopts=""` to see every failure in one
+go. CI additionally passes `--suppress-no-test-exit-code`.
+
+Some troubleshooting:
+
+| symptom | cause |
+| --- | --- |
+| `ModuleNotFoundError: No module named 'qgis'` | the virtualenv cannot see the system packages - recreate it with `--system-site-packages` |
+| `ModuleNotFoundError` for a dev dependency (e.g. `flask`) | a bare `pytest` from `PATH` ran under the system interpreter - use `python -m pytest` |
+| `AttributeError: type object 'Qt' has no attribute ...` | an unscoped Qt5-style enum reached a Qt6 run - see `scripts/pyqt5_to_pyqt6_pass2.py` |
+| `test_get_success` fails on its own, once | the `mock_geonode_server` fixture starts the server process without waiting for the port to accept connections, so a slow start loses the race - re-run |
 
 
 ## Contributing
@@ -95,7 +201,7 @@ to:
    is how we run black in our CI pipeline:
    
    ```
-   poetry run black src/qgis_geonode
+   black src/qgis_geonode
    ```
    
 
@@ -110,9 +216,8 @@ In order to have a new version of the plugin release:
 
 - Be sure to have updated the `CHANGELOG.md`
   
-- Be sure to have updated the version on the `pyproject.toml` file. You can either 
-  manually modify the `tool.poetry.version` key, or you can run the 
-  `poetry version {version specifier}` command
+- Be sure to have updated the version on the `pyproject.toml` file, by modifying
+  the `project.version` key
   
 - Create a new git annotated tag and push it to the repository. The tag name must 
   follow the `v{major}.{minor}.{patch}` convention, for example:
@@ -126,9 +231,10 @@ git push origin v0.3.2
   QGIS plugin repo shortly
 
 
-[poetry]: https://python-poetry.org/
+[setuptools]: https://setuptools.pypa.io/
 [typer]: https://typer.tiangolo.com/
 [black]: https://github.com/psf/black
 [proposed]: https://github.com/borysiasty/plugin_reloader/pull/22
 [pytest]: https://docs.pytest.org/en/latest/
 [pytest-qt]: https://github.com/pytest-dev/pytest-qt
+[pytest-xvfb]: https://github.com/The-Compiler/pytest-xvfb

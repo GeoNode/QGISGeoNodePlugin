@@ -148,6 +148,99 @@ REPLACEMENTS.update({
         "QtNetwork.QNetworkReply.NetworkError.ProxyAuthenticationRequiredError",
 })
 
+REPLACEMENTS.update({
+    "QtCore.Qt.ISODateWithMs": "QtCore.Qt.DateFormat.ISODateWithMs",
+    "QtCore.Qt.ISODate": "QtCore.Qt.DateFormat.ISODate",
+    "QtCore.Qt.RFC2822Date": "QtCore.Qt.DateFormat.RFC2822Date",
+    "QtCore.Qt.TextDate": "QtCore.Qt.DateFormat.TextDate",
+})
+
+REPLACEMENTS.update({
+    "QtCore.Qt.DirectConnection": "QtCore.Qt.ConnectionType.DirectConnection",
+    "QtCore.Qt.AutoConnection": "QtCore.Qt.ConnectionType.AutoConnection",
+    "QtCore.Qt.QueuedConnection": "QtCore.Qt.ConnectionType.QueuedConnection",
+    "QtCore.Qt.BlockingQueuedConnection":
+        "QtCore.Qt.ConnectionType.BlockingQueuedConnection",
+    "QtCore.Qt.UniqueConnection": "QtCore.Qt.ConnectionType.UniqueConnection",
+})
+
+REPLACEMENTS.update({
+    "QtCore.QIODevice.ReadWrite": "QtCore.QIODevice.OpenModeFlag.ReadWrite",
+    "QtCore.QIODevice.ReadOnly": "QtCore.QIODevice.OpenModeFlag.ReadOnly",
+    "QtCore.QIODevice.WriteOnly": "QtCore.QIODevice.OpenModeFlag.WriteOnly",
+    "QtCore.QIODevice.Append": "QtCore.QIODevice.OpenModeFlag.Append",
+    "QtCore.QIODevice.Truncate": "QtCore.QIODevice.OpenModeFlag.Truncate",
+    "QtCore.QIODevice.Text": "QtCore.QIODevice.OpenModeFlag.Text",
+    "QtCore.QIODevice.NotOpen": "QtCore.QIODevice.OpenModeFlag.NotOpen",
+})
+
+# NOTE: keys are applied in insertion order by a plain string replacement, so a
+# longer name must always come before a name it starts with - otherwise e.g.
+# `QMessageBox.NoIcon` would first be rewritten through the `QMessageBox.No` key
+# and end up in the wrong enum scope
+REPLACEMENTS.update({
+    "QtWidgets.QMessageBox.NoIcon": "QtWidgets.QMessageBox.Icon.NoIcon",
+    "QtWidgets.QMessageBox.NoButton": "QtWidgets.QMessageBox.StandardButton.NoButton",
+    "QtWidgets.QMessageBox.NoToAll": "QtWidgets.QMessageBox.StandardButton.NoToAll",
+    "QtWidgets.QMessageBox.No": "QtWidgets.QMessageBox.StandardButton.No",
+    "QtWidgets.QMessageBox.YesToAll": "QtWidgets.QMessageBox.StandardButton.YesToAll",
+    "QtWidgets.QMessageBox.Yes": "QtWidgets.QMessageBox.StandardButton.Yes",
+    "QtWidgets.QMessageBox.Ok": "QtWidgets.QMessageBox.StandardButton.Ok",
+    "QtWidgets.QMessageBox.Cancel": "QtWidgets.QMessageBox.StandardButton.Cancel",
+    "QtWidgets.QMessageBox.Close": "QtWidgets.QMessageBox.StandardButton.Close",
+})
+
+REPLACEMENTS.update({
+    "QtNetwork.QHttpMultiPart.MixedType":
+        "QtNetwork.QHttpMultiPart.ContentType.MixedType",
+    "QtNetwork.QHttpMultiPart.RelatedType":
+        "QtNetwork.QHttpMultiPart.ContentType.RelatedType",
+    "QtNetwork.QHttpMultiPart.FormDataType":
+        "QtNetwork.QHttpMultiPart.ContentType.FormDataType",
+    "QtNetwork.QHttpMultiPart.AlternativeType":
+        "QtNetwork.QHttpMultiPart.ContentType.AlternativeType",
+})
+
+REPLACEMENTS.update({
+    "QtNetwork.QNetworkRequest.ContentDispositionHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.ContentDispositionHeader",
+
+    "QtNetwork.QNetworkRequest.ContentTypeHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.ContentTypeHeader",
+
+    "QtNetwork.QNetworkRequest.ContentLengthHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.ContentLengthHeader",
+
+    "QtNetwork.QNetworkRequest.LocationHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.LocationHeader",
+
+    "QtNetwork.QNetworkRequest.LastModifiedHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.LastModifiedHeader",
+
+    "QtNetwork.QNetworkRequest.CookieHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.CookieHeader",
+
+    "QtNetwork.QNetworkRequest.SetCookieHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.SetCookieHeader",
+
+    "QtNetwork.QNetworkRequest.UserAgentHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.UserAgentHeader",
+
+    "QtNetwork.QNetworkRequest.ServerHeader":
+        "QtNetwork.QNetworkRequest.KnownHeaders.ServerHeader",
+})
+
+# Qt6 dropped QRegExp and its validator; QRegularExpression and
+# QRegularExpressionValidator exist in Qt5 too, so this is safe for both.
+# NOTE: this is a rename, not a straight equivalence - QRegularExpression uses
+# PCRE syntax instead of QRegExp's own flavour, and the validator anchors the
+# pattern implicitly, so non-trivial patterns need to be reviewed by hand
+REPLACEMENTS.update({
+    "QtGui.QRegExpValidator": "QtGui.QRegularExpressionValidator",
+    "QtCore.QRegExp": "QtCore.QRegularExpression",
+})
+
+
 def should_skip(path: Path) -> bool:
     parts = set(path.parts)
     return bool(parts & {

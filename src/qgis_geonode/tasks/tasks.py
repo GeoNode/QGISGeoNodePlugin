@@ -345,7 +345,7 @@ class LayerUploaderTask(qgis.core.QgsTask):
         loop = QtCore.QEventLoop()
         self._request = Request()
         self._request.finished.connect(
-            self._on_request_finished, type=QtCore.Qt.DirectConnection
+            self._on_request_finished, type=QtCore.Qt.ConnectionType.DirectConnection
         )
         self._request.finished.connect(loop.quit)
         self._request.send(
@@ -501,28 +501,28 @@ class LayerUploaderTask(qgis.core.QgsTask):
         self, source_path: Path, sld_path: typing.Optional[Path] = None
     ) -> QtNetwork.QHttpMultiPart:
         main_file = QtCore.QFile(str(source_path))
-        main_file.open(QtCore.QIODevice.ReadOnly)
+        main_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
         sidecar_files = []
         if sld_path is not None:
             sld_file = QtCore.QFile(str(sld_path))
-            sld_file.open(QtCore.QIODevice.ReadOnly)
+            sld_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
             sidecar_files.append(("sld_file", sld_file))
         if self.layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
             dbf_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.dbf"))
-            dbf_file.open(QtCore.QIODevice.ReadOnly)
+            dbf_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
             sidecar_files.append(("dbf_file", dbf_file))
             prj_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.prj"))
-            prj_file.open(QtCore.QIODevice.ReadOnly)
+            prj_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
             sidecar_files.append(("prj_file", prj_file))
             shx_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.shx"))
-            shx_file.open(QtCore.QIODevice.ReadOnly)
+            shx_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
             sidecar_files.append(("shx_file", shx_file))
         elif self.layer.type() == qgis.core.QgsMapLayerType.RasterLayer:
             # when uploading tif files GeoNode seems to want the same file be uploaded
             # twice - one under the `base_file` form field and another under the
             # `tif_file` form field. This seems like a bug in GeoNode though
             tif_file = QtCore.QFile(str(source_path))
-            tif_file.open(QtCore.QIODevice.ReadOnly)
+            tif_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
             sidecar_files.append(("tif_file", tif_file))
         permissions = {
             "users": {},

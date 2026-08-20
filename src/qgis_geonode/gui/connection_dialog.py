@@ -67,7 +67,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         self.bar.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Fixed
         )
-        self.layout().insertWidget(0, self.bar, alignment=QtCore.Qt.AlignmentFlag.AlignTop)
+        self.layout().insertWidget(
+            0, self.bar, alignment=QtCore.Qt.AlignmentFlag.AlignTop
+        )
         self.discovery_task = None
         self._test_connection_probe = None
         self._populate_wfs_version_combobox()
@@ -83,7 +85,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.wfs_version_cb.setCurrentIndex(wfs_version_index)
 
             self.detected_version_gb.setEnabled(False)
-            self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+            self.buttonBox.button(
+                QtWidgets.QDialogButtonBox.StandardButton.Ok
+            ).setEnabled(False)
 
         else:
             self.connection_id = uuid.uuid4()
@@ -104,11 +108,15 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         # disallow names that have a slash since that is not compatible with how we
         # are storing plugin state in QgsSettings
         self.name_le.setValidator(
-            QtGui.QRegExpValidator(QtCore.QRegExp("[^\\/]+"), self.name_le)
+            QtGui.QRegularExpressionValidator(
+                QtCore.QRegularExpression("[^\\/]+"), self.name_le
+            )
         )
 
         # Plugin's docs open through the help button
-        self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Help).clicked.connect(
+        self.buttonBox.button(
+            QtWidgets.QDialogButtonBox.StandardButton.Help
+        ).clicked.connect(
             lambda: QtGui.QDesktopServices.openUrl(
                 QtCore.QUrl(plugin_metadata.get("homepage"))
             )
@@ -289,7 +297,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         if api_supported:
             # Enable the detected_version group box and OK button
             self.detected_version_gb.setEnabled(True)
-            self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+            self.buttonBox.button(
+                QtWidgets.QDialogButtonBox.StandardButton.Ok
+            ).setEnabled(True)
 
             current_settings = self.get_connection_settings()
             client: BaseGeonodeClient = apiclient.get_geonode_client(current_settings)
@@ -303,7 +313,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             )
         else:
             self.detected_version_gb.setEnabled(False)
-            self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+            self.buttonBox.button(
+                QtWidgets.QDialogButtonBox.StandardButton.Ok
+            ).setEnabled(False)
 
     def enable_post_test_connection_buttons(self):
         for widget in self._widgets_to_toggle_during_connection_test:
@@ -316,7 +328,7 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
     def accept(self):
         connection_settings = self.get_connection_settings()
         name_pattern = re.compile(
-            f"^{connection_settings.name}$|^{connection_settings.name}(\(\d+\))$"
+            rf"^{connection_settings.name}$|^{connection_settings.name}(\(\d+\))$"
         )
         duplicate_names = []
         for connection_conf in settings_manager.list_connections():
@@ -339,7 +351,9 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
         enabled_state = self.name_le.text() != "" and self.url_le.text() != ""
         self.connection_pb.setEnabled(enabled_state)
         if url_status != True:
-            self.buttonBox.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+            self.buttonBox.button(
+                QtWidgets.QDialogButtonBox.StandardButton.Ok
+            ).setEnabled(False)
             self.connection_pb.setEnabled(False)
             message = "Please insert only the domain of a valid GeoNode URL"
             level = qgis.core.Qgis.Info

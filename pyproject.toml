@@ -1,52 +1,74 @@
-[tool.poetry]
+[project]
 name = "qgis_geonode"
 version = "2.2.0"
 description = "A QGIS plugin for integrating with modern GeoNode"
-authors = ["GeoNode Development Team <info@geosolutionsgroup.com>"]
+authors = [
+    {name = "GeoNode Development Team", email = "info@geosolutionsgroup.com"},
+]
 license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "toml>=0.10.2,<0.11",
+    # >=0.16 is the first release compatible with click >= 8.2; older typer
+    # raises "Secondary flag is not valid for non-boolean flag" on bool options
+    "typer>=0.16,<1",
+    "httpx>=0.28.1,<0.29",
+    "PySide6>=6.11,<7",  # required to replace pyrcc5 with pyside6-rcc
+    # Security-pinned transitives (dependabot alerts):
+    # - urllib3 <2.6.3 has high-severity decompression-bomb / proxy-auth-leak CVEs
+    # - h11    <0.16   has a CRITICAL Chunked-Encoding parsing CVE (pulled by httpx)
+    "urllib3>=2.6.3,<3",
+    "h11>=0.16.0,<0.17",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<3.15"
-toml = "^0.10.2"
-typer = "^0.12.5"
-httpx = "^0.28.1"
-PySide6 = "^6.11" # required to replace pyrcc5 with pyside6-rcc
-# Security-pinned transitives (dependabot alerts):
-# - urllib3 <2.6.3 has high-severity decompression-bomb / proxy-auth-leak CVEs
-# - h11    <0.16   has a CRITICAL Chunked-Encoding parsing CVE (pulled by httpx)
-urllib3 = "^2.6.3"
-h11 = "^0.16.0"
+# Qt runtime bindings — only needed on Windows, where QGIS does not ship them
+# system-wide. The `sys_platform` markers make both extras no-ops elsewhere, so
+# they are safe to request on any platform. Install exactly one:
+#   pip install -e ".[qt5]"    (when targeting QGIS 3.x)
+#   pip install -e ".[qt6]"    (when targeting QGIS 4.x)
+[project.optional-dependencies]
+qt5 = [
+    "PyQt5==5.15.6; sys_platform == 'win32'",
+    "PyQt5-Qt5==5.15.2; sys_platform == 'win32'",
+    "PyQt5-stubs>=5.15.6.0,<6",
+]
+qt6 = [
+    "PyQt6>=6.7,<7; sys_platform == 'win32'",
+    "PyQt6-Qt6>=6.7,<7; sys_platform == 'win32'",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.4"
-pytest-qt = "^4.2.0"
-pytest-xvfb = "^3.0.0"
-pytest-custom-exit-code = "^0.3.0"
-flask = "^3.1.3"
-black = "^22.12.0"
-mypy = "^1.0.0"
-mkdocs = "^1.5.3"
-mkdocs-material = "^9.2.0"
-qgis-stubs = "^0.2.0.post1"
+[project.urls]
+Homepage = "https://geonode.org/QGISGeoNodePlugin"
+Repository = "https://github.com/GeoNode/QGISGeoNodePlugin"
+Issues = "https://github.com/GeoNode/QGISGeoNodePlugin/issues"
 
-# Qt runtime bindings — only needed on Windows where QGIS does not ship them
-# system-wide. Optional groups: install exactly one with
-#   poetry install --with qt5         (when targeting QGIS 3.x)
-#   poetry install --with qt6         (when targeting QGIS 4.x)
-[tool.poetry.group.qt5]
-optional = true
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry.group.qt5.dependencies]
-PyQt5 = {version = "5.15.6", platform = "win32"}
-PyQt5-Qt5 = {version = "5.15.2", platform = "win32"}
-PyQt5-stubs = "^5.15.6.0"
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["*__pycache__*"]
 
-[tool.poetry.group.qt6]
-optional = true
+[tool.setuptools.package-data]
+"*" = ["*.ui", "metadata.txt"]
 
-[tool.poetry.group.qt6.dependencies]
-PyQt6 = {version = "^6.7", platform = "win32"}
-PyQt6-Qt6 = {version = "^6.7", platform = "win32"}
+# PEP 735 dependency group; install with `pip install --group dev` (pip >= 25.1)
+# or `uv sync --group dev`.
+[dependency-groups]
+dev = [
+    "pytest>=7.4.4,<8",
+    "pytest-qt>=4.2.0,<5",
+    "pytest-xvfb>=3.0.0,<4",
+    "pytest-custom-exit-code>=0.3.0,<0.4",
+    "flask>=3.1.3,<4",
+    "black==24.4.2",  # pinned to the same version GeoNode uses
+    "mypy>=1.0.0,<2",
+    "mkdocs>=1.5.3,<2",
+    "mkdocs-material>=9.2.0,<10",
+]
 
 [tool.pytest.ini_options]
 addopts = "--verbose --exitfirst"
@@ -83,12 +105,7 @@ date with changes in the GeoNode API.
 Check the website for a user guide and more detail.\
 """
 # changelog: dynamically pulled from the README.md file
-# description: dynamically pulled from the tool.poetry.description section
-# version: dynamically pulled from the tool.poetry.version section
-# author: dynamically pulled from the tool.poetry.authors section
-# email: dynamically pulled from the tool.poetry.authors section
-[build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
-
-
+# description: dynamically pulled from the project.description section
+# version: dynamically pulled from the project.version section
+# author: dynamically pulled from the project.authors section
+# email: dynamically pulled from the project.authors section
