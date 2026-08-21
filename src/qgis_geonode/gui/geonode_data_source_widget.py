@@ -15,6 +15,9 @@ from ..apiclient import (
     base,
     get_geonode_client,
     models,
+    ApiSupport,
+    api_client_support,
+    api_support_check,
     is_api_client_supported,
     probe_api_client,
 )
@@ -331,10 +334,14 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
         self, current_connection: conf.ConnectionSettings
     ) -> None:
         self.message_bar.clearWidgets()
-        if not is_api_client_supported(current_connection.base_url):
-            self.show_message(
-                tr(_INVALID_CONNECTION_MESSAGE), level=qgis.core.Qgis.Critical
-            )
+        support = api_client_support(current_connection.base_url)
+        if support is not ApiSupport.SUPPORTED:
+            if support is ApiSupport.UNSUPPORTED:
+                # reviewing the connection settings won't help here
+                message = api_support_check().unsupported_message()
+            else:
+                message = tr(_INVALID_CONNECTION_MESSAGE)
+            self.show_message(message, level=qgis.core.Qgis.Critical)
             self.api_client = None
             self.toggle_search_buttons(enable=False)
         else:
@@ -515,8 +522,12 @@ class GeonodeDataSourceWidget(qgis.gui.QgsAbstractDataSourceWidget, WidgetUi):
 
         current_connection = conf.settings_manager.get_current_connection_settings()
 
-        # Check if the API is reachable
-        if not is_api_client_supported(current_connection.base_url):
+        support = api_client_support(current_connection.base_url)
+        if support is ApiSupport.UNSUPPORTED:
+            # settled rejection - discover_api_client would just loop back here
+            self.search_finished.emit(api_support_check().unsupported_message())
+        elif support is not ApiSupport.SUPPORTED:
+            # cache cold or stale
             self.discover_api_client(
                 next_=self.search_geonode, reset_pagination=reset_pagination
             )
