@@ -15,7 +15,12 @@ from qgis.PyQt.uic import loadUiType
 
 from .. import apiclient, utils
 from ..apiclient.base import BaseGeonodeClient
-from ..apiclient import is_api_client_supported
+from ..apiclient import (
+    ApiSupport,
+    api_client_support,
+    api_support_check,
+    is_api_client_supported,
+)
 from ..conf import ConnectionSettings, WfsVersion, settings_manager, plugin_metadata
 from ..httpclient import Request, NetworkResponse, RequestToPerform
 from ..utils import tr
@@ -232,21 +237,24 @@ class ConnectionDialog(QtWidgets.QDialog, DialogUi):
             self.connection_pb, self._test_connection_probe.cancel
         )
         # probe_api_client populates the cache from its own finished slot
-        # before this one runs, so is_api_client_supported reflects the
-        # probe outcome.
+        # before this one runs, so api_client_support reflects the probe
+        # outcome.
         self._test_connection_probe.finished.connect(
             lambda _response, url=current_settings.base_url: self.handle_discovery_test(
-                is_api_client_supported(url)
+                api_client_support(url)
             )
         )
 
-    def handle_discovery_test(self, is_supported: bool):
+    def handle_discovery_test(self, support: ApiSupport):
         self._restore_button(self.connection_pb, self.test_connection)
         self.enable_post_test_connection_buttons()
 
-        if is_supported:
+        if support is ApiSupport.SUPPORTED:
             message = "Connection is valid"
             level = qgis.core.Qgis.Info
+        elif support is ApiSupport.UNSUPPORTED:
+            message = api_support_check().unsupported_message()
+            level = qgis.core.Qgis.Critical
         else:
             message = "This GeoNode instance does not support the API client."
             level = qgis.core.Qgis.Critical
