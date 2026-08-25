@@ -138,13 +138,11 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self.source_connection_la.setVisible(False)
             self.upload_layer_pb.clicked.connect(self.upload_layer_to_geonode)
             self._refresh_upload_connections()
-        # The api-support cache (5-min TTL) is only warmed by the Data
-        # Source Manager's GeoNode tab. Without this probe, opening the
-        # layer Properties dialog when the cache is cold leaves the upload
-        # group greyed even though the connection is reachable. Probe any
-        # saved connection that isn't currently fresh and re-evaluate the
-        # upload state as each probe lands.
-        self._probe_cold_connections()
+        # the style and metadata controls need this layer's own api client,
+        # and the api-support cache (5-min TTL) is otherwise only warmed by
+        # the Data Source Manager's GeoNode tab
+        if self._layer_came_from_geonode:
+            self._probe_origin_connection()
         self._toggle_style_controls(enabled=False)
         self._toggle_link_controls(enabled=False)
         self._toggle_metadata_controls(enabled=False)
@@ -433,12 +431,49 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(dataset.link))
 
     def upload_layer_to_geonode(self) -> None:
-        self._toggle_upload_controls(enabled=False)
-        self._show_message("Uploading layer to GeoNode...", add_loading_widget=True)
         connection_settings: conf.ConnectionSettings = (
             self.geonode_connection_cb.currentData()
         )
+        if connection_settings is None:
+            return
+        self._toggle_upload_controls(enabled=False)
+        if is_api_client_supported(connection_settings.base_url):
+            self._start_upload(connection_settings)
+            return
+        # nothing has contacted this GeoNode yet - the upload is the first
+        # thing that actually needs it, so probe it now
+        self._show_message("Contacting GeoNode...", add_loading_widget=True)
+        probe = probe_api_client(
+            connection_settings.base_url,
+            auth_config=connection_settings.auth_config,
+            timeout_ms=connection_settings.network_requests_timeout,
+            parent=self,
+        )
+        probe.finished.connect(
+            lambda _response, settings=connection_settings: self._start_upload(settings)
+        )
+        self._connection_probes.append(probe)
+
+    def _start_upload(self, connection_settings: conf.ConnectionSettings) -> None:
         self._layer_upload_api_client = get_geonode_client(connection_settings)
+        if self._layer_upload_api_client is None:
+            self._toggle_upload_controls(enabled=True)
+            self._show_message(
+                f"{connection_settings.name} is not a GeoNode this plugin can "
+                f"upload to",
+                level=qgis.core.Qgis.Critical,
+            )
+            return
+        if not self._supports_uploading_this_layer(self._layer_upload_api_client):
+            self._layer_upload_api_client = None
+            self._toggle_upload_controls(enabled=True)
+            self._show_message(
+                f"{connection_settings.name} does not accept uploads of this "
+                f"layer type",
+                level=qgis.core.Qgis.Critical,
+            )
+            return
+        self._show_message("Uploading layer to GeoNode...", add_loading_widget=True)
         self._layer_upload_api_client.dataset_uploaded.connect(
             self.handle_layer_uploaded
         )
@@ -476,29 +511,19 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
         )
         self._layer_upload_api_client = None
 
-    def _get_suitable_upload_connections(self) -> typing.List[conf.ConnectionSettings]:
-        result = []
-        for connection_settings in conf.settings_manager.list_connections():
-            client: typing.Optional[base.BaseGeonodeClient] = get_geonode_client(
-                connection_settings
-            )
-            if client is not None:
-                target_capability = {
-                    qgis.core.QgsMapLayerType.VectorLayer: models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
-                    qgis.core.QgsMapLayerType.RasterLayer: models.ApiClientCapability.UPLOAD_RASTER_LAYER,
-                }[self.layer.type()]
-                if target_capability in client.capabilities:
-                    result.append(connection_settings)
-        return result
+    def _supports_uploading_this_layer(self, client: base.BaseGeonodeClient) -> bool:
+        target_capability = {
+            qgis.core.QgsMapLayerType.VectorLayer: models.ApiClientCapability.UPLOAD_VECTOR_LAYER,
+            qgis.core.QgsMapLayerType.RasterLayer: models.ApiClientCapability.UPLOAD_RASTER_LAYER,
+        }[self.layer.type()]
+        return target_capability in client.capabilities
 
     def _populate_geonode_connection_combo_box(
-        self, suitable_connections: typing.List[conf.ConnectionSettings]
+        self, connections: typing.List[conf.ConnectionSettings]
     ) -> None:
-        """Offer every connection that can take an upload of this layer."""
-
         previous = self.geonode_connection_cb.currentData()
         self.geonode_connection_cb.clear()
-        for connection in suitable_connections:
+        for connection in connections:
             self.geonode_connection_cb.addItem(connection.name, connection)
         if previous is not None:
             for index in range(self.geonode_connection_cb.count()):
@@ -530,30 +555,30 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             tr("This layer comes from {}").format(described_connection)
         )
 
-    def _probe_cold_connections(self) -> None:
-        for connection_settings in conf.settings_manager.list_connections():
-            if is_api_client_supported(connection_settings.base_url):
-                continue
-            probe = probe_api_client(
-                connection_settings.base_url,
-                auth_config=connection_settings.auth_config,
-                timeout_ms=connection_settings.network_requests_timeout,
-                parent=self,
-            )
-            probe.finished.connect(self._handle_connection_probe_finished)
-            self._connection_probes.append(probe)
+    def _probe_origin_connection(self) -> None:
+        """Probe the connection this layer came from, if its cache entry is cold.
 
-    def _handle_connection_probe_finished(self, _response: NetworkResponse) -> None:
-        # A probe just landed; ``is_api_client_supported`` now reflects the
-        # fresh outcome for that base_url, which can change both the set of
-        # connections that can take an upload and whether this layer's own
-        # api client resolves.
-        if not self._layer_came_from_geonode:
-            self._refresh_upload_connections()
+        Only that one: probing every saved connection here would hit each
+        registered GeoNode on every opening of the dialog.
+        """
+
+        origin = self.connection_settings
+        if origin is None or is_api_client_supported(origin.base_url):
+            return
+        probe = probe_api_client(
+            origin.base_url,
+            auth_config=origin.auth_config,
+            timeout_ms=origin.network_requests_timeout,
+            parent=self,
+        )
+        probe.finished.connect(self._handle_origin_probe_finished)
+        self._connection_probes.append(probe)
+
+    def _handle_origin_probe_finished(self, _response: NetworkResponse) -> None:
         # Style/metadata controls of GeoNode-imported layers depend on
         # ``self._api_client`` (its ``capabilities`` list). If init left it
         # as ``None`` because the cache was cold, refresh it now that the
-        # corresponding probe has landed and re-toggle.
+        # probe has landed and re-toggle.
         if (
             self._api_client is None
             and self.connection_settings is not None
@@ -564,11 +589,16 @@ class GeonodeMapLayerConfigWidget(qgis.gui.QgsMapLayerConfigWidget, WidgetUi):
             self._toggle_geonode_layer_controls()
 
     def _refresh_upload_connections(self) -> None:
-        """(Re)build the upload target choices, preserving the current pick."""
+        """Offer the saved connections as upload targets.
 
-        suitable_connections = self._get_suitable_upload_connections()
-        self._populate_geonode_connection_combo_box(suitable_connections)
-        self._toggle_upload_controls(enabled=len(suitable_connections) > 0)
+        Whether one of them really is a usable GeoNode is settled when the
+        user uploads - see :meth:`upload_layer_to_geonode` - so that opening
+        this dialog costs no requests.
+        """
+
+        connections = conf.settings_manager.list_connections()
+        self._populate_geonode_connection_combo_box(connections)
+        self._toggle_upload_controls(enabled=len(connections) > 0)
 
     def _toggle_geonode_layer_controls(self) -> None:
         ready = self._api_client is not None
