@@ -282,6 +282,9 @@ class LayerUploaderTask(qgis.core.QgsTask):
             return False
 
         multipart = self._prepare_multipart(source_path, sld_path=sld_path)
+        if multipart is None:
+            log("Could not assemble the upload payload")
+            return False
         boundary = multipart.boundary().data().decode()
 
         self._dispatch_request_blocking(
@@ -497,33 +500,48 @@ class LayerUploaderTask(qgis.core.QgsTask):
             shutil.rmtree(self._temporary_directory, ignore_errors=True)
         self.task_done.emit(result)
 
+    @staticmethod
+    def _open_for_upload(path: Path) -> typing.Optional[QtCore.QFile]:
+        """Open a file for a multipart part, or None if it cannot be read.
+
+        Qt sends an unopened device as an empty or short part, which surfaces
+        as an obscure parse failure on the server.
+        """
+        file_ = QtCore.QFile(str(path))
+        if not file_.open(QtCore.QIODevice.OpenModeFlag.ReadOnly):
+            log(f"Could not open {path} for upload: {file_.errorString()}")
+            return None
+        return file_
+
     def _prepare_multipart(
         self, source_path: Path, sld_path: typing.Optional[Path] = None
-    ) -> QtNetwork.QHttpMultiPart:
-        main_file = QtCore.QFile(str(source_path))
-        main_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-        sidecar_files = []
+    ) -> typing.Optional[QtNetwork.QHttpMultiPart]:
+        main_file = self._open_for_upload(source_path)
+        if main_file is None:
+            return None
+        sidecar_paths = []
         if sld_path is not None:
-            sld_file = QtCore.QFile(str(sld_path))
-            sld_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-            sidecar_files.append(("sld_file", sld_file))
+            sidecar_paths.append(("sld_file", sld_path))
         if self.layer.type() == qgis.core.QgsMapLayerType.VectorLayer:
-            dbf_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.dbf"))
-            dbf_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-            sidecar_files.append(("dbf_file", dbf_file))
-            prj_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.prj"))
-            prj_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-            sidecar_files.append(("prj_file", prj_file))
-            shx_file = QtCore.QFile(str(source_path.parent / f"{source_path.stem}.shx"))
-            shx_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-            sidecar_files.append(("shx_file", shx_file))
+            for form_name, extension in (
+                ("dbf_file", "dbf"),
+                ("prj_file", "prj"),
+                ("shx_file", "shx"),
+            ):
+                sidecar_paths.append(
+                    (form_name, source_path.parent / f"{source_path.stem}.{extension}")
+                )
         elif self.layer.type() == qgis.core.QgsMapLayerType.RasterLayer:
             # when uploading tif files GeoNode seems to want the same file be uploaded
             # twice - one under the `base_file` form field and another under the
             # `tif_file` form field. This seems like a bug in GeoNode though
-            tif_file = QtCore.QFile(str(source_path))
-            tif_file.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-            sidecar_files.append(("tif_file", tif_file))
+            sidecar_paths.append(("tif_file", source_path))
+        sidecar_files = []
+        for form_name, path in sidecar_paths:
+            sidecar_file = self._open_for_upload(path)
+            if sidecar_file is None:
+                return None
+            sidecar_files.append((form_name, sidecar_file))
         permissions = {
             "users": {},
             "groups": {},
@@ -551,10 +569,14 @@ class LayerUploaderTask(qgis.core.QgsTask):
         ds_uri = self.layer.dataProvider().dataSourceUri()
         fragment = ds_uri.split("|")[0]
         extension = fragment.rpartition(".")[-1]
-        return extension in (
+        if extension not in (
             self.VECTOR_UPLOAD_FORMAT.file_extension,
             self.RASTER_UPLOAD_FORMAT.file_extension,
-        )
+        ):
+            return False
+        # a layer read from inside a zip (or any other GDAL virtual path) has a
+        # .shp/.tif URI that QFile cannot open - export it to a temp dir instead
+        return Path(fragment).is_file()
 
     def _export_layer_to_temp_dir(
         self,
